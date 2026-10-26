@@ -1,0 +1,245 @@
+---
+title: "Modul N · Titel"
+subtitle: "Klinische Leitfrage als Satz, z. B. „Wie groß ist das Risiko – relativ und absolut?“"
+webr:
+  resources:
+    - ../data/ckd_kohorte.csv
+---
+
+<!--
+MODULE TEMPLATE (derived from module 1, 2026-10-26). Files starting with "_" are ignored by Quarto.
+Copy to module/NN_slug.qmd and replace every TODO. Keep the section order – it is a fixed decision
+(project instructions, section 5): clinical question → learning objectives → concept with worked
+example → interactive exercises → common mistakes → take-home → self-test → sources.
+
+Checklist before submitting a module (QS, project instructions section 5):
+  [ ] 2–4 learning objectives with explicit Bloom verbs, each covered by at least one exercise/quiz item
+  [ ] every factual statement traceable to a source in the "Quellen" section (edition, chapter, DOI/URL)
+  [ ] all numbers from the core dataset or clearly labelled as fictive ("fiktiv", "illustrativ")
+  [ ] every simplification marked: "vereinfacht … exakt …"
+  [ ] figures generated from code (knitr chunk, label fig-*, fig-cap + fig-alt), colour semantics below
+  [ ] concept part readable without R; R part under "Dasselbe in R" only
+  [ ] every webR exercise run in the browser; grader tested with correct AND typical wrong answers
+  [ ] quiz: one correct answer per MC item; feedback for every distractor; "near" feedback for typical miscalculations
+  [ ] German text, English code/comments; gender-neutral language; no stigmatising cases
+  [ ] render with LANG=C.UTF-8 (umlauts in figures)
+
+Figure colour semantics (R/epir_plots.R, epir_cols): accent/orange = case/event, primary/petrol = healthy /
+reference, blue = censored / unknown, grey = not at risk / not applicable. Keep this across modules.
+-->
+
+{{< include ../_extensions/r-wasm/live/_knitr.qmd >}}
+
+::: {.callout-note appearance="simple"}
+**Entwurf zur Durchsicht (Monat Jahr).** Fachinhalte sind quellengeprüft; Formulierungen und Aufgaben werden nach dem Review durch die Lehrenden angepasst.
+:::
+
+```{r}
+#| include: false
+# Build-time figures (knitr). Uses the synthetic cohort; see R/epir_plots.R.
+source("../R/epir_plots.R", encoding = "UTF-8")
+kohorte <- readr::read_csv("../data/ckd_kohorte.csv", show_col_types = FALSE)
+```
+
+::: {.leitfrage}
+TODO Klinische Situation in 3–4 Sätzen, endet mit der **fett gesetzten Leitfrage**. Kein Fachbegriff, der erst später definiert wird.
+:::
+
+::: {.lernziele}
+**Lernziele.** Nach diesem Modul können Sie …
+
+**Konzept (ohne R):**
+
+1. TODO … **berechnen** und … **interpretieren**.
+2. TODO … **unterscheiden** und … **auswählen**.
+3. TODO … **erklären** / **vorhersagen** / **beurteilen**.
+
+**Vertiefung mit R** (Abschnitt „Dasselbe in R“):
+
+4. TODO … in R **berechnen** / **darstellen**.
+:::
+
+::: {.callout-tip appearance="simple" icon=false}
+**Zwei Lesepfade.** Bis zum Selbsttest brauchen Sie kein R. Der Abschnitt [Dasselbe in R](#dasselbe-in-r) am Ende ist Vertiefung, keine Voraussetzung.
+:::
+
+## Die Beispielkohorte
+
+Alle Zahlen stammen aus einem **simulierten** Datensatz (keine echten Patientendaten): 2000 Erwachsene (40–85 Jahre) einer Hausarztpraxis, Screening auf CKD zu Beginn, danach bis zu fünf Jahre Nachbeobachtung. TODO: nur die für dieses Modul relevanten Variablen nennen.
+
+<!-- Overview figure: one figure that shows the whole idea of the module before any formula. -->
+```{r}
+#| label: fig-overview
+#| echo: false
+#| fig-cap: "TODO Bildunterschrift, die die Abbildung ohne Fließtext verständlich macht."
+#| fig-alt: "TODO Alt-Text für Screenreader."
+# TODO plot_*(...)
+```
+
+## Konzept 1: TODO *ein* Konzept pro Abschnitt
+
+Definition in einem Satz, deutscher Begriff plus englischer in Klammern.
+
+### Durchgerechnetes Beispiel
+
+Zahlen aus der Kohorte, Formel als Display-Math (`$$ … $$`), dann der **Antwortsatz** (Maßzahl, Wert mit Bezugsgröße, Population, Zeitbezug).
+
+<!-- Measure cards: numerator / denominator / unit / question answered. -->
+::: {.epir-cards}
+::: {.epir-card}
+**Maßzahl A**
+
+- **Zähler:** …
+- **Nenner:** …
+- **Einheit:** …
+- **Frage:** …
+:::
+::: {.epir-card .epir-card-accent}
+**Maßzahl B**
+
+- **Zähler:** …
+- **Nenner:** …
+- **Einheit:** …
+- **Frage:** …
+:::
+:::
+
+### Rechner: TODO
+
+<!-- Code-free interaction: calculator (assets/epir-widgets.js, data-mode=prev|cuminc|rate), pool model
+     (.epir-pool) or a new widget. New widget types need approval (project instructions, section 6). -->
+```{=html}
+<div class="epir-calc" data-mode="prev" data-cases="0" data-denom="1"></div>
+```
+
+**Aufgabe 1.** TODO Faded-Aufgabe mit dem Rechner (eigene Zahlen aus der Kohorte), Ergebnis im Selbsttest prüfbar.
+
+::: {.callout-note collapse="true"}
+## Mehr dazu: TODO exakte Formel / Vereinfachung
+Herleitungen und Exaktheitshinweise kommen in eingeklappte Callouts, nicht in den Haupttext.
+:::
+
+## Konzept 2: TODO
+
+…
+
+## Typische Fehler
+
+| Fehler | Richtig |
+|---|---|
+| „TODO typische Fehlaussage“ | TODO Korrektur in einem Satz |
+| … | … |
+
+::: {.callout-important icon=false}
+## Take-Home-Messages
+- TODO 4–6 Sätze, jeweils ein Konzept, keine neuen Begriffe.
+:::
+
+## Selbsttest
+
+Die Fragen entsprechen im Format den Klausurfragen (eine richtige Antwort; Rechenaufgaben mit Zahleneingabe). Das Feedback erklärt auch, warum die anderen Antworten nicht stimmen.
+
+<!-- 5–6 items: ~3 MC ("Welche Aussage ist falsch?" / "Welche Angabe ist korrekt?"), ~3 numeric with
+     "near" feedback for typical wrong values (wrong denominator, fraction instead of percent, …). -->
+```{=html}
+<div class="epir-quiz">
+<script type="application/json">
+{
+  "items": [
+    {
+      "type": "num",
+      "question": "TODO",
+      "label": "TODO:",
+      "unit": "%",
+      "answer": 0,
+      "tol": 0.1,
+      "feedback_correct": "TODO Rechenweg + Antwortsatz.",
+      "feedback_wrong": "TODO Formel in Worten.",
+      "near": [
+        { "value": 0, "tol": 0.01, "feedback": "TODO typischer Fehlwert und warum." }
+      ]
+    },
+    {
+      "type": "mc",
+      "question": "Welche Aussage ist <strong>falsch</strong>?",
+      "options": [
+        { "text": "TODO", "correct": false, "feedback": "Diese Aussage ist richtig – …" },
+        { "text": "TODO", "correct": true, "feedback": "Diese Aussage ist falsch und damit die gesuchte Antwort: …" }
+      ]
+    }
+  ]
+}
+</script>
+</div>
+```
+
+## Dasselbe in R {#dasselbe-in-r}
+
+::: {.callout-tip appearance="simple" icon=false}
+<span class="epir-badge">Vertiefung R</span> Kein R-Vorwissen nötig. Hier laufen die Rechnungen von oben mit den Rohdaten statt mit fertigen Zahlen. Code-Blöcke laufen direkt im Browser („Run Code“); der erste Start dauert bis zu einer Minute.
+:::
+
+<!-- Only the R skills listed for this module in the module plan (Langfassung 7.2). Reuse functions
+     from earlier modules without re-explaining them; explain each new function once. -->
+
+### Übung R1: TODO
+
+Ersetzen Sie die Lücke `______` so, dass … .
+
+```{webr}
+#| setup: true
+#| exercise: ex_todo
+library(dplyr)
+library(readr)
+kohorte <- read_csv("data/ckd_kohorte.csv", show_col_types = FALSE)
+```
+
+```{webr}
+#| exercise: ex_todo
+kohorte |>
+  summarise(ergebnis = ______)
+```
+
+::: {.hint exercise="ex_todo"}
+::: {.callout-note collapse="false"}
+## Hinweis
+TODO
+:::
+:::
+
+::: {.solution exercise="ex_todo"}
+::: {.callout-tip collapse="false"}
+## Lösung
+```r
+# TODO
+```
+TODO Warum dieser Code – nicht nur was.
+:::
+:::
+
+```{webr}
+#| exercise: ex_todo
+#| check: true
+# Grader: compute the expected value from the data (robust to simulation changes),
+# accept data frames or scalars, give targeted feedback for the typical wrong answer.
+erwartet <- NA_real_   # TODO
+werte <- tryCatch({
+  if (is.data.frame(.result)) unlist(Filter(is.numeric, .result)) else as.numeric(.result)
+}, error = function(e) numeric(0))
+if (length(werte) > 0 && any(abs(werte - erwartet) < 1e-6, na.rm = TRUE)) {
+  list(correct = TRUE, type = "success", message = "Richtig. TODO Einordnung.")
+} else {
+  list(correct = FALSE, type = "info", message = "Noch nicht ganz. TODO Hinweis.")
+}
+```
+
+::: {.callout-note collapse="true"}
+## Was Sie in R mitnehmen
+- TODO 3–5 Funktionen/Ideen, je ein Satz.
+:::
+
+## Quellen und weiterführende Literatur
+
+- TODO Lehrbuch mit Auflage, Jahr, Kapitel (z. B. Rothman KJ, Lash TL, VanderWeele TJ, Haneuse S. *Modern Epidemiology*. 4. Aufl. 2021).
+- TODO Leitlinie/DOI.
+- TODO R-Dokumentation (URL).

@@ -1,0 +1,72 @@
+---
+title: "Technik-Check"
+subtitle: "Prüfseite für webR: Ladezeit, Pakete, Grafik"
+---
+
+{{< include ./_extensions/r-wasm/live/_knitr.qmd >}}
+
+Diese Seite ist für Lehrende und Entwickelnde gedacht. Sie prüft die technischen Voraussetzungen des Prototyps.
+
+## 1. R-Version und Plattform
+
+```{webr}
+cat(R.version$version.string, "\n")
+cat("Plattform:", R.version$platform, "\n")
+```
+
+## 2. Vorgeladene Pakete
+
+Die Pakete `dplyr`, `readr` und `ggplot2` werden beim Seitenstart aus dem webR-Repository geladen. Prüfung:
+
+```{webr}
+pakete <- c("dplyr", "readr", "ggplot2", "tidyr", "broom")
+status <- vapply(pakete, requireNamespace, logical(1), quietly = TRUE)
+data.frame(paket = pakete, verfuegbar = status, row.names = NULL)
+```
+
+`tidyr` und `broom` sind **nicht** vorgeladen; `verfuegbar = FALSE` ist dort erwartet. Nachinstallation zur Laufzeit:
+
+```{webr}
+webr::install("broom")
+requireNamespace("broom", quietly = TRUE)
+```
+
+## 3. Datensatz im virtuellen Dateisystem
+
+```{webr}
+list.files("data")
+kohorte <- readr::read_csv("data/ckd_kohorte.csv", show_col_types = FALSE)
+dim(kohorte)
+```
+
+## 4. Grafik mit ggplot2
+
+```{webr}
+library(ggplot2)
+ggplot(kohorte, aes(x = alter, y = egfr, colour = factor(diabetes))) +
+  geom_point(alpha = 0.3, size = 1) +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(x = "Alter (Jahre)", y = "eGFR (mL/min/1,73 m²)", colour = "Diabetes") +
+  theme_minimal()
+```
+
+## 5. Rechenzeit einer kleinen Simulation
+
+webR läuft einthreadig ohne optimierte BLAS-Bibliotheken und ist spürbar langsamer als natives R. Richtwert für Übungen: unter 2 Sekunden.
+
+```{webr}
+system.time({
+  set.seed(1)
+  mittelwerte <- replicate(2000, mean(rnorm(100)))
+})
+hist(mittelwerte, main = "2000 Stichprobenmittelwerte (n = 100)", xlab = "Mittelwert")
+```
+
+## Bekannte Einschränkungen
+
+- Nur Pakete mit WebAssembly-Build sind nutzbar (Liste: <https://repo.r-wasm.org>). Pakete mit Systemabhängigkeiten (z. B. Datenbanktreiber) fehlen.
+- Der erste Seitenaufruf lädt mehrere Megabyte (R-Laufzeit plus Pakete). Danach greift der Browser-Cache.
+- Kein Zustand über Seitenaufrufe hinweg; kein Fortschritt wird gespeichert.
+- Netzwerkzugriffe aus R heraus sind auf einfache GET-Anfragen mit CORS-Freigabe beschränkt.
+
+Quelle: webR-Dokumentation, <https://docs.r-wasm.org/webr/latest/>

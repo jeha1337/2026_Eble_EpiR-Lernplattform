@@ -1,0 +1,283 @@
+---
+title: "Modul 2 · Diagnostische Tests"
+subtitle: "Wie gut ist dieser Screening-Test – und was bedeutet ein positives Ergebnis?"
+webr:
+  resources:
+    - ../data/ckd_kohorte.csv
+---
+
+{{< include ../_extensions/r-wasm/live/_knitr.qmd >}}
+
+::: {.callout-warning appearance="simple"}
+**Prototyp.** Dieses Modul testet vor allem die Einbettung einer interaktiven Shinylive-App. Es ist bewusst kürzer als ein fertiges Modul.
+:::
+
+::: {.leitfrage}
+In der Praxis wird ein **Urin-Teststreifen** auf Albumin eingesetzt, um eine Albuminurie (ein Frühzeichen einer Nierenschädigung) zu erkennen. Der Referenzstandard ist die Labormessung des Albumin-Kreatinin-Quotienten (UACR ≥ 30 mg/g). Eine 55-jährige Patientin ohne Risikofaktoren hat einen **positiven** Teststreifen. **Wie wahrscheinlich ist es, dass sie tatsächlich eine Albuminurie hat?**
+:::
+
+::: {.lernziele}
+**Lernziele.** Nach diesem Modul können Sie …
+
+1. **Sensitivität, Spezifität, positiven und negativen prädiktiven Wert** aus einer Vierfeldertafel **berechnen** und in Worten erklären.
+2. **begründen**, warum der positive prädiktive Wert von der Prävalenz abhängt – und was das für Screening in Niedrigrisikogruppen bedeutet.
+3. eine Vierfeldertafel aus Rohdaten mit R **erstellen** (`count()`).
+:::
+
+## Die Vierfeldertafel
+
+Wir vergleichen das Teststreifen-Ergebnis (`teststreifen_pos`) mit dem Referenzstandard (`uacr >= 30`). Jede Person fällt in genau eines von vier Feldern:
+
+|  | Albuminurie **ja** (Referenz) | Albuminurie **nein** |
+|---|---|---|
+| Test **positiv** | richtig positiv (RP) | falsch positiv (FP) |
+| Test **negativ** | falsch negativ (FN) | richtig negativ (RN) |
+
+Daraus ergeben sich vier Kennzahlen – zwei beschreiben den **Test**, zwei beschreiben, was ein **Ergebnis** für die einzelne Person bedeutet:
+
+| Kennzahl | Formel | Frage, die sie beantwortet |
+|---|---|---|
+| **Sensitivität** | RP / (RP + FN) | Wie viele der Kranken erkennt der Test? |
+| **Spezifität** | RN / (RN + FP) | Wie viele der Gesunden erkennt der Test als gesund? |
+| **Positiver prädiktiver Wert (PPV)** | RP / (RP + FP) | Test positiv – wie wahrscheinlich krank? |
+| **Negativer prädiktiver Wert (NPV)** | RN / (RN + FN) | Test negativ – wie wahrscheinlich gesund? |
+
+Sensitivität und Spezifität sind **Eigenschaften des Tests** (bei gegebenem Referenzstandard und Schwellenwert). PPV und NPV hängen zusätzlich von der **Prävalenz** in der untersuchten Gruppe ab – das ist der zentrale Punkt dieses Moduls.
+
+### Durchgerechnetes Beispiel in R
+
+```{webr}
+library(dplyr)
+library(readr)
+
+kohorte <- read_csv("data/ckd_kohorte.csv", show_col_types = FALSE) |>
+  mutate(albuminurie = as.integer(uacr >= 30))
+
+# Vierfeldertafel als Tabelle mit Häufigkeiten
+kohorte |>
+  count(teststreifen_pos, albuminurie)
+```
+
+::: {.callout-note collapse="true"}
+## Code Schritt für Schritt
+- `mutate()` erzeugt eine neue Spalte. `uacr >= 30` ergibt `TRUE`/`FALSE`; `as.integer()` macht daraus 1/0.
+- `count()` zählt, wie oft jede Kombination der genannten Spalten vorkommt – das ist unsere Vierfeldertafel in „langer“ Form.
+:::
+
+Aus den vier Häufigkeiten berechnen wir die Kennzahlen:
+
+```{webr}
+tafel <- kohorte |>
+  summarise(
+    RP = sum(teststreifen_pos == 1 & albuminurie == 1),
+    FP = sum(teststreifen_pos == 1 & albuminurie == 0),
+    FN = sum(teststreifen_pos == 0 & albuminurie == 1),
+    RN = sum(teststreifen_pos == 0 & albuminurie == 0)
+  )
+
+tafel |>
+  mutate(
+    sensitivitaet = RP / (RP + FN),
+    spezifitaet   = RN / (RN + FP),
+    ppv           = RP / (RP + FP),
+    npv           = RN / (RN + FN),
+    praevalenz    = (RP + FN) / (RP + FP + FN + RN)
+  )
+```
+
+### Übung: Sensitivität und Spezifität
+
+Vervollständigen Sie die Berechnung von Sensitivität und Spezifität aus der Tafel `tafel` (sie ist bereits vorbereitet).
+
+```{webr}
+#| setup: true
+#| exercise: ex_sens
+library(dplyr)
+library(readr)
+kohorte <- read_csv("data/ckd_kohorte.csv", show_col_types = FALSE) |>
+  mutate(albuminurie = as.integer(uacr >= 30))
+tafel <- kohorte |>
+  summarise(
+    RP = sum(teststreifen_pos == 1 & albuminurie == 1),
+    FP = sum(teststreifen_pos == 1 & albuminurie == 0),
+    FN = sum(teststreifen_pos == 0 & albuminurie == 1),
+    RN = sum(teststreifen_pos == 0 & albuminurie == 0)
+  )
+```
+
+```{webr}
+#| exercise: ex_sens
+tafel |>
+  mutate(
+    sensitivitaet = RP / (RP + ______),
+    spezifitaet   = RN / (RN + ______)
+  )
+```
+
+::: {.hint exercise="ex_sens"}
+::: {.callout-note collapse="false"}
+## Hinweis
+Der Nenner der Sensitivität sind **alle Kranken** – also richtig positive plus falsch negative. Der Nenner der Spezifität sind **alle Gesunden**.
+:::
+:::
+
+::: {.solution exercise="ex_sens"}
+::: {.callout-tip collapse="false"}
+## Lösung
+```r
+tafel |>
+  mutate(
+    sensitivitaet = RP / (RP + FN),
+    spezifitaet   = RN / (RN + FP)
+  )
+```
+Sensitivität ≈ 0,79, Spezifität ≈ 0,90 (die Simulation wurde mit 0,80 / 0,90 erzeugt; Abweichungen sind Zufallsstreuung).
+:::
+:::
+
+```{webr}
+#| exercise: ex_sens
+#| check: true
+sens_erw <- tafel$RP / (tafel$RP + tafel$FN)
+spez_erw <- tafel$RN / (tafel$RN + tafel$FP)
+ppv_wert <- tafel$RP / (tafel$RP + tafel$FP)
+
+werte <- tryCatch({
+  if (is.data.frame(.result)) unlist(Filter(is.numeric, .result)) else as.numeric(.result)
+}, error = function(e) numeric(0))
+nahe <- function(x, ziel) any(abs(x - ziel) < 1e-6, na.rm = TRUE)
+
+if (length(werte) > 0 && nahe(werte, sens_erw) && nahe(werte, spez_erw)) {
+  list(correct = TRUE, type = "success",
+       message = sprintf("Richtig. Sensitivität %.3f, Spezifität %.3f. Beide Werte hängen nicht von der Prävalenz ab – PPV und NPV schon.", sens_erw, spez_erw))
+} else if (length(werte) > 0 && nahe(werte, ppv_wert)) {
+  list(correct = FALSE, type = "warning",
+       message = "Sie haben RP / (RP + FP) berechnet – das ist der positive prädiktive Wert, nicht die Sensitivität. Die Sensitivität bezieht sich auf alle Kranken (RP + FN).")
+} else {
+  list(correct = FALSE, type = "info",
+       message = "Noch nicht ganz. Sensitivität = RP / (RP + FN); Spezifität = RN / (RN + FP).")
+}
+```
+
+## Warum der PPV von der Prävalenz abhängt
+
+Zurück zur Leitfrage: Unsere Patientin ist 55, ohne Risikofaktoren. In dieser Gruppe ist Albuminurie seltener als in der Gesamtkohorte. Was bedeutet das für ihren positiven Test?
+
+Probieren Sie es aus. Die App unten rechnet für **1000 Personen** durch, was bei gegebener Prävalenz, Sensitivität und Spezifität passiert (sogenannte **natürliche Häufigkeiten**).
+
+```{shinylive-r}
+#| standalone: true
+#| viewerHeight: 500
+library(shiny)
+
+ui <- fluidPage(
+  tags$style(HTML("
+    .big {font-size: 1.6rem; font-weight: 600;}
+    .lbl {color: #555; font-size: 0.9rem;}
+    .box {border: 1px solid #ddd; border-radius: 6px; padding: 10px 14px; margin-bottom: 10px;}
+  ")),
+  fluidRow(
+    column(4,
+      sliderInput("prev", "Prävalenz in der untersuchten Gruppe (%)",
+                  min = 0.5, max = 50, value = 5, step = 0.5),
+      sliderInput("sens", "Sensitivität (%)", min = 50, max = 100, value = 80, step = 1),
+      sliderInput("spez", "Spezifität (%)", min = 50, max = 100, value = 90, step = 1),
+      helpText("Voreinstellung: Testgüte des simulierten Teststreifens, Prävalenz einer Niedrigrisikogruppe.")
+    ),
+    column(8,
+      div(class = "box",
+        div(class = "lbl", "Von 1000 Personen …"),
+        uiOutput("baum")
+      ),
+      fluidRow(
+        column(6, div(class = "box",
+          div(class = "lbl", "Positiver prädiktiver Wert (PPV)"),
+          div(class = "big", textOutput("ppv", inline = TRUE)),
+          div(class = "lbl", "Test positiv → tatsächlich krank")
+        )),
+        column(6, div(class = "box",
+          div(class = "lbl", "Negativer prädiktiver Wert (NPV)"),
+          div(class = "big", textOutput("npv", inline = TRUE)),
+          div(class = "lbl", "Test negativ → tatsächlich gesund")
+        ))
+      ),
+      plotOutput("kurve", height = "230px")
+    )
+  )
+)
+
+server <- function(input, output, session) {
+  zahlen <- reactive({
+    n <- 1000
+    p <- input$prev / 100; se <- input$sens / 100; sp <- input$spez / 100
+    krank <- n * p; gesund <- n - krank
+    rp <- krank * se; fn <- krank - rp
+    rn <- gesund * sp; fp <- gesund - rn
+    list(krank = krank, gesund = gesund, rp = rp, fn = fn, rn = rn, fp = fp,
+         ppv = rp / (rp + fp), npv = rn / (rn + fn))
+  })
+
+  output$baum <- renderUI({
+    z <- zahlen()
+    f <- function(x) format(round(x), big.mark = " ")
+    HTML(sprintf(
+      "<b>%s</b> sind krank → davon Test positiv: <b>%s</b> (richtig positiv), Test negativ: <b>%s</b> (falsch negativ)<br>
+       <b>%s</b> sind gesund → davon Test negativ: <b>%s</b> (richtig negativ), Test positiv: <b>%s</b> (falsch positiv)<br>
+       Insgesamt Test positiv: <b>%s</b>, davon tatsächlich krank: <b>%s</b>",
+      f(z$krank), f(z$rp), f(z$fn), f(z$gesund), f(z$rn), f(z$fp), f(z$rp + z$fp), f(z$rp)))
+  })
+
+  output$ppv <- renderText(sprintf("%.1f %%", 100 * zahlen()$ppv))
+  output$npv <- renderText(sprintf("%.1f %%", 100 * zahlen()$npv))
+
+  output$kurve <- renderPlot({
+    se <- input$sens / 100; sp <- input$spez / 100
+    p <- seq(0.001, 0.5, by = 0.001)
+    ppv <- (se * p) / (se * p + (1 - sp) * (1 - p))
+    par(mar = c(4, 4, 1, 1))
+    plot(100 * p, 100 * ppv, type = "l", lwd = 2, col = "#0b6e6e",
+         xlab = "Prävalenz (%)", ylab = "PPV (%)", ylim = c(0, 100), las = 1)
+    abline(v = input$prev, lty = 2, col = "grey40")
+    points(input$prev, 100 * zahlen()$ppv, pch = 19, col = "#0b6e6e", cex = 1.4)
+    grid()
+  })
+}
+
+shinyApp(ui, server)
+```
+
+::: {.callout-tip}
+## Was Sie beobachten sollten
+Bei 5 % Prävalenz, 80 % Sensitivität und 90 % Spezifität sind von 1000 Personen 50 krank, davon werden 40 erkannt. Aber von den 950 Gesunden erhalten 95 ein falsch positives Ergebnis. Unter den 135 Testpositiven sind also nur 40 wirklich krank: **PPV ≈ 30 %**. Schieben Sie die Prävalenz auf 30 % – der PPV steigt deutlich, obwohl der Test unverändert ist.
+:::
+
+**Antwort auf die Leitfrage:** Bei einer Patientin aus einer Niedrigrisikogruppe ist ein positiver Teststreifen eher ein Anlass zur **Bestätigungsdiagnostik** (UACR-Labormessung) als eine Diagnose. Genau deshalb wird ein positives Screening-Ergebnis in Leitlinien in der Regel durch eine quantitative Messung bestätigt (siehe KDIGO 2024, Kapitel 1).
+
+## Typische Fehler
+
+::: {.callout-warning}
+## Sensitivität mit PPV verwechseln
+„Der Test hat 80 % Sensitivität, also ist sie zu 80 % krank“ – falsch. Die Sensitivität beschreibt, wie der Test sich **bei Kranken** verhält. Was ein positives Ergebnis für die einzelne Person bedeutet, sagt der PPV, und der hängt von der Vortestwahrscheinlichkeit (Prävalenz) ab.
+:::
+
+::: {.callout-warning}
+## Spalten und Zeilen der Tafel vertauschen
+Sensitivität und Spezifität werden **spaltenweise** (nach Krankheitsstatus) berechnet, PPV und NPV **zeilenweise** (nach Testergebnis). Prüfen Sie immer, welche Gruppe im Nenner steht.
+:::
+
+::: {.takehome}
+**Take-Home-Messages**
+
+- Sensitivität und Spezifität sind Testeigenschaften; PPV und NPV beschreiben die Bedeutung eines Ergebnisses für die Person.
+- Je niedriger die Prävalenz, desto niedriger der PPV – auch bei gutem Test.
+- Mit natürlichen Häufigkeiten („von 1000 Personen …“) lassen sich diese Zusammenhänge ohne Formeln nachvollziehen und Patientinnen und Patienten erklären.
+- In R: `count()` für die Vierfeldertafel, `mutate()` für die Kennzahlen.
+:::
+
+## Quellen und weiterführende Literatur
+
+- Gigerenzer G, Gaissmaier W, Kurz-Milcke E, Schwartz LM, Woloshin S. Helping doctors and patients make sense of health statistics. *Psychol Sci Public Interest.* 2007;8(2):53–96. <https://doi.org/10.1111/j.1539-6053.2008.00033.x> – natürliche Häufigkeiten in der Risikokommunikation.
+- Altman DG, Bland JM. Diagnostic tests 1: sensitivity and specificity. *BMJ.* 1994;308(6943):1552. <https://doi.org/10.1136/bmj.308.6943.1552>
+- Altman DG, Bland JM. Diagnostic tests 2: predictive values. *BMJ.* 1994;309(6947):102. <https://doi.org/10.1136/bmj.309.6947.102>
+- Kidney Disease: Improving Global Outcomes (KDIGO) CKD Work Group. KDIGO 2024 Clinical Practice Guideline for the Evaluation and Management of Chronic Kidney Disease. *Kidney Int.* 2024;105(4S):S117–S314. <https://doi.org/10.1016/j.kint.2023.10.018>
+- dplyr-Dokumentation zu `count()` und `mutate()`: <https://dplyr.tidyverse.org>

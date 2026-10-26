@@ -1,0 +1,9 @@
+/_site/
+/.quarto/
+/_freeze/
+/.luarc.json
+.Rhistory
+.RData
+.Rproj.user/
+
+**/*.quarto_ipynb

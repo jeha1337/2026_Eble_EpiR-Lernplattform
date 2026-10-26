@@ -1,0 +1,51 @@
+---
+title: "EpiR – Epidemiologie und R im Browser"
+subtitle: "Prototyp der interaktiven Lernplattform"
+toc: false
+---
+
+{{< include ./_extensions/r-wasm/live/_knitr.qmd >}}
+
+::: {.callout-note appearance="simple"}
+**Status: Prototyp (Oktober 2026).** Modul 1 liegt als vollständiger Entwurf zur Durchsicht vor; Modul 2 ist ein technischer Prototyp. Alles läuft im Browser – ohne Installation, ohne Login, ohne Server.
+:::
+
+## Was Sie hier lernen
+
+Die Plattform vermittelt Basisfertigkeiten in drei Bereichen, immer ausgehend von einer klinischen Frage:
+
+- **Epidemiologie und Biostatistik** – Prävalenz, Inzidenz, Risikomaße, diagnostische Tests, Studiendesign, Konfidenzintervalle.
+- **R** – Daten einlesen, zusammenfassen, visualisieren; genau die Werkzeuge, die das jeweilige Konzept braucht.
+- **Reproduzierbares Arbeiten** – nachvollziehbare Analysen statt Klick-Ergebnisse.
+
+Sie brauchen **keine Vorkenntnisse** in R oder Statistik.
+
+## So funktioniert's
+
+1. Jedes Modul beginnt mit einer klinischen Frage und 2–4 Lernzielen.
+2. **Zwei Lesepfade.** Das epidemiologische Konzept lernen Sie vollständig ohne Programmieren – mit Rechnern, Schiebereglern und einem Selbsttest im Klausurformat. Der Abschnitt „Dasselbe in R“ am Ende jedes Moduls zeigt dieselben Rechnungen in R; er ist Vertiefung, keine Voraussetzung.
+3. Code-Blöcke sind **live**: ändern, „Run Code“ klicken, Ergebnis sehen. R läuft dabei in Ihrem Browser – der erste Start dauert bis zu einer Minute.
+4. Übungen enthalten Lücken (`______`). Hinweise und Lösungen lassen sich schrittweise aufklappen; das Feedback erklärt auch, *warum* etwas nicht stimmt.
+5. Nichts wird gespeichert oder übertragen. Wenn Sie die Seite neu laden, beginnt die Übung von vorn.
+
+## Module
+
+| Nr. | Modul | Klinische Leitfrage | Status |
+|---|---|---|---|
+| 1 | [Prävalenz und Inzidenz](module/01_praevalenz_inzidenz.qmd) | Wie häufig ist eine Erkrankung – und was heißt „häufig“? | Entwurf zur Durchsicht |
+| 2 | [Diagnostische Tests](module/02_diagnostische_tests.qmd) | Wie gut ist dieser Screening-Test? | Prototyp |
+| 3 | Relatives Risiko, Odds Ratio, NNT | Wie groß ist das Risiko – relativ und absolut? | geplant |
+| 4 | Verteilungen und Zufallsstreuung | Warum sehen zwei Studien verschiedene Ergebnisse? | geplant |
+| 5–9 | Studiendesign & Bias · Konfidenzintervalle & p-Werte · Base R lesen · Reproduzierbare Berichte · Mini-Projekt | | geplant |
+
+## Kurzer Funktionstest
+
+Wenn der folgende Block nach einigen Sekunden eine Ausgabe zeigt, funktioniert R in Ihrem Browser:
+
+```{webr}
+paste("R läuft im Browser. Version:", R.version$version.string)
+```
+
+## Daten
+
+Alle Module verwenden einen **simulierten** Datensatz (keine echten Patientendaten), der eine nephrologische Screening-Kohorte nachbildet. Das Simulationsskript und das [Codebook](data/codebook.md) sind Teil des Repositories.

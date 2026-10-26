@@ -1,0 +1,73 @@
+# Renders the Quarto site and deploys it to GitHub Pages.
+# Setup once in the repository: Settings -> Pages -> Source: "GitHub Actions".
+name: Publish to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "release"
+          use-public-rspm: true
+
+      - name: Install R packages needed at render time
+        # shinylive is required by the quarto-ext/shinylive filter;
+        # knitr/rmarkdown for the knitr engine; dplyr/readr to regenerate data;
+        # ggplot2/ragg for the build-time figures (R/epir_plots.R).
+        uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: |
+            any::shinylive
+            any::knitr
+            any::rmarkdown
+            any::dplyr
+            any::readr
+            any::ggplot2
+            any::ragg
+
+      - name: Set up Quarto
+        uses: quarto-dev/quarto-actions/setup@v2
+        with:
+          version: "1.10.19"
+
+      - name: Regenerate synthetic dataset (reproducibility check)
+        run: Rscript data/simulate_ckd_cohort.R
+
+      - name: Render site
+        env:
+          LANG: C.UTF-8
+          LC_ALL: C.UTF-8
+        run: quarto render
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

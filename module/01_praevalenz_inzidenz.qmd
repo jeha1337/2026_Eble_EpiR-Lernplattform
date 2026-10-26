@@ -1,0 +1,740 @@
+---
+title: "Modul 1 · Prävalenz und Inzidenz"
+subtitle: "Wie häufig ist eine Erkrankung – und was heißt „häufig“ eigentlich?"
+webr:
+  resources:
+    - ../data/ckd_kohorte.csv
+---
+
+{{< include ../_extensions/r-wasm/live/_knitr.qmd >}}
+
+::: {.callout-note appearance="simple"}
+**Entwurf zur Durchsicht (Oktober 2026).** Fachinhalte sind quellengeprüft; Formulierungen und Aufgaben werden nach dem Review durch die Lehrenden angepasst.
+:::
+
+```{r}
+#| include: false
+# Build-time figures (knitr). Uses the synthetic cohort; see R/epir_plots.R.
+source("../R/epir_plots.R", encoding = "UTF-8")
+kohorte <- readr::read_csv("../data/ckd_kohorte.csv", show_col_types = FALSE)
+unter_risiko <- dplyr::filter(kohorte, ckd_baseline == 0)
+```
+
+::: {.leitfrage}
+In der nephrologischen Sprechstunde scheint fast jede zweite Person eine chronische Nierenkrankheit (CKD) zu haben. Eine Hausarztpraxis, die 2000 Erwachsene systematisch untersucht und fünf Jahre begleitet, kommt auf ganz andere Zahlen. **Ist CKD nun häufig – und was heißt „häufig“?** Dahinter stecken zwei Fragen: *Wie viele sind jetzt krank?* und *Wie viele erkranken neu?*
+:::
+
+::: {.lernziele}
+**Lernziele.** Nach diesem Modul können Sie …
+
+**Konzept (ohne R):**
+
+1. Prävalenz und kumulative Inzidenz aus Fallzahlen **berechnen** und in einem korrekten Antwortsatz mit Bezugsgröße (z. B. „pro 100 000“) **interpretieren**.
+2. Punktprävalenz, Periodenprävalenz, kumulative Inzidenz (Risiko) und Inzidenzrate **unterscheiden** und für eine Fragestellung die passende Maßzahl **auswählen**.
+3. den Zusammenhang „Prävalenz ≈ Inzidenz × Krankheitsdauer“ **erklären** und **vorhersagen**, wie Therapie oder Prävention die Prävalenz verändern.
+
+**Vertiefung mit R** (Abschnitt „Dasselbe in R“):
+
+4. einen CSV-Datensatz in R **einlesen**, mit `glimpse()` **beschreiben** und Prävalenz sowie Inzidenz mit `summarise()` **berechnen** – auch getrennt nach Gruppen.
+:::
+
+::: {.callout-tip appearance="simple" icon=false}
+**Zwei Lesepfade.** Bis zum Selbsttest brauchen Sie kein R. Der Abschnitt [Dasselbe in R](#dasselbe-in-r) am Ende ist Vertiefung, keine Voraussetzung.
+:::
+
+## Die Beispielkohorte
+
+Alle Zahlen stammen aus einem **simulierten** Datensatz (keine echten Patientendaten): 2000 Erwachsene (40–85 Jahre) einer Hausarztpraxis, Screening auf CKD zu Beginn (eGFR < 60 mL/min/1,73 m² oder Albuminurie UACR ≥ 30 mg/g), danach bis zu fünf Jahre Nachbeobachtung.
+
+```{r}
+#| label: fig-followup
+#| echo: false
+#| fig-height: 5.2
+#| fig-cap: "Jede Linie ist eine Person der Kohorte. Auswahl von 24 Personen, so zusammengestellt, dass alle vier Verläufe vorkommen (die Häufigkeiten sind daher nicht repräsentativ). Grau: CKD schon beim Screening – diese Personen zählen für die Prävalenz, aber nicht für die Inzidenz. Orange: neue CKD (Kreuz = Zeitpunkt der Diagnose). Blau: vorzeitig ausgeschieden, Status danach unbekannt. Petrol: fünf Jahre beobachtet, keine CKD."
+#| fig-alt: "Zeitstrahl-Grafik mit 24 horizontalen Linien von Studienbeginn bis maximal 5 Jahre; vier kurze graue Markierungen bei Jahr 0 für Personen mit CKD zu Beginn, drei orange Linien enden mit einem Kreuz bei neuer CKD, blaue Linien enden mit einem offenen Kreis bei vorzeitigem Ausscheiden, petrolfarbene Linien reichen bis Jahr 5."
+plot_followup(kohorte, n_prev = 4, n_case = 3, n_cens = 3, n_full = 14, seed = 7)
+```
+
+::: {.callout-note collapse="true"}
+## Mehr dazu: Warum die CKD-Definition hier vereinfacht ist
+Die Leitlinie verlangt für die Diagnose, dass die Auffälligkeit über mindestens drei Monate besteht (KDIGO 2024, siehe Quellen). Unsere Kohorte nutzt eine Einzelmessung. Für das Rechnen mit Prävalenz und Inzidenz ist das unerheblich; für eine klinische Diagnose nicht.
+:::
+
+## Prävalenz: Wie viele sind *jetzt* betroffen?
+
+**Prävalenz** (engl. *prevalence*): Anteil der Personen einer Population, die zu einem Zeitpunkt (oder in einem Zeitraum) die Erkrankung haben.
+
+$$
+\text{Prävalenz} = \frac{\text{Personen mit Erkrankung}}{\text{alle Personen der Population}}
+$$
+
+### Durchgerechnetes Beispiel
+
+Beim Screening hatten **362 von 2000** Teilnehmenden eine CKD:
+
+$$
+\frac{362}{2000} = 0{,}181 = 18{,}1\ \% \quad (= 18\,100\ \text{pro}\ 100\,000)
+$$
+
+**Antwortsatz:** „Zu Studienbeginn hatten 18,1 % der 2000 untersuchten Personen eine CKD (Punktprävalenz; 18 100 pro 100 000).“
+
+Ein vollständiger Antwortsatz nennt **Maßzahl, Wert mit Bezugsgröße, Population und Zeitbezug**.
+
+```{r}
+#| label: fig-iconarray
+#| echo: false
+#| fig-height: 4.4
+#| fig-cap: "Prävalenz als „x von 100“. Links die simulierte Kohorte (18 von 100). Rechts zur Illustration eine Spezialsprechstunde, in die vor allem Menschen mit auffälligen Nierenwerten überwiesen werden – eine ausgewählte Population, keine Zufallsstichprobe (fiktiver Wert)."
+#| fig-alt: "Zwei Raster mit je 100 Quadraten. Links sind 18 Quadrate petrolfarben gefüllt, rechts 50."
+plot_icon_array(c("Bevölkerungskohorte (simuliert)\n18 von 100" = 18.1,
+                  "Spezialsprechstunde (illustrativ)\nca. 50 von 100" = 50))
+```
+
+Die Sprechstunde widerspricht den 18 % nicht: Eine Prävalenz gilt nur für **die Population, aus der sie stammt**. (Auswahleffekte: Modul 5.)
+
+### Punkt- oder Periodenprävalenz?
+
+```{r}
+#| label: fig-point-period
+#| echo: false
+#| fig-height: 4.6
+#| fig-cap: "Schema (keine Daten): Krankheitsepisoden von acht Personen in einem Jahr. Die Punktprävalenz zählt, wer am Stichtag krank ist (hier 3 von 8). Die Periodenprävalenz zählt alle, die irgendwann im Zeitraum krank waren – auch kurze Episoden, die den Stichtag verfehlen (hier 5 von 8)."
+#| fig-alt: "Acht horizontale Balken auf einer Zeitachse von Januar bis Dezember. Eine gestrichelte senkrechte Linie markiert den Stichtag im Juli, ein hellblauer Bereich den Zeitraum April bis September. Drei Balken kreuzen den Stichtag, zwei weitere liegen nur im Zeitraum, drei liegen außerhalb."
+plot_point_vs_period(stichtag = 7, periode = c(4, 9))
+```
+
+- **Punktprävalenz** (*point prevalence*): Bestand an **einem Stichtag** – typisch für Screening und Querschnittsstudien.
+- **Periodenprävalenz** (*period prevalence*): alle, die **irgendwann im Zeitraum** erkrankt waren – typisch für Befragungen („in den letzten 12 Monaten“) und Abrechnungsdaten eines Jahres.
+- Beide sind Anteile ohne Zeiteinheit (Prozent, pro 100 000).
+
+### Rechner: Anteil und Antwortsatz
+
+Voreingestellt ist das Beispiel; ändern Sie die Zahlen.
+
+```{=html}
+<div class="epir-calc" data-mode="prev" data-cases="362" data-denom="2000" data-lock="true"></div>
+```
+
+**Aufgabe 1.** Bei 305 der 2000 Personen war ein Diabetes bekannt. Berechnen Sie die Diabetes-Prävalenz und formulieren Sie den Antwortsatz; prüfen Sie das Ergebnis im Selbsttest (Frage 1).
+
+## Inzidenz: Wie viele erkranken *neu*?
+
+Gegenüber der Prävalenz ändern sich zwei Dinge:
+
+1. **Nur Personen unter Risiko** zählen – wer schon CKD hat, kann nicht *neu* erkranken. Hier: 2000 − 362 = **1638**.
+2. **Zeit angeben** – neue Fälle entstehen über einen Zeitraum.
+
+::: {.epir-cards}
+::: {.epir-card}
+Prävalenz
+
+- **Zähler:** Erkrankte
+- **Nenner:** alle Personen
+- **Einheit:** Anteil (%, pro 100 000), kein Zeitbezug
+- **Frage:** Wie viele sind jetzt krank?
+:::
+::: {.epir-card .epir-card-accent}
+Kumulative Inzidenz (Risiko)
+
+- **Zähler:** neue Fälle im Zeitraum
+- **Nenner:** Personen unter Risiko zu Beginn
+- **Einheit:** Anteil **mit Zeitraum** („5-Jahres-Risiko“)
+- **Frage:** Wie wahrscheinlich erkranke ich in 5 Jahren?
+:::
+::: {.epir-card .epir-card-blue}
+Inzidenzrate
+
+- **Zähler:** neue Fälle
+- **Nenner:** **Personenzeit** unter Risiko
+- **Einheit:** Fälle pro 1000 Personenjahre
+- **Frage:** Wie schnell treten neue Fälle auf?
+:::
+:::
+
+### Kumulative Inzidenz (Risiko)
+
+In fünf Jahren entwickelten **131 der 1638** Personen unter Risiko eine CKD:
+
+$$
+\frac{131}{1638} = 0{,}080 = 8{,}0\ \%\ \text{in 5 Jahren}
+$$
+
+**Antwortsatz:** „Von 1638 zu Beginn nierengesunden Personen entwickelten innerhalb von fünf Jahren 8,0 % eine CKD (5-Jahres-Risiko).“
+
+::: {.callout-note collapse="true"}
+## Mehr dazu: Vereinfachung bei vorzeitigem Ausscheiden (Zensierung)
+Der Bruch setzt voraus, dass alle 1638 Personen fünf Jahre beobachtet wurden. Die blauen Linien in @fig-followup zeigen: Einige schieden früher aus; ob sie danach erkrankten, ist unbekannt. Der einfache Bruch unterschätzt das wahre 5-Jahres-Risiko dann etwas. Exakt rechnet man mit der Kaplan-Meier-Methode (später im Kurs); bei kurzen Zeiträumen mit wenig Ausfällen ist der Bruch eine brauchbare Näherung.
+:::
+
+### Inzidenzrate
+
+Jede Person zählt im Nenner nur mit der Zeit, in der sie **beobachtet und unter Risiko** war – bis zur Erkrankung, zum Ausscheiden oder zum Studienende. Die Summe heißt **Personenzeit** (Personenjahre, PJ):
+
+```{r}
+#| label: fig-persontime
+#| echo: false
+#| fig-height: 2.6
+#| fig-cap: "Personenzeit der 1638 Personen unter Risiko. Erkrankte und vorzeitig Ausgeschiedene tragen nur bis zu diesem Zeitpunkt bei – deshalb weniger als 1638 × 5 Jahre."
+#| fig-alt: "Zwei horizontale Balken: 8 190 Personenjahre, wenn alle fünf Jahre beobachtet worden wären, gegenüber 7 075 tatsächlichen Personenjahren."
+plot_person_time(n_risk = nrow(unter_risiko), pj_actual = sum(unter_risiko$followup_jahre))
+```
+
+$$
+\frac{131}{7075\ \text{PJ}} = 0{,}0185\ \text{pro PJ} = 18{,}5\ \text{pro 1000 PJ}
+$$
+
+**Antwortsatz:** „In der Kohorte traten 18,5 neue CKD-Fälle pro 1000 Personenjahre auf.“
+
+Eine Rate ist **kein Prozentwert**: „18,5 pro 1000 Personenjahre“ lässt sich nicht als „1,85 %“ schreiben, weil der Nenner Zeit ist.
+
+### Rechner: Inzidenzmaße
+
+Was passiert mit der kumulativen Inzidenz, wenn Sie versehentlich alle 2000 Teilnehmenden in den Nenner schreiben?
+
+```{=html}
+<div class="epir-calc" data-mode="cuminc" data-cases="131" data-denom="1638" data-years="5"></div>
+```
+
+## Das Becken-Modell: Prävalenz ≈ Inzidenz × Dauer
+
+Erkrankte einer Population = Wasser in einem Becken. **Zufluss** Neuerkrankungen (Inzidenz), **Abfluss** Heilung oder Tod, **Wasserstand** Prävalenz. Bei stabilen Verhältnissen gilt näherungsweise:
+
+$$
+\text{Prävalenz} \approx \text{Inzidenzrate} \times \text{mittlere Krankheitsdauer}
+$$
+
+```{=html}
+<div class="epir-pool" data-inc="18.5" data-dur="10"></div>
+```
+
+**Aufgabe 2.** Probieren Sie die Szenario-Buttons und beantworten Sie:
+
+a) Eine Therapie verlängert das Leben mit CKD, heilt aber nicht. Was passiert mit Prävalenz und Inzidenz?
+b) Ein Präventionsprogramm halbiert die Neuerkrankungen. Sinkt die Prävalenz sofort oder allmählich?
+
+::: {.callout-note collapse="true"}
+## Lösungsskizze
+a) Inzidenz unverändert, Abfluss kleiner → Prävalenz **steigt**, obwohl niemand zusätzlich erkrankt.
+b) Zufluss halbiert sich sofort, aber die bereits Erkrankten bleiben im Becken → Prävalenz sinkt **allmählich** über etwa eine Krankheitsdauer. (Das Modell zeigt nur den neuen Gleichgewichtszustand.)
+:::
+
+::: {.callout-note collapse="true"}
+## Mehr dazu: exakte Formel
+Exakt gilt für die *Prävalenz-Odds*: $P/(1-P) = \text{Inzidenzrate} \times \text{mittlere Dauer}$. Für Prävalenzen unter etwa 10 % sind Odds und Anteil fast gleich; dann stimmt die Näherung (Rothman et al. 2021, Kap. 4; Celentano & Szklo 2019, Kap. 3). Das Modell setzt eine stabile Population ohne Zu- und Abwanderung voraus.
+:::
+
+## Typische Fehler
+
+| Fehler | Richtig |
+|---|---|
+| „Die Inzidenz von Diabetes liegt bei 15 %“ – gemeint ist der aktuelle Bestand | Bestand = **Prävalenz**; Zugang = Inzidenz |
+| 131 neue Fälle durch alle 2000 teilen (6,6 %) | Nenner nur **Personen unter Risiko** (1638 → 8,0 %) |
+| „Das Risiko beträgt 8 %“ ohne Zeitraum; „Rate 18,5“ ohne Einheit | Immer **Zeitraum** bzw. **Personenzeit-Einheit** nennen |
+| 18,5 pro 1000 PJ als „1,85 %“ lesen | Rate hat die Einheit 1/Zeit – **kein Prozentwert** |
+| Prävalenz der Spezialsprechstunde auf die Bevölkerung übertragen | Prävalenz gilt nur für **ihre Population** |
+
+::: {.takehome}
+**Take-Home-Messages**
+
+- **Prävalenz** = Erkrankte / Population zu einem Zeitpunkt – Anteil ohne Zeiteinheit (Bestand).
+- **Kumulative Inzidenz** = neue Fälle / Personen unter Risiko zu Beginn – immer mit Zeitraum.
+- **Inzidenzrate** = neue Fälle / Personenzeit – z. B. pro 1000 Personenjahre, kein Prozentwert.
+- Prävalenz ≈ Inzidenzrate × Dauer: Lebensverlängerung erhöht, Prävention senkt die Prävalenz – letzteres allmählich.
+- Antwortsatz: Maßzahl, Wert mit Bezugsgröße, Population, Zeitbezug.
+:::
+
+## Selbsttest
+
+Die Fragen entsprechen im Format den Klausurfragen (eine richtige Antwort; Rechenaufgaben mit Zahleneingabe). Das Feedback erklärt auch, warum die anderen Antworten nicht stimmen.
+
+```{=html}
+<div class="epir-quiz">
+<script type="application/json">
+{
+  "items": [
+    {
+      "type": "num",
+      "question": "<em>Zu Aufgabe 1:</em> In der Beispielkohorte (2000 Personen) war bei 305 Personen ein Diabetes bekannt. Wie hoch ist die Diabetes-Prävalenz in Prozent? (eine Nachkommastelle)",
+      "label": "Prävalenz:",
+      "unit": "%",
+      "answer": 15.25,
+      "tol": 0.3,
+      "feedback_correct": "305 / 2000 = 0,1525, also 15,3 % (15 250 pro 100 000). Antwortsatz: „Zu Studienbeginn hatten 15,3 % der 2000 Teilnehmenden einen bekannten Diabetes (Punktprävalenz).“",
+      "feedback_wrong": "Prävalenz = Erkrankte / alle Personen der Population = 305 / 2000. Multiplizieren Sie mit 100 für Prozent.",
+      "near": [
+        { "value": 0.1525, "tol": 0.01, "feedback": "0,1525 ist der Anteil – gefragt war Prozent. Multiplizieren Sie mit 100: 15,3 %." },
+        { "value": 18.0, "tol": 0.5, "feedback": "Das ist die CKD-Prävalenz aus dem Beispiel. Gefragt war Diabetes: 305 / 2000." },
+        { "value": 18.6, "tol": 0.2, "feedback": "Sie haben vermutlich durch die 1638 Personen unter Risiko geteilt. Für die Prävalenz ist der Nenner die gesamte Population (2000)." }
+      ]
+    },
+    {
+      "type": "mc",
+      "question": "Welche Aussage zur Prävalenz ist <strong>falsch</strong>?",
+      "options": [
+        { "text": "Die Punktprävalenz ist der Anteil der Erkrankten an der Population zu einem bestimmten Zeitpunkt.", "correct": false, "feedback": "Diese Aussage ist richtig – das ist die Definition der Punktprävalenz." },
+        { "text": "Die Prävalenz wird in Fällen pro 1000 Personenjahre angegeben.", "correct": true, "feedback": "Diese Aussage ist falsch und damit die gesuchte Antwort: Personenjahre sind der Nenner der Inzidenz<em>rate</em>. Die Prävalenz ist ein Anteil ohne Zeiteinheit (Prozent oder pro 100 000 Personen)." },
+        { "text": "Eine lebensverlängernde, aber nicht heilende Therapie erhöht die Prävalenz einer Krankheit.", "correct": false, "feedback": "Diese Aussage ist richtig: Längere Krankheitsdauer bei gleicher Inzidenz bedeutet mehr Erkrankte gleichzeitig (Becken-Modell)." },
+        { "text": "Die Prävalenz in einer Spezialsprechstunde ist in der Regel nicht auf die Allgemeinbevölkerung übertragbar.", "correct": false, "feedback": "Diese Aussage ist richtig: Eine Sprechstunde ist eine selektierte Population; die Prävalenz gilt nur für die Population, aus der sie stammt." }
+      ]
+    },
+    {
+      "type": "mc",
+      "question": "Ein Krebsregister meldet für eine Stadt mit 350 000 Einwohnenden 420 neu diagnostizierte Fälle einer Tumorerkrankung in einem Kalenderjahr. Welche Angabe beschreibt diese Information korrekt?",
+      "options": [
+        { "text": "Die Prävalenz beträgt 0,12 %.", "correct": false, "feedback": "Nicht richtig: Gemeldet wurden <em>neue</em> Fälle in einem Zeitraum – das ist eine Inzidenz, kein Bestand. Die Prävalenz würde alle lebenden Erkrankten umfassen, auch die aus früheren Jahren." },
+        { "text": "Die Inzidenz beträgt 120 pro 100 000 Einwohnende pro Jahr.", "correct": true, "feedback": "Richtig: 420 / 350 000 = 0,0012 = 120 pro 100 000 pro Jahr. Die Bevölkerungszahl des Jahres dient hier als Näherung für die Personenjahre (jede Person trägt etwa ein Jahr bei)." },
+        { "text": "Die Inzidenzrate beträgt 12 %.", "correct": false, "feedback": "Nicht richtig: 420 / 350 000 sind 0,12 %, nicht 12 %. Außerdem ist eine Rate kein Prozentwert, weil ihr Nenner Zeit ist (hier: Einwohnende × Jahr)." },
+        { "text": "Die kumulative 5-Jahres-Inzidenz beträgt 0,6 %.", "correct": false, "feedback": "Nicht richtig: Aus den Daten eines einzigen Jahres lässt sich ein 5-Jahres-Risiko nicht einfach durch Multiplikation mit 5 ableiten; außerdem fehlt die Information, wer zu Beginn der fünf Jahre unter Risiko stand." }
+      ]
+    },
+    {
+      "type": "mc",
+      "question": "In einer Region wird ein wirksames Präventionsprogramm eingeführt, das die Zahl der Neuerkrankungen an einer chronischen, nicht heilbaren, aber nicht lebensverkürzenden Krankheit dauerhaft um die Hälfte senkt. Welche Aussage ist <strong>falsch</strong>?",
+      "options": [
+        { "text": "Die Inzidenzrate sinkt unmittelbar nach Einführung des Programms.", "correct": false, "feedback": "Diese Aussage ist richtig: Weniger Neuerkrankungen bedeuten direkt eine niedrigere Inzidenz (Zufluss ins Becken)." },
+        { "text": "Die Prävalenz halbiert sich im ersten Jahr nach Einführung.", "correct": true, "feedback": "Diese Aussage ist falsch und damit die gesuchte Antwort: Die bereits Erkrankten bleiben krank (nicht heilbar) und leben normal lang. Die Prävalenz sinkt deshalb nur allmählich über viele Jahre, nicht sofort." },
+        { "text": "Langfristig sinkt auch die Prävalenz.", "correct": false, "feedback": "Diese Aussage ist richtig: Im neuen Gleichgewicht gilt wieder Prävalenz ≈ Inzidenz × Dauer; halbe Inzidenz bei gleicher Dauer ergibt etwa die halbe Prävalenz." },
+        { "text": "Für die Versorgungsplanung (z. B. Behandlungsplätze) ist die Prävalenz die relevantere Maßzahl, für die Wirksamkeit des Programms die Inzidenz.", "correct": false, "feedback": "Diese Aussage ist richtig: Die Prävalenz beschreibt den Bestand an Behandlungsbedürftigen, die Inzidenz misst, ob weniger Menschen neu erkranken." }
+      ]
+    },
+    {
+      "type": "num",
+      "question": "In einer Kohorte von 1250 Personen ohne Herzinsuffizienz zu Studienbeginn entwickeln innerhalb von vier Jahren 75 Personen eine Herzinsuffizienz (vollständige Nachbeobachtung). Wie hoch ist die kumulative 4-Jahres-Inzidenz in Prozent?",
+      "label": "Kumulative Inzidenz:",
+      "unit": "% in 4 Jahren",
+      "answer": 6.0,
+      "tol": 0.1,
+      "feedback_correct": "75 / 1250 = 0,06 = 6,0 % in vier Jahren. Antwortsatz: „Von 1250 zu Beginn herzgesunden Personen erkrankten innerhalb von vier Jahren 6,0 % an einer Herzinsuffizienz (4-Jahres-Risiko).“",
+      "feedback_wrong": "Kumulative Inzidenz = neue Fälle / Personen unter Risiko zu Beginn = 75 / 1250, bezogen auf den gesamten Zeitraum von vier Jahren.",
+      "near": [
+        { "value": 1.5, "tol": 0.05, "feedback": "Sie haben durch 4 geteilt. Die kumulative Inzidenz bezieht sich auf den gesamten Zeitraum (6,0 % in vier Jahren) und wird nicht einfach auf Jahre heruntergerechnet." },
+        { "value": 6.38, "tol": 0.1, "feedback": "Sie haben durch 1175 geteilt (die am Ende noch Gesunden). Der Nenner umfasst alle 1250 Personen, die zu Beginn unter Risiko standen." },
+        { "value": 0.06, "tol": 0.001, "feedback": "0,06 ist der Anteil – gefragt war Prozent: 6,0 %." }
+      ]
+    },
+    {
+      "type": "num",
+      "question": "In einer anderen Kohorte treten 36 neue Fälle einer Erkrankung auf; die Summe der Beobachtungszeiten unter Risiko beträgt 4500 Personenjahre. Wie hoch ist die Inzidenzrate pro 1000 Personenjahre?",
+      "label": "Inzidenzrate:",
+      "unit": "pro 1000 Personenjahre",
+      "answer": 8.0,
+      "tol": 0.05,
+      "feedback_correct": "36 / 4500 PJ = 0,008 pro PJ = 8,0 pro 1000 Personenjahre. Antwortsatz: „Es traten 8,0 neue Fälle pro 1000 Personenjahre auf.“",
+      "feedback_wrong": "Inzidenzrate = neue Fälle / Personenzeit = 36 / 4500 pro Personenjahr; mal 1000 für die Angabe pro 1000 Personenjahre.",
+      "near": [
+        { "value": 0.8, "tol": 0.01, "feedback": "0,8 wäre die Angabe „pro 100 Personenjahre“ (oder der Versuch, einen Prozentwert zu bilden). Gefragt war pro 1000 Personenjahre: 8,0." },
+        { "value": 0.008, "tol": 0.0005, "feedback": "0,008 ist die Rate pro Personenjahr. Für „pro 1000 Personenjahre“ mit 1000 multiplizieren: 8,0." }
+      ]
+    }
+  ]
+}
+</script>
+</div>
+```
+
+## Dasselbe in R {#dasselbe-in-r}
+
+::: {.r-pfad}
+<span class="epir-badge epir-badge-r">Vertiefung R</span> Kein R-Vorwissen nötig. Hier laufen die Rechnungen von oben mit den Rohdaten statt mit fertigen Zahlen. Code-Blöcke laufen direkt im Browser („Run Code“); der erste Start dauert bis zu einer Minute.
+:::
+
+### R-Nullstart in fünf Minuten
+
+Vier Dinge reichen, um den Code in diesem Modul zu lesen.
+
+::: {.callout-note collapse="false"}
+## 1. R rechnet – und merkt sich Ergebnisse in Objekten
+Führen Sie den Block aus (Button „Run Code“). `<-` bedeutet „speichere rechts unter dem Namen links“. Ein gespeicherter Wert heißt **Objekt**. Tippen Sie den Namen eines Objekts, zeigt R seinen Inhalt.
+:::
+
+```{webr}
+362 / 2000
+
+praevalenz_ckd <- 362 / 2000
+praevalenz_ckd * 100
+```
+
+::: {.callout-note collapse="false"}
+## 2. Funktionen haben einen Namen und runde Klammern
+`round(x, 3)` rundet `x` auf drei Nachkommastellen. Alles in den Klammern sind **Argumente** – die Eingaben der Funktion. Mehrere Argumente trennt ein Komma.
+:::
+
+```{webr}
+round(131 / 1638, 3)
+```
+
+::: {.callout-note collapse="false"}
+## 3. Die Pipe `|>` heißt „und dann“
+`daten |> funktion()` übergibt `daten` als erste Eingabe an `funktion()`. So lassen sich Schritte lesbar untereinander schreiben: „nimm die Kohorte, *und dann* behalte nur …, *und dann* fasse zusammen …“.
+:::
+
+::: {.callout-note collapse="false"}
+## 4. Fehlermeldungen sind Hinweise, keine Katastrophen
+Die häufigste Meldung für Einsteiger:innen ist `object 'xyz' not found` – ein Tippfehler im Namen. Probieren Sie es aus: Der folgende Block enthält absichtlich einen Fehler. Lesen Sie die Meldung, korrigieren Sie den Tippfehler `kohorte_tset` zu `kohorte_test` und führen Sie den Block erneut aus.
+:::
+
+```{webr}
+kohorte_test <- data.frame(alter = c(45, 62, 71))
+mean(kohorte_tset$alter)
+```
+
+### Die Daten einlesen und ansehen
+
+```{webr}
+library(dplyr)
+library(readr)
+
+kohorte <- read_csv("data/ckd_kohorte.csv", show_col_types = FALSE)
+glimpse(kohorte)
+```
+
+::: {.callout-note collapse="true"}
+## Was passiert hier?
+- `library(dplyr)` und `library(readr)` laden **Pakete** – Sammlungen zusätzlicher Funktionen. `readr` liest Dateien, `dplyr` bearbeitet Tabellen.
+- `read_csv()` liest die Tabelle aus der Datei; das Ergebnis speichern wir als Objekt `kohorte`.
+- `glimpse()` zeigt jede Spalte mit Datentyp (`dbl` = Zahl, `chr` = Text) und den ersten Werten. 2000 Zeilen = 2000 Personen.
+
+Die wichtigsten Spalten: `ckd_baseline` (CKD zu Beginn: 1 = ja, 0 = nein), `diabetes` (1/0), `followup_jahre` (Beobachtungszeit, nur für Personen ohne CKD zu Beginn), `ckd_inzident` (neue CKD: 1/0, nur für Personen ohne CKD zu Beginn). Vollständiges [Codebook](../data/codebook.md).
+:::
+
+### Prävalenz aus den Daten
+
+Der Mittelwert einer 0/1-Spalte ist der Anteil der Einsen – also genau die Prävalenz.
+
+```{webr}
+kohorte |>
+  summarise(
+    n_gesamt   = n(),
+    n_ckd      = sum(ckd_baseline),
+    praevalenz = mean(ckd_baseline)
+  )
+```
+
+`summarise()` fasst viele Zeilen zu einer Zeile zusammen; links vom `=` steht der Name der neuen Spalte, rechts die Rechnung. `n()` zählt Zeilen, `sum()` addiert, `mean()` mittelt. Das Ergebnis entspricht dem Beispiel oben: 362 von 2000, Prävalenz 0,181.
+
+### Übung R1: Prävalenz von Diabetes
+
+Ersetzen Sie die Lücke `______` so, dass die Diabetes-Prävalenz berechnet wird.
+
+```{webr}
+#| setup: true
+#| exercise: ex_prev
+library(dplyr)
+library(readr)
+kohorte <- read_csv("data/ckd_kohorte.csv", show_col_types = FALSE)
+```
+
+```{webr}
+#| exercise: ex_prev
+kohorte |>
+  summarise(praevalenz_diabetes = mean(______))
+```
+
+::: {.hint exercise="ex_prev"}
+::: {.callout-note collapse="false"}
+## Hinweis
+Welche Spalte enthält 1 für „Diabetes ja“ und 0 für „nein“? Schauen Sie in die `glimpse()`-Ausgabe.
+:::
+:::
+
+::: {.solution exercise="ex_prev"}
+::: {.callout-tip collapse="false"}
+## Lösung
+```r
+kohorte |>
+  summarise(praevalenz_diabetes = mean(diabetes))
+```
+Der Mittelwert der 0/1-Spalte `diabetes` ist der Anteil der Personen mit Diabetes: 0,1525 bzw. 15,3 % – dieselbe Zahl wie in Aufgabe 1.
+:::
+:::
+
+```{webr}
+#| exercise: ex_prev
+#| check: true
+erwartet <- mean(kohorte$diabetes)
+
+werte <- tryCatch({
+  if (is.data.frame(.result)) unlist(Filter(is.numeric, .result)) else as.numeric(.result)
+}, error = function(e) numeric(0))
+
+if (length(werte) > 0 && any(abs(werte - erwartet) < 1e-6, na.rm = TRUE)) {
+  list(correct = TRUE, type = "success",
+       message = "Richtig. Die Diabetes-Prävalenz zu Studienbeginn beträgt 15,3 % – wie in Aufgabe 1 per Hand.")
+} else if (length(werte) > 0 && any(abs(werte - mean(kohorte$ckd_baseline)) < 1e-6, na.rm = TRUE)) {
+  list(correct = FALSE, type = "warning",
+       message = "Das ist die CKD-Prävalenz aus dem Beispiel. Gefragt war die Prävalenz von Diabetes – welche Spalte brauchen Sie dafür?")
+} else {
+  list(correct = FALSE, type = "info",
+       message = "Noch nicht ganz. Der Mittelwert einer 0/1-Spalte ist der Anteil der Einsen. Welche Spalte kodiert Diabetes?")
+}
+```
+
+### Personen unter Risiko auswählen
+
+Für die Inzidenz brauchen wir nur Personen **ohne** CKD zu Beginn. `filter()` behält die Zeilen, auf die eine Bedingung zutrifft. Beachten Sie das **doppelte** Gleichheitszeichen `==` für den Vergleich.
+
+```{webr}
+unter_risiko <- kohorte |>
+  filter(ckd_baseline == 0)
+
+nrow(unter_risiko)
+```
+
+### Übung R2: Kumulative Inzidenz
+
+Berechnen Sie die kumulative 5-Jahres-Inzidenz: neue Fälle geteilt durch Personen unter Risiko zu Beginn. Füllen Sie beide Lücken.
+
+```{webr}
+#| setup: true
+#| exercise: ex_cuminc
+library(dplyr)
+library(readr)
+kohorte <- read_csv("data/ckd_kohorte.csv", show_col_types = FALSE)
+unter_risiko <- filter(kohorte, ckd_baseline == 0)
+```
+
+```{webr}
+#| exercise: ex_cuminc
+unter_risiko |>
+  summarise(
+    n_risiko     = n(),
+    neue_faelle  = sum(______),
+    kum_inzidenz = neue_faelle / ______
+  )
+```
+
+::: {.hint exercise="ex_cuminc"}
+::: {.callout-note collapse="false"}
+## Hinweis
+Neue Fälle stehen in `ckd_inzident`. Innerhalb von `summarise()` können Sie eine gerade erzeugte Spalte (`n_risiko`) in der nächsten Zeile sofort weiterverwenden.
+:::
+:::
+
+::: {.solution exercise="ex_cuminc"}
+::: {.callout-tip collapse="false"}
+## Lösung
+```r
+unter_risiko |>
+  summarise(
+    n_risiko     = n(),
+    neue_faelle  = sum(ckd_inzident),
+    kum_inzidenz = neue_faelle / n_risiko
+  )
+```
+131 / 1638 = 0,080: 8,0 % in fünf Jahren (mit der oben beschriebenen Vereinfachung bezüglich Zensierung).
+:::
+:::
+
+```{webr}
+#| exercise: ex_cuminc
+#| check: true
+faelle_erw <- sum(unter_risiko$ckd_inzident)
+ci_erw     <- faelle_erw / nrow(unter_risiko)
+ci_falsch  <- faelle_erw / nrow(kohorte)   # typical error: all participants in the denominator
+
+werte <- tryCatch({
+  if (is.data.frame(.result)) unlist(Filter(is.numeric, .result)) else as.numeric(.result)
+}, error = function(e) numeric(0))
+
+nahe <- function(x, ziel, tol) any(abs(x - ziel) < tol, na.rm = TRUE)
+
+if (length(werte) > 0 && nahe(werte, ci_erw, 1e-6)) {
+  list(correct = TRUE, type = "success",
+       message = sprintf("Richtig: %d neue Fälle bei %d Personen unter Risiko, kumulative Inzidenz %s %% in fünf Jahren.", faelle_erw, nrow(unter_risiko), formatC(100 * ci_erw, format = "f", digits = 1, decimal.mark = ",")))
+} else if (length(werte) > 0 && nahe(werte, ci_falsch, 1e-6)) {
+  list(correct = FALSE, type = "warning",
+       message = "Sie haben durch alle 2000 Teilnehmenden geteilt. Personen mit CKD zu Beginn waren nie unter Risiko – der Nenner ist n_risiko (1638).")
+} else {
+  list(correct = FALSE, type = "info",
+       message = "Noch nicht ganz. Zähler: sum(ckd_inzident). Nenner: die Zahl der Personen unter Risiko, die Sie gerade als n_risiko berechnet haben.")
+}
+```
+
+### Übung R3: Inzidenzrate
+
+Berechnen Sie neue Fälle, Personenjahre und die Inzidenzrate **pro 1000 Personenjahre**. Drei Lücken.
+
+```{webr}
+#| setup: true
+#| exercise: ex_rate
+library(dplyr)
+library(readr)
+kohorte <- read_csv("data/ckd_kohorte.csv", show_col_types = FALSE)
+unter_risiko <- filter(kohorte, ckd_baseline == 0)
+```
+
+```{webr}
+#| exercise: ex_rate
+unter_risiko |>
+  summarise(
+    neue_faelle   = sum(______),
+    personenjahre = sum(______),
+    rate_pro_1000 = 1000 * neue_faelle / ______
+  )
+```
+
+::: {.hint exercise="ex_rate"}
+::: {.callout-note collapse="false"}
+## Hinweis
+Die Beobachtungszeit jeder Person steht in `followup_jahre`. Ihre Summe ist die Personenzeit.
+:::
+:::
+
+::: {.solution exercise="ex_rate"}
+::: {.callout-tip collapse="false"}
+## Lösung
+```r
+unter_risiko |>
+  summarise(
+    neue_faelle   = sum(ckd_inzident),
+    personenjahre = sum(followup_jahre),
+    rate_pro_1000 = 1000 * neue_faelle / personenjahre
+  )
+```
+131 Fälle in 7075 Personenjahren: **18,5 pro 1000 Personenjahre**.
+:::
+:::
+
+```{webr}
+#| exercise: ex_rate
+#| check: true
+faelle_erw <- sum(unter_risiko$ckd_inzident)
+pj_erw     <- sum(unter_risiko$followup_jahre)
+rate_erw   <- 1000 * faelle_erw / pj_erw
+rate_falsch_nenner <- 1000 * faelle_erw / nrow(unter_risiko)   # typical error: persons instead of person-years
+
+werte <- tryCatch({
+  if (is.data.frame(.result)) unlist(Filter(is.numeric, .result)) else as.numeric(.result)
+}, error = function(e) numeric(0))
+
+nahe <- function(x, ziel, tol) any(abs(x - ziel) < tol, na.rm = TRUE)
+
+if (length(werte) > 0 && nahe(werte, rate_erw, 0.05)) {
+  list(correct = TRUE, type = "success",
+       message = sprintf("Richtig: %s neue Fälle pro 1000 Personenjahre. Die Einheit gehört immer dazu.", formatC(rate_erw, format = "f", digits = 1, decimal.mark = ",")))
+} else if (length(werte) > 0 && nahe(werte, rate_falsch_nenner, 0.05)) {
+  list(correct = FALSE, type = "warning",
+       message = "Sie haben durch die Anzahl der Personen geteilt. Für eine Rate muss der Nenner die Personenzeit sein (Summe von followup_jahre). Was Sie berechnet haben, ist eine kumulative Inzidenz pro 1000 Personen.")
+} else if (length(werte) > 0 && nahe(werte, faelle_erw, 0.5) && !nahe(werte, pj_erw, 1)) {
+  list(correct = FALSE, type = "info",
+       message = "Die Fallzahl stimmt. Prüfen Sie die Personenjahre: Welche Spalte enthält die individuelle Beobachtungszeit?")
+} else {
+  list(correct = FALSE, type = "info",
+       message = "Noch nicht ganz. Zähler: sum(ckd_inzident). Nenner: sum(followup_jahre). Dann mal 1000.")
+}
+```
+
+### Übung R4: Prävalenz nach Gruppen
+
+Mit `group_by()` wird alles, was danach in `summarise()` steht, **pro Gruppe** berechnet. Berechnen Sie die CKD-Prävalenz getrennt für Personen mit und ohne Diabetes (Ergebnis: zwei Zeilen).
+
+```{webr}
+#| setup: true
+#| exercise: ex_strat
+library(dplyr)
+library(readr)
+kohorte <- read_csv("data/ckd_kohorte.csv", show_col_types = FALSE)
+```
+
+```{webr}
+#| exercise: ex_strat
+kohorte |>
+  group_by(______) |>
+  summarise(
+    n = n(),
+    praevalenz_ckd = ______
+  )
+```
+
+::: {.hint exercise="ex_strat"}
+::: {.callout-note collapse="false"}
+## Hinweis
+`group_by(diabetes)` teilt die Daten in zwei Gruppen (0 und 1). Die Prävalenz pro Gruppe ist wieder `mean()` der 0/1-Spalte `ckd_baseline`.
+:::
+:::
+
+::: {.solution exercise="ex_strat"}
+::: {.callout-tip collapse="false"}
+## Lösung
+```r
+kohorte |>
+  group_by(diabetes) |>
+  summarise(
+    n = n(),
+    praevalenz_ckd = mean(ckd_baseline)
+  )
+```
+Ohne Diabetes 13,1 %, mit Diabetes 45,9 %. **Vorsicht:** Das ist ein Querschnittsvergleich – er zeigt einen Zusammenhang, nicht, dass Diabetes die CKD verursacht hat (Modul 5: Studiendesign und Confounding).
+:::
+:::
+
+```{webr}
+#| exercise: ex_strat
+#| check: true
+erw <- kohorte |> group_by(diabetes) |> summarise(p = mean(ckd_baseline)) |> arrange(diabetes)
+
+ok <- FALSE
+msg <- "Noch nicht ganz. Gruppieren Sie nach `diabetes` und berechnen Sie pro Gruppe `mean(ckd_baseline)`."
+typ <- "info"
+
+if (is.data.frame(.result)) {
+  if (nrow(.result) != 2) {
+    msg <- sprintf("Ihr Ergebnis hat %d Zeile(n), erwartet sind 2 (eine pro Diabetes-Gruppe). Haben Sie `group_by()` korrekt befüllt?", nrow(.result))
+    typ <- "warning"
+  } else {
+    num <- Filter(is.numeric, .result)
+    treffer <- vapply(num, function(col) {
+      s <- sort(col)
+      length(s) == 2 && all(abs(s - sort(erw$p)) < 1e-6)
+    }, logical(1))
+    if (any(treffer)) ok <- TRUE
+  }
+}
+
+if (ok) {
+  list(correct = TRUE, type = "success",
+       message = sprintf("Richtig. CKD-Prävalenz ohne Diabetes: %s %%, mit Diabetes: %s %%. Zusammenhang ist nicht Ursache.", formatC(100 * erw$p[1], format = "f", digits = 1, decimal.mark = ","), formatC(100 * erw$p[2], format = "f", digits = 1, decimal.mark = ",")))
+} else {
+  list(correct = FALSE, type = typ, message = msg)
+}
+```
+
+### Bonus: dasselbe als Grafik
+
+Zahlen werden als Bild schneller verständlich. `ggplot2` baut Grafiken schichtweise auf – lesen Sie den Code von oben nach unten und führen Sie ihn aus (der Block ist eigenständig: Pakete laden, Daten einlesen, Grafik bauen):
+
+```{webr}
+library(dplyr)
+library(readr)
+library(ggplot2)
+kohorte <- read_csv("data/ckd_kohorte.csv", show_col_types = FALSE)
+
+kohorte |>
+  group_by(diabetes) |>
+  summarise(praevalenz_ckd = mean(ckd_baseline)) |>
+  mutate(gruppe = if_else(diabetes == 1, "mit Diabetes", "ohne Diabetes")) |>
+  ggplot(aes(x = gruppe, y = praevalenz_ckd)) +
+  geom_col(fill = "#0b6e6e", width = 0.5) +
+  scale_y_continuous(labels = scales::percent) +
+  labs(x = NULL, y = "CKD-Prävalenz zu Studienbeginn") +
+  theme_minimal(base_size = 14)
+```
+
+::: {.callout-note collapse="true"}
+## Was Sie in R mitnehmen
+- `read_csv()` liest Daten, `glimpse()` zeigt die Struktur.
+- `filter()` wählt Zeilen, `summarise()` fasst zusammen, `group_by()` rechnet pro Gruppe, `|>` verbindet die Schritte.
+- Prävalenz = `mean()` einer 0/1-Spalte; Inzidenzrate = `sum(faelle) / sum(zeit)`.
+- Fehlermeldungen lesen: `object ... not found` ist fast immer ein Tippfehler.
+:::
+
+## Quellen und weiterführende Literatur
+
+- Rothman KJ, Lash TL, VanderWeele TJ, Haneuse S. *Modern Epidemiology*. 4. Aufl. Philadelphia: Wolters Kluwer; 2021. Kapitel 4 „Measures of Occurrence“ (Inzidenzrate, Risiko, Prävalenz; Beziehung Prävalenz-Odds = Inzidenzrate × mittlere Dauer).
+- Celentano DD, Szklo M. *Gordis Epidemiology*. 6. Aufl. Philadelphia: Elsevier; 2019. Kapitel 3 „The Occurrence of Disease: I. Disease Surveillance and Measures of Morbidity“ (Becken-Modell der Prävalenz).
+- Porta M (Hrsg.). *A Dictionary of Epidemiology*. 6. Aufl. Oxford: Oxford University Press; 2014. Einträge „Prevalence“, „Incidence rate“, „Cumulative incidence“, „Person-time“.
+- Kidney Disease: Improving Global Outcomes (KDIGO) CKD Work Group. KDIGO 2024 Clinical Practice Guideline for the Evaluation and Management of Chronic Kidney Disease. *Kidney Int.* 2024;105(4S):S117–S314. <https://doi.org/10.1016/j.kint.2023.10.018> – vollständige CKD-Definition (Persistenz ≥ 3 Monate), die in diesem Modul vereinfacht wurde.
+- Wickham H, Çetinkaya-Rundel M, Grolemund G. *R for Data Science*. 2. Aufl. O'Reilly; 2023. Frei verfügbar: <https://r4ds.hadley.nz> – Kapitel „Data transformation“ zu `filter()`, `summarise()`, `group_by()`.
+- dplyr-Dokumentation: <https://dplyr.tidyverse.org>
+
+*Datensatz:* `data/ckd_kohorte.csv`, simuliert mit `data/simulate_ckd_cohort.R` (Seed 20261026), Lizenz CC BY 4.0. Keine echten Patientendaten.

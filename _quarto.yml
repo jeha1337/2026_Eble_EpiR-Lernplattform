@@ -1,0 +1,84 @@
+project:
+  type: website
+  output-dir: _site
+  render:
+    - "*.qmd"
+    - "!README.md"
+  resources:
+    - data/ckd_kohorte.csv
+    - assets/epir-widgets.js
+
+website:
+  title: "EpiR – Epidemiologie & R"
+  description: "Interaktive Lernplattform für Epidemiologie, R und medizinische Computational Science (Prototyp)"
+  site-url: "https://example.github.io/lernplattform/"   # TODO: nach Anlegen des GitHub-Repos anpassen
+  navbar:
+    left:
+      - href: index.qmd
+        text: Start
+      - text: Module
+        menu:
+          - href: module/01_praevalenz_inzidenz.qmd
+            text: "1 · Prävalenz & Inzidenz"
+          - href: module/02_diagnostische_tests.qmd
+            text: "2 · Diagnostische Tests"
+      - href: technik.qmd
+        text: Technik-Check
+    right:
+      - icon: github
+        href: https://github.com/   # TODO: Repo-URL
+        aria-label: GitHub
+  sidebar:
+    style: docked
+    contents:
+      - index.qmd
+      - section: "Module"
+        contents:
+          - module/01_praevalenz_inzidenz.qmd
+          - module/02_diagnostische_tests.qmd
+      - technik.qmd
+  page-footer:
+    left: "Inhalte: CC BY 4.0 · Code: MIT · Prototyp, Stand Oktober 2026"
+    right: "Erstellt mit Quarto, webR und Shinylive"
+
+lang: de
+
+format:
+  live-html:
+    theme:
+      - cosmo
+      - styles.scss
+    toc: true
+    toc-depth: 3
+    fig-width: 8
+    fig-height: 4.5
+    fig-dpi: 144
+    fig-cap-location: bottom
+    code-copy: true
+    include-in-header:
+      - assets/includes/widgets-head.html
+    code-overflow: wrap
+    webr:
+      packages:
+        - dplyr
+        - readr
+        - ggplot2
+      render-df: paged-table
+    live:
+      show-hints: true
+      show-solutions: true
+      show-grading: true
+
+engine: knitr
+knitr:
+  opts_chunk:
+    dev: "ragg_png"      # UTF-8-safe raster device for build-time figures (umlauts)
+    fig.align: "center"
+
+filters:
+  - shinylive
+
+execute:
+  freeze: auto
+  echo: true
+  warning: false

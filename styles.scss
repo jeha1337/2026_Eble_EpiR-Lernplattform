@@ -1,0 +1,164 @@
+/*-- scss:defaults --*/
+// Neutrales Theme (cosmo) mit einer Akzentfarbe. Uni-CD kann später hier
+// zentral nachgezogen werden (Farben, Schriften, Logo).
+$primary: #0b6e6e;          // Akzent: gedecktes Petrol
+$link-color: $primary;
+$font-size-base: 1.05rem;
+$headings-font-weight: 600;
+
+/*-- scss:rules --*/
+// Lernziel-Box
+.lernziele {
+  border-left: 4px solid $primary;
+  background: rgba(11, 110, 110, 0.06);
+  padding: 0.8rem 1rem;
+  margin: 1.2rem 0;
+  border-radius: 4px;
+}
+
+// Klinische Leitfrage am Modulanfang
+.leitfrage {
+  font-size: 1.15rem;
+  font-weight: 500;
+  padding: 1rem 1.2rem;
+  margin: 1rem 0 1.5rem 0;
+  background: #f4f6f8;
+  border-radius: 6px;
+}
+
+// Take-Home-Messages
+.takehome {
+  border: 1px solid $primary;
+  border-radius: 6px;
+  padding: 0.8rem 1rem;
+  margin: 1.2rem 0;
+}
+
+// Interaktive Code-Blöcke etwas abgesetzt
+.exercise-editor, .qwebr-editor {
+  margin-top: 0.5rem;
+}
+
+// ---------------------------------------------------------------------------
+// Two reading paths: marker for the R deep-dive section
+.r-pfad {
+  border: 2px dashed $primary;
+  border-radius: 6px;
+  padding: 0.8rem 1rem;
+  margin: 1.5rem 0;
+  background: rgba(11, 110, 110, 0.03);
+}
+.epir-badge {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  color: #fff;
+  background: $primary;
+  vertical-align: middle;
+}
+.epir-badge-r { background: #7a3e9d; }
+
+// ---------------------------------------------------------------------------
+// EpiR widgets (assets/epir-widgets.js)
+.epir-quiz, .epir-calc, .epir-pool {
+  border: 1px solid #d9dee3;
+  border-radius: 6px;
+  padding: 1rem 1.1rem;
+  margin: 1.2rem 0;
+  background: #fbfcfd;
+}
+.epir-quiz-item {
+  border: 0;
+  border-top: 1px solid #e5e8eb;
+  padding: 0.9rem 0 0.4rem 0;
+  margin: 0.4rem 0;
+  legend { font-size: 1rem; font-weight: 500; float: none; width: auto; padding: 0; margin-bottom: 0.5rem; }
+}
+.epir-quiz-num { color: $primary; font-weight: 700; margin-right: 0.3rem; }
+.epir-option { display: flex; gap: 0.5rem; align-items: baseline; padding: 0.15rem 0.3rem; border-radius: 4px;
+  label { margin: 0; cursor: pointer; }
+}
+.epir-option.epir-chosen { background: rgba(11, 110, 110, 0.08); }
+.epir-quiz-actions { margin: 0.5rem 0 0.3rem 0; display: flex; gap: 0.5rem; align-items: center; }
+.epir-numrow { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap;
+  label { margin: 0; }
+  .epir-numinput { width: 8rem; }
+}
+.epir-feedback { padding: 0.5rem 0.7rem; border-radius: 4px; margin-top: 0.3rem; font-size: 0.95rem; }
+.epir-feedback:empty { display: none; }
+.epir-success { background: #e6f4ea; border-left: 4px solid #2e7d32; }
+.epir-warning { background: #fdf1e3; border-left: 4px solid #d9822b; }
+.epir-info    { background: #eef3f8; border-left: 4px solid #4a6fa5; }
+.epir-small   { font-size: 0.85rem; padding: 0.3rem 0.6rem; }
+.epir-alllist { margin: 0.5rem 0 0 0; padding-left: 1rem; li { margin-bottom: 0.35rem; } }
+.epir-tag { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; padding: 0 0.35rem; border-radius: 3px; color: #fff; background: #d9822b; margin-right: 0.3rem; }
+.epir-li-correct .epir-tag { background: #2e7d32; }
+.epir-why { color: #444; font-size: 0.9rem; }
+.epir-quiz-summary { margin: 0.8rem 0 0.3rem 0; font-weight: 500; }
+.epir-quiz-summary:empty { display: none; }
+
+.epir-calc-row { display: grid; grid-template-columns: minmax(12rem, 1fr) minmax(8rem, 14rem); gap: 0.6rem; align-items: center; margin-bottom: 0.45rem;
+  label { margin: 0; }
+}
+.epir-calc-table { margin: 0.6rem 0; border-collapse: collapse;
+  th, td { padding: 0.2rem 0.8rem 0.2rem 0; text-align: left; font-weight: 400; border: 0; }
+  th { color: #555; }
+  td { font-variant-numeric: tabular-nums; font-weight: 600; }
+}
+.epir-sentence { background: #fff; border: 1px solid #e5e8eb; border-radius: 4px; padding: 0.5rem 0.7rem; margin: 0.4rem 0 0 0; font-size: 0.95rem; }
+
+.epir-pool-body { display: grid; grid-template-columns: minmax(12rem, 1fr) minmax(16rem, 1.3fr); gap: 1rem; align-items: start; }
+@media (max-width: 700px) { .epir-pool-body, .epir-calc-row { grid-template-columns: 1fr; } }
+.epir-slider { margin-bottom: 0.6rem; label { font-weight: 500; display: block; } }
+.epir-slider-val { display: block; font-size: 0.9rem; color: #333; }
+.epir-pool-buttons { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.6rem; }
+.epir-pool-svg { width: 100%; max-width: 360px; height: auto; display: block; }
+.epir-pool-tank { fill: none; stroke: #333; stroke-width: 2; }
+.epir-pool-fill { fill: rgba(11, 110, 110, 0.55); transition: y 0.15s linear, height 0.15s linear; }
+.epir-pool-arrow { stroke: #d9822b; fill: none; stroke-linecap: round; }
+.epir-pool-arrow-out { stroke: #4a6fa5; }
+.epir-pool-label { font-size: 11px; fill: #333; }
+.epir-pool-value { font-size: 15px; font-weight: 700; fill: $primary; }
+.epir-error { color: #b00020; }
+
+// widget fixes after visual review
+.epir-quiz-item legend { display: block; width: 100%; }
+.epir-calc-table td { white-space: nowrap; }
+.epir-slider input[type="range"] {
+  width: 100%;
+  accent-color: $primary;
+  background: transparent;
+  &::-webkit-slider-runnable-track { height: 6px; background: #cfd6dc; border-radius: 3px; }
+  &::-moz-range-track { height: 6px; background: #cfd6dc; border-radius: 3px; }
+  &::-webkit-slider-thumb { margin-top: -5px; }
+}
+
+// ---------------------------------------------------------------------------
+// Compact "measure cards" (replace prose/tables for Zähler – Nenner – Einheit)
+.epir-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.8rem;
+  margin: 1rem 0 1.2rem 0;
+}
+.epir-card {
+  border: 1px solid #d9dee3;
+  border-top: 4px solid $primary;
+  border-radius: 6px;
+  padding: 0.7rem 0.9rem;
+  background: #fff;
+  font-size: 0.95rem;
+  p { margin: 0 0 0.3rem 0; }
+  p:first-child { font-weight: 700; font-size: 1.05rem; margin-bottom: 0.5rem; }
+  ul { padding-left: 1.1rem; margin-bottom: 0; }
+  li { margin-bottom: 0.15rem; }
+}
+.epir-card-accent { border-top-color: #d9822b; }
+.epir-card-blue   { border-top-color: #4a6fa5; }
+// Figures: subtle frame + caption style
+.quarto-figure { margin: 1rem 0 1.4rem 0; }
+figcaption, .figure-caption { color: #555; font-size: 0.9rem; }

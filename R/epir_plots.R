@@ -162,3 +162,120 @@ plot_person_time <- function(n_risk, pj_actual, years = 5) {
     epir_theme() +
     theme(legend.position = "none", panel.grid.major.y = element_blank())
 }
+
+# ============================================================================
+# Module 3: relative and absolute risk
+# ============================================================================
+
+# --- Icon array with "baseline" vs. "extra" cases ---------------------------
+# risks: named numeric vector of risks (0-1), first element = reference group.
+# Cells up to the reference risk are coloured as cases in both panels; cells
+# between reference and exposed risk are highlighted as "zusätzlich".
+plot_icon_array_pair <- function(risks, label_case = "erkranken", label_extra = "zusätzlich erkranken (durch die Exposition)",
+                                 label_no = "erkranken nicht") {
+  k0 <- round(100 * risks[[1]])
+  grid <- expand.grid(col = 1:10, row = 1:10)
+  dat <- bind_rows(lapply(names(risks), function(nm) {
+    k <- round(100 * risks[[nm]])
+    grid |> mutate(
+      idx = (row - 1) * 10 + col,
+      status = case_when(idx <= min(k, k0) ~ label_case, idx <= k ~ label_extra, TRUE ~ label_no),
+      panel = sprintf("%s: %d von 100", nm, k)
+    )
+  }))
+  dat$panel <- factor(dat$panel, levels = unique(dat$panel))
+  dat$status <- factor(dat$status, levels = c(label_case, label_extra, label_no))
+  ggplot(dat, aes(x = col, y = -row, fill = status)) +
+    geom_tile(width = 0.85, height = 0.85, colour = NA) +
+    facet_wrap(~panel) +
+    scale_fill_manual(values = setNames(c(epir_cols[["primary"]], epir_cols[["accent"]], epir_cols[["light"]]),
+                                        c(label_case, label_extra, label_no)), drop = FALSE) +
+    coord_equal() +
+    epir_theme() +
+    theme(axis.text = element_blank(), axis.title = element_blank(), panel.grid = element_blank())
+}
+
+# --- Relative vs. absolute: same RR, different baseline risks ---------------
+plot_rel_vs_abs <- function(base_risks = c(0.01, 0.069), rr = 2.54, labels = c("seltenes Ereignis", "Kohorte: CKD bei Diabetes")) {
+  dat <- tibble(
+    szenario = factor(sprintf("%s\nBasisrisiko %s %%", labels, format(round(100 * base_risks, 1), decimal.mark = ",")), levels = rev(sprintf("%s\nBasisrisiko %s %%", labels, format(round(100 * base_risks, 1), decimal.mark = ",")))),
+    ohne = base_risks,
+    mit = base_risks * rr,
+    diff = base_risks * rr - base_risks
+  )
+  long <- dat |> tidyr::pivot_longer(c(ohne, mit), names_to = "gruppe", values_to = "risiko") |>
+    mutate(gruppe = factor(if_else(gruppe == "ohne", "ohne Exposition", "mit Exposition"), levels = c("ohne Exposition", "mit Exposition")))
+  ggplot() +
+    geom_segment(data = dat, aes(x = ohne, xend = mit, y = szenario, yend = szenario), colour = epir_cols[["accent"]], linewidth = 2.2) +
+    geom_point(data = long, aes(x = risiko, y = szenario, colour = gruppe), size = 5) +
+    geom_text(data = dat, aes(x = ohne, y = szenario, label = sprintf("+%s Prozentpunkte", trimws(format(round(100 * diff, 1), decimal.mark = ",")))),
+              hjust = 0, vjust = -1.1, colour = epir_cols[["accent"]], fontface = "bold", size = 4) +
+    scale_colour_manual(values = c("ohne Exposition" = epir_cols[["primary"]], "mit Exposition" = epir_cols[["dark"]])) +
+    scale_x_continuous(labels = function(x) paste0(format(100 * x, decimal.mark = ","), " %"), limits = c(0, max(dat$mit) * 1.15), expand = expansion(mult = c(0, 0.02))) +
+    labs(x = sprintf("Risiko in 5 Jahren (beide Szenarien: RR = %s)", format(rr, decimal.mark = ",")), y = NULL) +
+    epir_theme() +
+    theme(panel.grid.major.y = element_blank())
+}
+
+# --- OR versus RR for different baseline risks ------------------------------
+plot_or_vs_rr <- function(base_risks = c(0.01, 0.069, 0.20), rr_max = 4, mark = NULL) {
+  dat <- tidyr::expand_grid(r0 = base_risks, rr = seq(1, rr_max, by = 0.01)) |>
+    filter(r0 * rr < 1) |>
+    mutate(r1 = r0 * rr, or = (r1 / (1 - r1)) / (r0 / (1 - r0)),
+           basis = factor(sprintf("Basisrisiko %s %%", format(100 * r0, decimal.mark = ",")),
+                          levels = sprintf("Basisrisiko %s %%", format(100 * base_risks, decimal.mark = ","))))
+  p <- ggplot(dat, aes(x = rr, y = or, colour = basis)) +
+    geom_abline(slope = 1, intercept = 0, linetype = "dashed", colour = epir_cols[["grey"]]) +
+    geom_line(linewidth = 1.3) +
+    annotate("text", x = 2.1, y = 2.1, label = "OR = RR (Diagonale)", hjust = 0, vjust = 2.2, colour = epir_cols[["grey"]], size = 3.6) +
+    scale_colour_manual(values = unname(epir_cols[c("primary", "blue", "accent")])) +
+    labs(x = "Relatives Risiko (RR)", y = "Odds Ratio (OR)") +
+    coord_cartesian(xlim = c(1, rr_max), ylim = c(1, max(dat$or, na.rm = TRUE))) +
+    epir_theme()
+  if (!is.null(mark)) {
+    p <- p + annotate("point", x = mark[["rr"]], y = mark[["or"]], size = 4, shape = 21, fill = "white", colour = epir_cols[["dark"]], stroke = 1.4) +
+      annotate("text", x = mark[["rr"]], y = mark[["or"]], label = mark[["label"]], hjust = -0.1, vjust = 1.4, size = 3.6, colour = epir_cols[["dark"]])
+  }
+  p
+}
+
+# --- Schematic: cohort vs. case-control reading of the 2x2 table ------------
+plot_design_schema <- function() {
+  boxes <- tribble(
+    ~design, ~x, ~y, ~label, ~fill,
+    "Kohortenstudie: vorwärts", 1, 2, "Exponierte\n(bekannte Zahl)", "primary",
+    "Kohortenstudie: vorwärts", 1, 1, "Nicht-Exponierte\n(bekannte Zahl)", "primary",
+    "Kohortenstudie: vorwärts", 3, 2, "Erkrankt?\n→ Risiko je Gruppe", "accent",
+    "Kohortenstudie: vorwärts", 3, 1, "Erkrankt?\n→ Risiko je Gruppe", "accent",
+    "Fall-Kontroll-Studie: rückwärts", 3, 2, "Fälle\n(Zahl gewählt)", "accent",
+    "Fall-Kontroll-Studie: rückwärts", 3, 1, "Kontrollen\n(Zahl gewählt)", "accent",
+    "Fall-Kontroll-Studie: rückwärts", 1, 2, "Exponiert?\n→ Odds der Exposition", "primary",
+    "Fall-Kontroll-Studie: rückwärts", 1, 1, "Exponiert?\n→ Odds der Exposition", "primary"
+  )
+  arrows <- tribble(
+    ~design, ~x, ~xend, ~y,
+    "Kohortenstudie: vorwärts", 1.78, 2.22, 2,
+    "Kohortenstudie: vorwärts", 1.78, 2.22, 1,
+    "Fall-Kontroll-Studie: rückwärts", 2.22, 1.78, 2,
+    "Fall-Kontroll-Studie: rückwärts", 2.22, 1.78, 1
+  )
+  result <- tribble(
+    ~design, ~label,
+    "Kohortenstudie: vorwärts", "Ergebnis: Risiken, RR, Risikodifferenz, NNT – und OR",
+    "Fall-Kontroll-Studie: rückwärts", "Ergebnis: nur OR (Risiken nicht schätzbar)"
+  )
+  lv <- c("Kohortenstudie: vorwärts", "Fall-Kontroll-Studie: rückwärts")
+  boxes$design <- factor(boxes$design, lv); arrows$design <- factor(arrows$design, lv); result$design <- factor(result$design, lv)
+  ggplot() +
+    geom_tile(data = boxes, aes(x = x, y = y, fill = fill), width = 1.5, height = 0.7, colour = NA) +
+    geom_text(data = boxes, aes(x = x, y = y, label = label), colour = "white", size = 3.2, lineheight = 0.9, fontface = "bold") +
+    geom_segment(data = arrows, aes(x = x, xend = xend, y = y, yend = y), arrow = arrow(length = unit(0.25, "cm"), type = "closed"), linewidth = 1, colour = epir_cols[["dark"]]) +
+    geom_text(data = result, aes(x = 2, y = 0.25, label = label), size = 3.6, colour = epir_cols[["dark"]]) +
+    annotate("text", x = 1, y = 2.6, label = "Exposition", size = 3.6, colour = "#555555") +
+    annotate("text", x = 3, y = 2.6, label = "Erkrankung", size = 3.6, colour = "#555555") +
+    facet_wrap(~design, ncol = 2) +
+    scale_fill_manual(values = c(primary = epir_cols[["primary"]], accent = epir_cols[["accent"]]), guide = "none") +
+    coord_cartesian(xlim = c(0.2, 3.8), ylim = c(0, 2.8)) +
+    epir_theme() +
+    theme(axis.text = element_blank(), axis.title = element_blank(), panel.grid = element_blank())
+}

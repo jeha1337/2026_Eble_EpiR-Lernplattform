@@ -41,6 +41,7 @@ jobs:
             any::dplyr
             any::readr
             any::ggplot2
+            any::tidyr
             any::ragg
 
       - name: Set up Quarto

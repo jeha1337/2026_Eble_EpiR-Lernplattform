@@ -7,7 +7,7 @@ toc: false
 {{< include ./_extensions/r-wasm/live/_knitr.qmd >}}
 
 ::: {.callout-note appearance="simple"}
-**Status: Prototyp (Oktober 2026).** Modul 1 liegt als vollständiger Entwurf zur Durchsicht vor; Modul 2 ist ein technischer Prototyp. Alles läuft im Browser – ohne Installation, ohne Login, ohne Server.
+**Status: Prototyp (Oktober 2026).** Module 1 und 3 liegen als vollständige Entwürfe zur Durchsicht vor; Modul 2 ist ein technischer Prototyp (Überarbeitung folgt). Alles läuft im Browser – ohne Installation, ohne Login, ohne Server.
 :::
 
 ## Was Sie hier lernen
@@ -34,7 +34,7 @@ Sie brauchen **keine Vorkenntnisse** in R oder Statistik.
 |---|---|---|---|
 | 1 | [Prävalenz und Inzidenz](module/01_praevalenz_inzidenz.qmd) | Wie häufig ist eine Erkrankung – und was heißt „häufig“? | Entwurf zur Durchsicht |
 | 2 | [Diagnostische Tests](module/02_diagnostische_tests.qmd) | Wie gut ist dieser Screening-Test? | Prototyp |
-| 3 | Relatives Risiko, Odds Ratio, NNT | Wie groß ist das Risiko – relativ und absolut? | geplant |
+| 3 | [Relatives und absolutes Risiko (RR, OR, NNT)](module/03_risiko_rr_or_nnt.qmd) | Wie groß ist das Risiko – relativ und absolut? | Entwurf zur Durchsicht |
 | 4 | Verteilungen und Zufallsstreuung | Warum sehen zwei Studien verschiedene Ergebnisse? | geplant |
 | 5–9 | Studiendesign & Bias · Konfidenzintervalle & p-Werte · Base R lesen · Reproduzierbare Berichte · Mini-Projekt | | geplant |
 

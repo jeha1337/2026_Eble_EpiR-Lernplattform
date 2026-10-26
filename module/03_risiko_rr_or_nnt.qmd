@@ -1,0 +1,645 @@
+---
+title: "Modul 3 · Relatives und absolutes Risiko"
+subtitle: "Wie groß ist das Risiko – relativ und absolut?"
+webr:
+  resources:
+    - ../data/ckd_kohorte.csv
+---
+
+{{< include ../_extensions/r-wasm/live/_knitr.qmd >}}
+
+::: {.callout-note appearance="simple"}
+**Entwurf zur Durchsicht (Oktober 2026).** Fachinhalte sind quellengeprüft; Formulierungen und Aufgaben werden nach dem Review durch die Lehrenden angepasst.
+:::
+
+```{r}
+#| include: false
+# Build-time figures and numbers (knitr). Uses the synthetic cohort; see R/epir_plots.R.
+source("../R/epir_plots.R", encoding = "UTF-8")
+kohorte <- readr::read_csv("../data/ckd_kohorte.csv", show_col_types = FALSE)
+unter_risiko <- dplyr::filter(kohorte, ckd_baseline == 0)
+de <- function(x, d = 1) formatC(x, format = "f", digits = d, decimal.mark = ",", big.mark = "\u202f")
+dm <- function(x, d = 1) gsub(",", "{,}", de(x, d), fixed = TRUE)   # decimal comma inside LaTeX math
+# 2x2 table: exposure diabetes, outcome incident CKD within 5 years
+a <- sum(unter_risiko$diabetes == 1 & unter_risiko$ckd_inzident == 1)
+b <- sum(unter_risiko$diabetes == 1 & unter_risiko$ckd_inzident == 0)
+cc <- sum(unter_risiko$diabetes == 0 & unter_risiko$ckd_inzident == 1)
+d <- sum(unter_risiko$diabetes == 0 & unter_risiko$ckd_inzident == 0)
+r1 <- a / (a + b); r0 <- cc / (cc + d)
+rr <- r1 / r0; rd <- r1 - r0; nnh <- 1 / rd
+odds1 <- r1 / (1 - r1); odds0 <- r0 / (1 - r0); or <- odds1 / odds0
+# second exposure for exercises: hypertension
+h <- unter_risiko |> dplyr::group_by(hypertonie) |> dplyr::summarise(n = dplyr::n(), faelle = sum(ckd_inzident), risiko = mean(ckd_inzident))
+stopifnot(a == 29, b == 136, cc == 102, d == 1371)   # guard: text below quotes these numbers
+```
+
+::: {.leitfrage}
+In der Beispielkohorte aus Modul 1 erkranken Menschen mit Diabetes häufiger neu an einer chronischen Nierenkrankheit (CKD) als Menschen ohne Diabetes. Eine Patientin mit Diabetes fragt: „Wie viel höher ist mein Risiko – und was heißt das für mich konkret?“ **Reicht „2,5-mal so hoch“ als Antwort – oder braucht sie eine andere Zahl?**
+:::
+
+::: {.lernziele}
+**Lernziele.** Nach diesem Modul können Sie …
+
+**Konzept (ohne R):**
+
+1. aus der Vierfeldertafel einer Kohortenstudie das Risiko je Gruppe, das relative Risiko (RR), die Risikodifferenz und NNT bzw. NNH **berechnen** und jeweils in einem Antwortsatz **interpretieren**.
+2. RR und Odds Ratio (OR) **unterscheiden**, **erklären**, wann OR ≈ RR gilt, und **begründen**, warum Fall-Kontroll-Studien nur das OR liefern.
+3. relative und absolute Effektmaße **gegenüberstellen** und **beurteilen**, welche Angabe für eine Patientenentscheidung informativer ist.
+
+**Vertiefung mit R** (Abschnitt „Dasselbe in R“):
+
+4. Risiken je Gruppe mit `group_by()` und `summarise()` **berechnen**, RR und OR daraus **ableiten** und eine eigene kleine Funktion **schreiben**.
+:::
+
+::: {.callout-tip appearance="simple" icon=false}
+**Zwei Lesepfade.** Bis zum Selbsttest brauchen Sie kein R. Der Abschnitt [Dasselbe in R](#dasselbe-in-r) am Ende ist Vertiefung, keine Voraussetzung.
+:::
+
+## Die Beispielkohorte
+
+Dieselbe **simulierte** Kohorte wie in Modul 1 (keine echten Patientendaten): 2000 Erwachsene, davon 1638 zu Beginn ohne CKD („unter Risiko“), fünf Jahre beobachtet. Neu in diesem Modul: Wir teilen die Personen unter Risiko nach einer **Exposition** (Diabetes ja/nein) und vergleichen, wie oft das **Ereignis** (neue CKD) eintritt.
+
+## Risiko je Gruppe: die Vierfeldertafel
+
+Eine **Vierfeldertafel** (engl. *2×2 table*) ordnet jede Person nach Exposition (Zeile) und Ereignis (Spalte) ein:
+
+| | neue CKD | keine CKD | gesamt | Risiko in 5 Jahren |
+|---|---:|---:|---:|---:|
+| **mit Diabetes** | a = 29 | b = 136 | 165 | 29 / 165 = **`r de(100 * r1)` %** |
+| **ohne Diabetes** | c = 102 | d = 1371 | 1473 | 102 / 1473 = **`r de(100 * r0)` %** |
+
+Das **Risiko** je Gruppe ist die kumulative Inzidenz aus Modul 1 – nur jetzt getrennt für Exponierte und Nicht-Exponierte.
+
+```{r}
+#| label: fig-iconpair
+#| echo: false
+#| fig-height: 4.2
+#| fig-cap: "Von je 100 Personen unter Risiko erkranken in fünf Jahren 7 ohne Diabetes und 18 mit Diabetes. Die orangen Felder sind die zusätzlichen Fälle, die mit der Exposition einhergehen (Risikodifferenz). Gerundet auf ganze Personen."
+#| fig-alt: "Zwei 10-mal-10-Raster. Links, ohne Diabetes, sind 7 Felder petrol markiert. Rechts, mit Diabetes, sind 7 Felder petrol und 11 weitere Felder orange markiert, zusammen 18."
+plot_icon_array_pair(c("ohne Diabetes" = r0, "mit Diabetes" = r1))
+```
+
+**Antwortsatz:** „Von den Personen mit Diabetes entwickelten `r de(100 * r1)` % innerhalb von fünf Jahren eine CKD, von den Personen ohne Diabetes `r de(100 * r0)` %.“
+
+Aus diesen zwei Risiken lassen sich alle Maße dieses Moduls bilden – als **Quotient** (relativ) oder als **Differenz** (absolut).
+
+## Relatives Risiko: „Wievielmal so hoch?“
+
+Das **relative Risiko** (RR, engl. *risk ratio*) teilt das Risiko der Exponierten durch das der Nicht-Exponierten:
+
+$$
+RR = \frac{29 / 165}{102 / 1473} = \frac{0{,}176}{0{,}069} = `r dm(rr, 2)`
+$$
+
+**Antwortsatz:** „Das 5-Jahres-Risiko für eine neue CKD war bei Personen mit Diabetes `r de(rr, 2)`-mal so hoch wie bei Personen ohne Diabetes (RR = `r de(rr, 2)`).“
+
+::: {.epir-cards}
+::: {.epir-card}
+**Relatives Risiko (RR)**
+
+- **Rechnung:** Risiko exponiert ÷ Risiko nicht exponiert
+- **Einheit:** keine (ein Faktor)
+- **RR = 1:** kein Unterschied; **> 1:** Risikofaktor; **< 1:** Schutzfaktor
+- **Frage:** Wievielmal so hoch ist das Risiko?
+:::
+::: {.epir-card .epir-card-accent}
+**Risikodifferenz (RD)**
+
+- **Rechnung:** Risiko exponiert − Risiko nicht exponiert
+- **Einheit:** Prozentpunkte (oder „pro 1000“)
+- **> 0:** absolute Risikoerhöhung (ARI); **< 0:** absolute Risikoreduktion (ARR)
+- **Frage:** Wie viele erkranken zusätzlich (oder weniger)?
+:::
+::: {.epir-card .epir-card-blue}
+**NNT / NNH**
+
+- **Rechnung:** 1 ÷ Risikodifferenz
+- **Einheit:** Personen, **immer mit Zeitraum**
+- **NNT:** nötige Behandlungen für ein verhindertes Ereignis; **NNH:** Exponierte pro zusätzlichem Ereignis
+- **Frage:** Wie viele Personen für ein Ereignis?
+:::
+:::
+
+## Risikodifferenz und NNH: „Wie viele zusätzlich?“
+
+Die **Risikodifferenz** zieht die Risiken voneinander ab:
+
+$$
+RD = `r dm(100 * r1)`\ \% - `r dm(100 * r0)`\ \% = `r dm(100 * rd)`\ \text{Prozentpunkte}
+$$
+
+Vorsicht mit dem Wort „Prozent“: Das Risiko steigt um `r de(100 * rd)` **Prozentpunkte** – relativ gesehen aber um `r de(100 * (rr - 1), 0)` **Prozent** (RR `r de(rr, 2)` entspricht +`r de(100 * (rr - 1), 0)` %). Beide Aussagen sind richtig und beschreiben verschiedene Dinge.
+
+Der Kehrwert der Risikodifferenz ist die **Number needed to harm** (NNH): Auf wie viele Exponierte kommt ein zusätzliches Ereignis?
+
+$$
+NNH = \frac{1}{`r dm(rd, 3)`} = `r dm(nnh, 1)` \approx 10
+$$
+
+**Antwortsatz:** „Auf etwa 10 Personen mit Diabetes kommt innerhalb von fünf Jahren eine zusätzliche CKD-Erkrankung (NNH ≈ 10 über 5 Jahre).“ NNT und NNH werden auf die nächste ganze Zahl **aufgerundet** und ohne Zeitraum nicht angegeben.
+
+::: {.callout-note collapse="true"}
+## Mehr dazu: NNT – dasselbe Maß für den Nutzen einer Behandlung
+Die **Number needed to treat** (NNT) ist der Kehrwert der absoluten Risiko*reduktion* durch eine Behandlung. Unsere Kohorte enthält keine Behandlung; deshalb ein **fiktives Beispiel (keine reale Studie):** In einer Studie erhalten 1000 Personen mit Diabetes ein Medikament, 1000 ein Placebo, Beobachtung drei Jahre. Neue CKD: 60 unter Medikament, 90 unter Placebo.
+
+- Risiko: 6,0 % vs. 9,0 % → RR = 0,67, relative Risikoreduktion 33 %.
+- Absolute Risikoreduktion (ARR): 9,0 − 6,0 = 3,0 Prozentpunkte.
+- NNT = 1 / 0,03 = 33,3 → **34 Personen müssen drei Jahre behandelt werden, um eine CKD zu verhindern.**
+
+Die NNT wurde von Laupacis, Sackett und Roberts (1988) eingeführt, gerade weil „33 % weniger“ ohne Basisrisiko nicht sagt, wie vielen Menschen die Behandlung tatsächlich nützt (Quellen).
+:::
+
+## Relativ oder absolut? Dieselbe Zahl, verschiedene Bedeutung
+
+Ein RR von `r de(rr, 2)` klingt immer gleich – was es für eine Person bedeutet, hängt vom **Basisrisiko** ab:
+
+```{r}
+#| label: fig-relabs
+#| echo: false
+#| fig-height: 3.2
+#| fig-cap: "Gleiches relatives Risiko (2,54), verschiedene Basisrisiken: Bei einem seltenen Ereignis (1 %) bedeutet „2,5-mal so hoch“ 1,5 zusätzliche Fälle pro 100 Personen, in der Kohorte (6,9 %) sind es 10,6."
+#| fig-alt: "Zwei horizontale Linien. Oben: Basisrisiko 1,0 Prozent, mit Exposition 2,5 Prozent, Differenz 1,5 Prozentpunkte. Unten: Basisrisiko 6,9 Prozent, mit Exposition 17,6 Prozent, Differenz 10,6 Prozentpunkte."
+plot_rel_vs_abs(base_risks = c(0.01, r0), rr = round(rr, 2))
+```
+
+Für eine Patientenentscheidung ist deshalb die **absolute** Angabe (Risikodifferenz, NNT, „x von 100“) informativer; das RR eignet sich für den Vergleich von Risikofaktoren zwischen Studien. Pressemitteilungen nennen häufig nur relative Zahlen, weil sie größer wirken (Gigerenzer et al. 2007, Quellen).
+
+### Rechner: relativ und absolut
+
+Verschieben Sie Basisrisiko und RR. Die Felder zeigen 100 Personen ohne und 100 mit Exposition; orange sind die zusätzlichen Fälle.
+
+```{=html}
+<div class="epir-relabs" data-base="6.9" data-rr="2.54"></div>
+```
+
+**Aufgabe 1.** Stellen Sie das Basisrisiko auf 1 % und dann auf 30 %, jeweils bei RR = 2,5. Wie ändert sich die Zahl der zusätzlichen Fälle pro 100 Personen? Und was passiert bei Basisrisiko 30 % und RR 4? (Antwort im Selbsttest nicht nötig – beobachten Sie die Warnung.)
+
+## Die Odds Ratio: ein anderer Quotient
+
+Statt Risiken kann man **Odds** (deutsch etwa „Chancen“, bleibt meist unübersetzt) vergleichen. Die Odds eines Ereignisses sind Ereignisse geteilt durch Nicht-Ereignisse:
+
+$$
+\text{Odds} = \frac{p}{1 - p}
+\qquad
+\text{Odds}_{\text{Diabetes}} = \frac{29}{136} = `r dm(odds1, 3)`,\quad
+\text{Odds}_{\text{ohne}} = \frac{102}{1371} = `r dm(odds0, 3)`
+$$
+
+Das **Odds Ratio** (OR) ist der Quotient der Odds, rechnerisch das Kreuzprodukt der Tafel:
+
+$$
+OR = \frac{a \cdot d}{b \cdot c} = \frac{29 \cdot 1371}{136 \cdot 102} = `r dm(or, 2)`
+$$
+
+**Antwortsatz:** „Die Odds, in fünf Jahren eine CKD zu entwickeln, waren bei Personen mit Diabetes `r de(or, 2)`-mal so hoch wie ohne Diabetes (OR = `r de(or, 2)`).“ – *Nicht:* „das Risiko war 2,87-mal so hoch“. Das Risiko war `r de(rr, 2)`-mal so hoch.
+
+```{r}
+#| label: fig-orrr
+#| echo: false
+#| fig-cap: "Je häufiger das Ereignis in der Vergleichsgruppe (Basisrisiko), desto stärker liegt das OR über dem RR. Bei 1 % Basisrisiko sind beide praktisch gleich; bei 20 % läuft das OR davon. Der Kreis markiert unsere Kohorte (Basisrisiko 6,9 %)."
+#| fig-alt: "Liniendiagramm: Odds Ratio gegen relatives Risiko für Basisrisiken 1, 6,9 und 20 Prozent. Die Kurve für 1 Prozent liegt auf der Diagonalen OR gleich RR, die für 20 Prozent steigt steil an. Markierter Punkt bei RR 2,54 und OR 2,87."
+plot_or_vs_rr(base_risks = c(0.01, round(r0, 3), 0.20), mark = list(rr = rr, or = or, label = sprintf("Kohorte: RR %s / OR %s", de(rr, 2), de(or, 2))))
+```
+
+**Faustregel:** Ist das Ereignis selten (Risiko unter etwa 10 % in beiden Gruppen), gilt OR ≈ RR. Hier liegt das Risiko der Exponierten bei `r de(100 * r1)` % – deshalb weichen `r de(or, 2)` und `r de(rr, 2)` schon merklich voneinander ab.
+
+::: {.callout-note collapse="true"}
+## Mehr dazu: Warum überhaupt Odds?
+Zwei Gründe: (1) In **Fall-Kontroll-Studien** ist das OR das einzige berechenbare Maß (nächster Abschnitt). (2) Die **logistische Regression**, das Standardverfahren für Ja/Nein-Ergebnisse mit mehreren Einflussgrößen, liefert Odds Ratios (Modul 6 und später). Mathematisch: OR = RR × (1 − *p*₀)/(1 − *p*₁); für kleine *p* ist der zweite Faktor ≈ 1 (Rothman et al., Quellen).
+:::
+
+## Warum Fall-Kontroll-Studien nur das OR liefern
+
+In einer **Kohortenstudie** stehen die Gruppengrößen der Exponierten und Nicht-Exponierten fest, und man beobachtet, wer erkrankt – daraus folgen Risiken. In einer **Fall-Kontroll-Studie** (engl. *case-control study*) wählen die Forschenden zuerst **Fälle** und **Kontrollen** aus und fragen rückblickend nach der Exposition. Wie viele Kontrollen pro Fall einbezogen werden (1, 2, 4 …), entscheiden sie selbst – damit ist der Anteil Erkrankter in der Studie künstlich und ein Risiko nicht berechenbar.
+
+```{r}
+#| label: fig-design
+#| echo: false
+#| fig-height: 3.8
+#| fig-cap: "Leserichtung der Vierfeldertafel. Kohortenstudie: von der Exposition zur Erkrankung – Risiken je Gruppe sind bekannt. Fall-Kontroll-Studie: von der Erkrankung zur Exposition – nur die Odds der Exposition bei Fällen und Kontrollen lassen sich vergleichen; deren Quotient ist das OR."
+#| fig-alt: "Schema mit zwei Feldern. Links Kohortenstudie: Pfeile von den Kästen Exponierte und Nicht-Exponierte zu Erkrankt. Rechts Fall-Kontroll-Studie: Pfeile von Fälle und Kontrollen zurück zu Exponiert."
+plot_design_schema()
+```
+
+Das Kreuzprodukt a·d / b·c ergibt in beiden Leserichtungen denselben Wert – deshalb ist das OR auch in der Fall-Kontroll-Studie gültig.
+
+::: {.callout-note collapse="true"}
+## Mehr dazu: fiktives Fall-Kontroll-Beispiel zum Ausprobieren
+**Fiktive Zahlen (keine reale Studie):** 200 Fälle, davon 120 exponiert; 400 Kontrollen, davon 120 exponiert. Odds der Exposition: Fälle 120/80 = 1,5; Kontrollen 120/280 = 0,43; OR = 3,5. Hätte man 800 Kontrollen gewählt (240 exponiert), bliebe das OR 3,5 – ein „Risiko“ 200/600 wäre dagegen bedeutungslos. Vereinfacht gilt: Bei seltener Erkrankung nähert das OR einer Fall-Kontroll-Studie das RR der Ausgangsbevölkerung an; exakt hängt die Interpretation davon ab, wie die Kontrollen gezogen wurden (Rothman et al., Quellen).
+
+```{=html}
+<div class="epir-2x2" data-design="casecontrol" data-a="120" data-b="80" data-c="120" data-d="280" data-exposed="Fälle" data-unexposed="Kontrollen" data-outcome="exponiert" data-outcome-no="nicht exponiert"></div>
+```
+:::
+
+## Rechner: Vierfeldertafel einer Kohortenstudie
+
+Vorbelegt mit der Kohorte (Diabetes → neue CKD). Ändern Sie die Zahlen und beobachten Sie, wann OR und RR auseinanderlaufen.
+
+```{=html}
+<div class="epir-2x2" data-a="29" data-b="136" data-c="102" data-d="1371" data-years="5" data-exposed="mit Diabetes" data-unexposed="ohne Diabetes" data-outcome="neue CKD"></div>
+```
+
+**Aufgabe 2.** Zweite Exposition aus der Kohorte: Von `r h$n[h$hypertonie == 1]` Personen mit Hypertonie entwickelten `r h$faelle[h$hypertonie == 1]` eine CKD, von `r h$n[h$hypertonie == 0]` ohne Hypertonie `r h$faelle[h$hypertonie == 0]`. Tragen Sie die Tafel ein (b und d sind die Personen *ohne* CKD) und formulieren Sie den Antwortsatz mit RR und Risikodifferenz. Prüfen Sie Ihr RR im Selbsttest (Frage 1).
+
+## Typische Fehler
+
+| Fehler | Richtig |
+|---|---|
+| „OR = 2,87 – das Risiko ist 2,87-mal so hoch“ | Das OR vergleicht Odds, nicht Risiken. Risiko 2,54-mal so hoch (RR); OR ≈ RR nur bei seltenem Ereignis |
+| „Halbiert das Risiko“ ohne Basisrisiko | Immer mit absoluter Angabe: von 0,2 % auf 0,1 % ist etwas anderes als von 20 % auf 10 % |
+| „NNT = 34“ ohne Zeitraum | NNT = 34 **über drei Jahre** – ein anderer Zeitraum ergibt eine andere NNT |
+| „Das Risiko steigt um 10,7 Prozent“ | Um 10,7 **Prozentpunkte** (von 6,9 % auf 17,6 %); relativ sind es +154 % |
+| Risiko oder RR aus einer Fall-Kontroll-Studie berechnen | Dort ist nur das OR interpretierbar; die Zahl der Kontrollen ist frei gewählt |
+| RR < 1 als „Risiko um 0,67 gesenkt“ lesen | RR = 0,67 heißt: Risiko auf 67 % des Ausgangswerts, also um 33 % relativ gesenkt |
+
+::: {.callout-important icon=false}
+## Take-Home-Messages
+- **Risiko je Gruppe** = kumulative Inzidenz getrennt nach Exposition; alles Weitere sind Quotienten oder Differenzen dieser zwei Zahlen.
+- **RR** = Quotient der Risiken („wievielmal so hoch“); **RD** = Differenz in Prozentpunkten („wie viele zusätzlich“); **NNT/NNH** = 1/RD, aufgerundet, immer mit Zeitraum.
+- Relativ klingt groß, absolut entscheidet: Für Patient:innen zählen Risikodifferenz, NNT oder „x von 100“.
+- **OR** vergleicht Odds (p / (1 − p)); OR ≈ RR nur bei seltenem Ereignis (< ca. 10 %), sonst liegt das OR weiter von 1 entfernt.
+- **Fall-Kontroll-Studien** liefern nur das OR, weil die Zahl der Kontrollen frei gewählt ist.
+:::
+
+## Selbsttest
+
+Die Fragen entsprechen im Format den Klausurfragen (eine richtige Antwort; Rechenaufgaben mit Zahleneingabe). Das Feedback erklärt auch, warum die anderen Antworten nicht stimmen.
+
+```{=html}
+<div class="epir-quiz">
+<script type="application/json">
+{
+  "items": [
+    {
+      "type": "num",
+      "question": "<em>Zu Aufgabe 2:</em> In der Beispielkohorte entwickelten 66 von 621 Personen mit Hypertonie und 65 von 1017 Personen ohne Hypertonie innerhalb von fünf Jahren eine CKD. Wie hoch ist das relative Risiko? (zwei Nachkommastellen)",
+      "label": "RR:",
+      "unit": "",
+      "answer": 1.663,
+      "tol": 0.03,
+      "feedback_correct": "Risiko mit Hypertonie 66/621 = 10,6 %, ohne 65/1017 = 6,4 %; RR = 0,106 / 0,064 = 1,66. Antwortsatz: „Das 5-Jahres-Risiko für eine neue CKD war bei Personen mit Hypertonie 1,66-mal so hoch wie ohne Hypertonie.“",
+      "feedback_wrong": "RR = (Fälle exponiert / alle Exponierten) ÷ (Fälle nicht exponiert / alle Nicht-Exponierten). Berechnen Sie zuerst die beiden Risiken.",
+      "near": [
+        { "value": 1.74, "tol": 0.03, "feedback": "1,74 ist das Odds Ratio (66·952)/(555·65). Gefragt war das relative Risiko – der Quotient der Risiken, nicht der Odds." },
+        { "value": 0.60, "tol": 0.02, "feedback": "Sie haben die Gruppen vertauscht (Risiko ohne ÷ Risiko mit Hypertonie). Das RR setzt das Risiko der Exponierten in den Zähler." },
+        { "value": 4.2, "tol": 0.3, "feedback": "4,2 Prozentpunkte ist die Risikodifferenz (10,6 − 6,4). Das RR ist der Quotient, nicht die Differenz." }
+      ]
+    },
+    {
+      "type": "mc",
+      "question": "Welche Aussage zum Odds Ratio ist <strong>falsch</strong>?",
+      "options": [
+        { "text": "Die Odds eines Ereignisses sind die Zahl der Ereignisse geteilt durch die Zahl der Nicht-Ereignisse.", "correct": false, "feedback": "Diese Aussage ist richtig – Odds = p / (1 − p), zum Beispiel 29 / 136." },
+        { "text": "Ein OR von 2,87 bedeutet, dass das Risiko der Exponierten 2,87-mal so hoch ist.", "correct": true, "feedback": "Diese Aussage ist falsch und damit die gesuchte Antwort: Das OR vergleicht Odds. Das Risiko war in der Kohorte 2,54-mal so hoch (RR); OR und RR stimmen nur bei seltenen Ereignissen näherungsweise überein." },
+        { "text": "Bei seltenen Ereignissen liegen OR und RR nahe beieinander.", "correct": false, "feedback": "Diese Aussage ist richtig – für kleine Risiken ist 1 − p ≈ 1 und damit Odds ≈ Risiko." },
+        { "text": "In einer Fall-Kontroll-Studie ist das OR das Maß der Wahl.", "correct": false, "feedback": "Diese Aussage ist richtig – Risiken sind dort nicht schätzbar, das Kreuzprodukt a·d / b·c aber schon." }
+      ]
+    },
+    {
+      "type": "num",
+      "question": "<em>Fiktive Studie (keine reale Untersuchung):</em> 1000 Personen erhalten ein Medikament, 1000 ein Placebo; nach drei Jahren haben 60 bzw. 90 Personen eine CKD entwickelt. Wie groß ist die Number needed to treat (NNT) über drei Jahre?",
+      "label": "NNT:",
+      "unit": "Personen",
+      "answer": 33.3,
+      "tol": 1.0,
+      "feedback_correct": "Risiko 6,0 % vs. 9,0 %, absolute Risikoreduktion 3,0 Prozentpunkte, NNT = 1 / 0,03 = 33,3 → aufgerundet 34 Personen über drei Jahre. Antwortsatz: „34 Personen müssen drei Jahre behandelt werden, um eine CKD zu verhindern.“",
+      "feedback_wrong": "NNT = 1 / absolute Risikoreduktion. Berechnen Sie zuerst beide Risiken (Fälle / 1000) und deren Differenz.",
+      "near": [
+        { "value": 3.0, "tol": 0.2, "feedback": "3,0 Prozentpunkte ist die absolute Risikoreduktion. Die NNT ist ihr Kehrwert: 1 / 0,03 = 33,3." },
+        { "value": 0.03, "tol": 0.005, "feedback": "0,03 ist die absolute Risikoreduktion als Anteil. NNT = 1 / 0,03 = 33,3." },
+        { "value": 11.1, "tol": 0.3, "feedback": "1 / 0,09 ist der Kehrwert des Placebo-Risikos, nicht der Risikodifferenz. NNT = 1 / (0,09 − 0,06)." },
+        { "value": 16.7, "tol": 0.3, "feedback": "1 / 0,06 ist der Kehrwert des Risikos unter Behandlung. NNT = 1 / (0,09 − 0,06) = 33,3." }
+      ]
+    },
+    {
+      "type": "mc",
+      "question": "Eine Pressemitteilung meldet: „Neues Medikament senkt das CKD-Risiko um 33 %.“ Welche Angabe brauchen Sie <strong>zusätzlich</strong>, um den Nutzen für eine einzelne Patientin zu beurteilen?",
+      "options": [
+        { "text": "Das Basisrisiko ohne Behandlung (bzw. die absolute Risikoreduktion) und den Zeitraum.", "correct": true, "feedback": "33 % relativ können 0,1 oder 10 Prozentpunkte absolut bedeuten; erst mit Basisrisiko und Zeitraum lassen sich ARR und NNT bilden." },
+        { "text": "Den p-Wert der Studie.", "correct": false, "feedback": "Der p-Wert sagt etwas über die statistische Unsicherheit (Modul 6), nicht über die Größe des Nutzens für eine Person." },
+        { "text": "Das Odds Ratio statt des relativen Risikos.", "correct": false, "feedback": "Das OR ist ebenfalls ein relatives Maß und beantwortet dieselbe Frage nicht – es fehlt weiterhin das Basisrisiko." },
+        { "text": "Die Zahl der Studienzentren.", "correct": false, "feedback": "Für die Übertragbarkeit interessant, aber ohne Bezug zur Größe des individuellen Nutzens." }
+      ]
+    },
+    {
+      "type": "mc",
+      "question": "In einer Fall-Kontroll-Studie werden 300 Personen mit Nierensteinen und 600 Kontrollen ohne Nierensteine nach ihrer Trinkmenge befragt. Welches Maß lässt sich daraus <strong>korrekt</strong> berechnen?",
+      "options": [
+        { "text": "Das relative Risiko für Nierensteine bei geringer Trinkmenge.", "correct": false, "feedback": "Dafür bräuchte man das Risiko je Expositionsgruppe – der Anteil Erkrankter (300 von 900) ist aber durch das Design festgelegt, nicht beobachtet." },
+        { "text": "Die Risikodifferenz zwischen geringer und hoher Trinkmenge.", "correct": false, "feedback": "Auch die Risikodifferenz braucht Risiken je Gruppe, die hier nicht schätzbar sind." },
+        { "text": "Das Odds Ratio für geringe Trinkmenge bei Fällen gegenüber Kontrollen.", "correct": true, "feedback": "Das OR (Kreuzprodukt) ist unabhängig davon, wie viele Kontrollen pro Fall gewählt wurden." },
+        { "text": "Die Number needed to harm für geringe Trinkmenge.", "correct": false, "feedback": "NNH ist der Kehrwert der Risikodifferenz – ohne Risiken keine NNH." }
+      ]
+    },
+    {
+      "type": "num",
+      "question": "In der Beispielkohorte betrug das 5-Jahres-Risiko für eine neue CKD 17,6 % mit Diabetes und 6,9 % ohne Diabetes. Wie groß ist die Risikodifferenz in Prozentpunkten? (eine Nachkommastelle)",
+      "label": "Risikodifferenz:",
+      "unit": "Prozentpunkte",
+      "answer": 10.7,
+      "tol": 0.15,
+      "feedback_correct": "17,6 − 6,9 = 10,7 Prozentpunkte (absolute Risikoerhöhung). Antwortsatz: „Das 5-Jahres-Risiko lag bei Personen mit Diabetes um 10,7 Prozentpunkte höher.“ NNH = 1 / 0,107 ≈ 9,4 → 10 Personen.",
+      "feedback_wrong": "Die Risikodifferenz ist die Differenz der beiden Risiken in Prozentpunkten: Risiko exponiert − Risiko nicht exponiert.",
+      "near": [
+        { "value": 2.54, "tol": 0.05, "feedback": "2,54 ist das relative Risiko (Quotient). Gefragt war die Differenz." },
+        { "value": 154, "tol": 3, "feedback": "+154 % ist die relative Risikoerhöhung. Gefragt war die absolute Differenz in Prozentpunkten: 17,6 − 6,9." },
+        { "value": 9.4, "tol": 0.3, "feedback": "9,4 ist die NNH (Kehrwert der Risikodifferenz). Gefragt war die Differenz selbst: 10,7 Prozentpunkte." }
+      ]
+    }
+  ]
+}
+</script>
+</div>
+```
+
+## Dasselbe in R {#dasselbe-in-r}
+
+::: {.callout-tip appearance="simple" icon=false}
+<span class="epir-badge">Vertiefung R</span> Baut auf dem R-Teil von Modul 1 auf (`read_csv()`, `filter()`, `group_by()`, `summarise()`, Pipe `|>`). Neu hier: `pull()` und eine eigene Funktion. Code-Blöcke laufen direkt im Browser („Run Code“); der erste Start dauert bis zu einer Minute.
+:::
+
+### Übung R1: Risiko je Gruppe
+
+Die Personen unter Risiko sind vorbereitet (`unter_risiko`, 1638 Zeilen). Ersetzen Sie die Lücke so, dass das Risiko je Diabetes-Gruppe berechnet wird.
+
+```{webr}
+#| setup: true
+#| exercise: ex_risk
+library(dplyr)
+library(readr)
+kohorte <- read_csv("data/ckd_kohorte.csv", show_col_types = FALSE)
+unter_risiko <- kohorte |> filter(ckd_baseline == 0)
+```
+
+```{webr}
+#| exercise: ex_risk
+unter_risiko |>
+  group_by(diabetes) |>
+  summarise(
+    n = n(),
+    faelle = sum(ckd_inzident),
+    risiko = ______
+  )
+```
+
+::: {.hint exercise="ex_risk"}
+::: {.callout-note collapse="false"}
+## Hinweis
+Risiko = Fälle / Personen. Innerhalb von `summarise()` dürfen Sie auf die gerade berechneten Spalten `faelle` und `n` zugreifen – oder Sie nutzen den Trick aus Modul 1: der Mittelwert einer 0/1-Spalte ist ein Anteil.
+:::
+:::
+
+::: {.solution exercise="ex_risk"}
+::: {.callout-tip collapse="false"}
+## Lösung
+```r
+unter_risiko |>
+  group_by(diabetes) |>
+  summarise(
+    n = n(),
+    faelle = sum(ckd_inzident),
+    risiko = faelle / n          # oder: mean(ckd_inzident)
+  )
+```
+Zwei Zeilen: Diabetes 0 → 102 / 1473 = 0,069; Diabetes 1 → 29 / 165 = 0,176. Das sind die beiden Zahlen, aus denen RR, Risikodifferenz und NNH entstehen.
+:::
+:::
+
+```{webr}
+#| exercise: ex_risk
+#| check: true
+erw <- unter_risiko |> group_by(diabetes) |> summarise(r = mean(ckd_inzident))
+werte <- tryCatch({
+  if (is.data.frame(.result)) unlist(Filter(is.numeric, .result)) else as.numeric(.result)
+}, error = function(e) numeric(0))
+hat <- function(x) any(abs(werte - x) < 1e-6, na.rm = TRUE)
+if (length(werte) > 0 && all(sapply(erw$r, hat))) {
+  list(correct = TRUE, type = "success",
+       message = sprintf("Richtig. Risiko ohne Diabetes %s %%, mit Diabetes %s %%.", formatC(100 * erw$r[1], format = "f", digits = 1, decimal.mark = ","), formatC(100 * erw$r[2], format = "f", digits = 1, decimal.mark = ",")))
+} else if (length(werte) > 0 && hat(sum(unter_risiko$ckd_inzident) / nrow(unter_risiko))) {
+  list(correct = FALSE, type = "warning", message = "Das ist das Gesamtrisiko aller 1638 Personen. Gefragt war das Risiko je Gruppe – innerhalb von summarise() mit den Spalten faelle und n.")
+} else {
+  list(correct = FALSE, type = "info", message = "Noch nicht ganz. Risiko = faelle / n (oder mean(ckd_inzident)).")
+}
+```
+
+### Übung R2: Relatives Risiko
+
+`pull()` holt eine einzelne Spalte als Zahlenvektor aus einer Tabelle heraus. Ergänzen Sie die Lücke, damit `rr` das relative Risiko (Diabetes vs. kein Diabetes) enthält.
+
+```{webr}
+#| setup: true
+#| exercise: ex_rr
+library(dplyr)
+library(readr)
+kohorte <- read_csv("data/ckd_kohorte.csv", show_col_types = FALSE)
+unter_risiko <- kohorte |> filter(ckd_baseline == 0)
+```
+
+```{webr}
+#| exercise: ex_rr
+risiken <- unter_risiko |>
+  group_by(diabetes) |>
+  summarise(risiko = mean(ckd_inzident))
+
+risiko_mit  <- risiken |> filter(diabetes == 1) |> pull(risiko)
+risiko_ohne <- risiken |> filter(diabetes == 0) |> pull(risiko)
+
+rr <- risiko_mit / ______
+rr
+```
+
+::: {.hint exercise="ex_rr"}
+::: {.callout-note collapse="false"}
+## Hinweis
+RR = Risiko der Exponierten geteilt durch Risiko der Nicht-Exponierten. Beide Zahlen liegen bereits in Objekten vor.
+:::
+:::
+
+::: {.solution exercise="ex_rr"}
+::: {.callout-tip collapse="false"}
+## Lösung
+```r
+rr <- risiko_mit / risiko_ohne
+rr      # 2.54
+```
+`filter()` wählt die Zeile der Gruppe, `pull(risiko)` zieht daraus den Zahlenwert. Mit zwei Zahlen ist das RR ein einfacher Bruch.
+:::
+:::
+
+```{webr}
+#| exercise: ex_rr
+#| check: true
+erw <- unter_risiko |> group_by(diabetes) |> summarise(r = mean(ckd_inzident))
+rr_erw <- erw$r[erw$diabetes == 1] / erw$r[erw$diabetes == 0]
+rd_erw <- erw$r[erw$diabetes == 1] - erw$r[erw$diabetes == 0]
+wert <- tryCatch(as.numeric(.result), error = function(e) NA_real_)
+if (length(wert) == 1 && !is.na(wert) && abs(wert - rr_erw) < 1e-6) {
+  list(correct = TRUE, type = "success", message = sprintf("Richtig. RR = %s: Das 5-Jahres-Risiko war mit Diabetes %s-mal so hoch.", formatC(rr_erw, format = "f", digits = 2, decimal.mark = ","), formatC(rr_erw, format = "f", digits = 2, decimal.mark = ",")))
+} else if (length(wert) == 1 && !is.na(wert) && abs(wert - 1 / rr_erw) < 1e-6) {
+  list(correct = FALSE, type = "warning", message = "Das ist 1 / RR – Sie haben die Gruppen vertauscht. Das Risiko der Exponierten gehört in den Zähler.")
+} else if (length(wert) == 1 && !is.na(wert) && abs(wert - rd_erw) < 1e-6) {
+  list(correct = FALSE, type = "warning", message = "Das ist die Risikodifferenz (Minus). Das RR ist ein Quotient (Geteilt).")
+} else {
+  list(correct = FALSE, type = "info", message = "Noch nicht ganz. Die letzte Zeile soll rr ausgeben; rr = risiko_mit / risiko_ohne.")
+}
+```
+
+### Übung R3: Eine eigene Funktion
+
+Dieselbe Rechnung braucht man oft. In R fasst man sie in eine **Funktion**: `function(...)` nennt die Eingaben (Argumente), der Block in `{ }` rechnet, die letzte Zeile ist das Ergebnis. Vervollständigen Sie `rel_risiko()` mit den Feldern der Vierfeldertafel.
+
+```{webr}
+#| setup: true
+#| exercise: ex_fun
+library(dplyr)
+```
+
+```{webr}
+#| exercise: ex_fun
+rel_risiko <- function(a, b, c, d) {
+  risiko_exponiert <- a / (a + b)
+  risiko_nicht     <- ______
+  risiko_exponiert / risiko_nicht
+}
+
+rel_risiko(a = 29, b = 136, c = 102, d = 1371)
+```
+
+::: {.hint exercise="ex_fun"}
+::: {.callout-note collapse="false"}
+## Hinweis
+Zeile 2 berechnet das Risiko der Exponierten aus a und b. Das Risiko der Nicht-Exponierten entsteht genauso aus c und d.
+:::
+:::
+
+::: {.solution exercise="ex_fun"}
+::: {.callout-tip collapse="false"}
+## Lösung
+```r
+rel_risiko <- function(a, b, c, d) {
+  risiko_exponiert <- a / (a + b)
+  risiko_nicht     <- c / (c + d)
+  risiko_exponiert / risiko_nicht
+}
+rel_risiko(a = 29, b = 136, c = 102, d = 1371)   # 2.54
+```
+Die Funktion ist wiederverwendbar: `rel_risiko(66, 555, 65, 952)` liefert das RR für Hypertonie (Aufgabe 2).
+:::
+:::
+
+```{webr}
+#| exercise: ex_fun
+#| check: true
+wert <- tryCatch(as.numeric(.result), error = function(e) NA_real_)
+rr_erw <- (29 / 165) / (102 / 1473)
+env <- if (exists(".envir_result")) .envir_result else environment()
+if (!exists("rel_risiko", envir = env, inherits = TRUE) || !is.function(get("rel_risiko", envir = env, inherits = TRUE))) {
+  list(correct = FALSE, type = "info", message = "Die Funktion rel_risiko wurde nicht angelegt – prüfen Sie die erste Zeile.")
+} else if (length(wert) == 1 && !is.na(wert) && abs(wert - rr_erw) < 1e-6) {
+  list(correct = TRUE, type = "success", message = "Richtig. Ihre Funktion liefert RR = 2,54. Probieren Sie rel_risiko(66, 555, 65, 952) für Hypertonie.")
+} else if (length(wert) == 1 && !is.na(wert) && abs(wert - (29 / 165) / (102 / 1371)) < 1e-6) {
+  list(correct = FALSE, type = "warning", message = "Fast: Der Nenner des zweiten Risikos muss alle Nicht-Exponierten umfassen, also c + d, nicht nur d.")
+} else {
+  list(correct = FALSE, type = "info", message = "Noch nicht ganz. Das Risiko der Nicht-Exponierten ist c / (c + d).")
+}
+```
+
+### Übung R4: Odds und Odds Ratio
+
+Odds = Risiko / (1 − Risiko). Ergänzen Sie die Spalte `odds`; das OR ist dann der Quotient der beiden Odds.
+
+```{webr}
+#| setup: true
+#| exercise: ex_or
+library(dplyr)
+library(readr)
+kohorte <- read_csv("data/ckd_kohorte.csv", show_col_types = FALSE)
+unter_risiko <- kohorte |> filter(ckd_baseline == 0)
+```
+
+```{webr}
+#| exercise: ex_or
+unter_risiko |>
+  group_by(diabetes) |>
+  summarise(
+    risiko = mean(ckd_inzident),
+    odds   = ______
+  )
+```
+
+::: {.hint exercise="ex_or"}
+::: {.callout-note collapse="false"}
+## Hinweis
+Innerhalb von `summarise()` können Sie die eben berechnete Spalte `risiko` weiterverwenden.
+:::
+:::
+
+::: {.solution exercise="ex_or"}
+::: {.callout-tip collapse="false"}
+## Lösung
+```r
+unter_risiko |>
+  group_by(diabetes) |>
+  summarise(
+    risiko = mean(ckd_inzident),
+    odds   = risiko / (1 - risiko)
+  )
+```
+Odds ohne Diabetes 0,074, mit Diabetes 0,213; OR = 0,213 / 0,074 = 2,87 – größer als das RR von 2,54, weil 17,6 % kein seltenes Ereignis sind.
+:::
+:::
+
+```{webr}
+#| exercise: ex_or
+#| check: true
+erw <- unter_risiko |> group_by(diabetes) |> summarise(r = mean(ckd_inzident), o = r / (1 - r))
+werte <- tryCatch({
+  if (is.data.frame(.result)) unlist(Filter(is.numeric, .result)) else as.numeric(.result)
+}, error = function(e) numeric(0))
+hat <- function(x) any(abs(werte - x) < 1e-6, na.rm = TRUE)
+if (length(werte) > 0 && all(sapply(erw$o, hat))) {
+  list(correct = TRUE, type = "success",
+       message = sprintf("Richtig. Odds %s und %s; OR = %s (RR war 2,54).", formatC(erw$o[1], format = "f", digits = 3, decimal.mark = ","), formatC(erw$o[2], format = "f", digits = 3, decimal.mark = ","), formatC(erw$o[2] / erw$o[1], format = "f", digits = 2, decimal.mark = ",")))
+} else if (length(werte) > 0 && all(sapply(erw$r / (1 + erw$r), hat))) {
+  list(correct = FALSE, type = "warning", message = "Sie haben risiko / (1 + risiko) gerechnet. Odds = risiko / (1 − risiko).")
+} else {
+  list(correct = FALSE, type = "info", message = "Noch nicht ganz. odds = risiko / (1 - risiko).")
+}
+```
+
+### Bonus: Zweite Exposition in einer Zeile
+
+Mit der Funktion aus R3 und `count()` ist das RR für Hypertonie schnell geprüft. Der Block ist eigenständig lauffähig.
+
+```{webr}
+library(dplyr)
+library(readr)
+kohorte <- read_csv("data/ckd_kohorte.csv", show_col_types = FALSE)
+unter_risiko <- kohorte |> filter(ckd_baseline == 0)
+
+rel_risiko <- function(a, b, c, d) (a / (a + b)) / (c / (c + d))
+
+tafel <- unter_risiko |> count(hypertonie, ckd_inzident)
+tafel
+
+rel_risiko(a = 66, b = 555, c = 65, d = 952)
+```
+
+::: {.callout-note collapse="true"}
+## Was Sie in R mitnehmen
+- `group_by()` + `summarise()` liefern Risiken je Gruppe; spätere Spalten in `summarise()` dürfen frühere verwenden.
+- `pull()` zieht eine Spalte als Zahl(en) heraus – praktisch für kleine Rechnungen.
+- `function(a, b, c, d) { ... }` definiert eine eigene Funktion; die letzte Zeile ist das Ergebnis.
+- `count()` zählt Kombinationen und ist der schnellste Weg zur Vierfeldertafel.
+:::
+
+## Quellen und weiterführende Literatur
+
+- Rothman KJ, Lash TL, VanderWeele TJ, Haneuse S. *Modern Epidemiology*. 4. Aufl. Philadelphia: Wolters Kluwer; 2021. Kapitel „Measures of Effect and Measures of Association“ (Risk Ratio, Risk Difference, Odds Ratio, Beziehung OR–RR) und Kapitel zu Fall-Kontroll-Studien (Interpretation des OR je nach Auswahl der Kontrollen).
+- Celentano DD, Szklo M. *Gordis Epidemiology*. 6. Aufl. Philadelphia: Elsevier; 2019. Kapitel „Estimating Risk: Is There an Association?“ (RR, OR, Kohorten- vs. Fall-Kontroll-Studie).
+- Laupacis A, Sackett DL, Roberts RS. An assessment of clinically useful measures of the consequences of treatment. *N Engl J Med* 1988;318:1728–1733. [https://doi.org/10.1056/NEJM198806303182605](https://doi.org/10.1056/NEJM198806303182605) – Einführung der NNT.
+- Gigerenzer G, Gaissmaier W, Kurz-Milcke E, Schwartz LM, Woloshin S. Helping doctors and patients make sense of health statistics. *Psychol Sci Public Interest* 2007;8:53–96. [https://doi.org/10.1111/j.1539-6053.2008.00033.x](https://doi.org/10.1111/j.1539-6053.2008.00033.x) – relative vs. absolute Risikoangaben, natürliche Häufigkeiten.
+- Wickham H, Çetinkaya-Rundel M, Grolemund G. *R for Data Science*. 2. Aufl. O'Reilly; 2023. Kapitel „Functions“: [https://r4ds.hadley.nz/functions](https://r4ds.hadley.nz/functions)
+- dplyr-Dokumentation: `pull()`, `count()`, `summarise()`: [https://dplyr.tidyverse.org](https://dplyr.tidyverse.org)

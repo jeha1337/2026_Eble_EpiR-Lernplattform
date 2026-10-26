@@ -64,7 +64,7 @@ $headings-font-weight: 600;
 
 // ---------------------------------------------------------------------------
 // EpiR widgets (assets/epir-widgets.js)
-.epir-quiz, .epir-calc, .epir-pool {
+.epir-quiz, .epir-calc, .epir-pool, .epir-2x2, .epir-relabs {
   border: 1px solid #d9dee3;
   border-radius: 6px;
   padding: 1rem 1.1rem;
@@ -162,3 +162,16 @@ $headings-font-weight: 600;
 // Figures: subtle frame + caption style
 .quarto-figure { margin: 1rem 0 1.4rem 0; }
 figcaption, .figure-caption { color: #555; font-size: 0.9rem; }
+
+// 2x2 table calculator and relative-vs-absolute widget (module 3)
+.epir-2x2-table { border-collapse: collapse; margin-bottom: 0.4rem;
+  th, td { padding: 0.3rem 0.5rem; border: 1px solid #d8dde2; text-align: center; }
+  th:first-child { text-align: left; }
+  td.epir-sum { color: #555; font-variant-numeric: tabular-nums; min-width: 4rem; }
+  .epir-cell { width: 6rem; text-align: right; display: inline-block; }
+}
+.epir-row-key th, .epir-row-key td { font-weight: 700; color: $primary; }
+.epir-ia-cell { fill: #e2e6ea; }
+.epir-ia-case { fill: $primary; }
+.epir-ia-extra { fill: #d9822b; }
+.epir-ia-avoided { fill: #fff; stroke: $primary; stroke-width: 1.2; }

@@ -12,6 +12,12 @@
  *                  data-cases="362" data-denom="2000" data-years="5"></div>
  *  3. Pool:   <div class="epir-pool" data-inc="18.5" data-dur="10"></div>
  *             (steady-state model: prevalence odds = incidence rate x mean duration)
+ *  4. 2x2:    <div class="epir-2x2" data-a="29" data-b="136" data-c="102" data-d="1371"
+ *                  data-years="5" data-exposed="mit Diabetes" data-unexposed="ohne Diabetes"
+ *                  data-outcome="neue CKD" data-design="cohort|casecontrol"></div>
+ *             (cohort 2x2 table -> risks, RR, OR, risk difference, NNT/NNH + answer sentence)
+ *  5. RelAbs: <div class="epir-relabs" data-base="7" data-rr="2.5"></div>
+ *             (sliders: baseline risk x RR -> absolute risk difference and NNT/NNH)
  */
 (function () {
   "use strict";
@@ -434,11 +440,188 @@
     render();
   }
 
+  // ---------- 4. 2x2 table calculator (RR, OR, RD, NNT) --------------------
+  function initTwoByTwo(root) {
+    const id = nextId("epir-2x2");
+    const d0 = root.dataset;
+    const expLab = d0.exposed || "exponiert";
+    const unexpLab = d0.unexposed || "nicht exponiert";
+    const outLab = d0.outcome || "Ereignis";
+    const outNo = d0.outcomeNo || `kein ${outLab}`;
+    const years = parseNum(d0.years);
+    const design = d0.design === "casecontrol" ? "casecontrol" : "cohort";
+
+    const mkIn = (key, val) =>
+      el("input", { type: "text", inputmode: "numeric", class: "form-control form-control-sm epir-cell", id: `${id}-${key}`, value: val == null ? "" : String(val), "aria-label": key });
+    const aIn = mkIn("a", d0.a), bIn = mkIn("b", d0.b), cIn = mkIn("c", d0.c), dIn = mkIn("d", d0.d);
+
+    const table = el("table", { class: "epir-2x2-table" });
+    table.appendChild(el("tr", null, [el("th", { text: "" }), el("th", { text: outLab }), el("th", { text: outNo }), el("th", { text: "gesamt" })]));
+    const sumExp = el("td", { class: "epir-sum" }), sumUnexp = el("td", { class: "epir-sum" });
+    table.appendChild(el("tr", null, [el("th", { text: expLab }), el("td", null, [aIn]), el("td", null, [bIn]), sumExp]));
+    table.appendChild(el("tr", null, [el("th", { text: unexpLab }), el("td", null, [cIn]), el("td", null, [dIn]), sumUnexp]));
+
+    const out = el("div", { class: "epir-calc-out", "aria-live": "polite" });
+    const pp = (x, digits) => `${fmtDE(100 * x, digits == null ? 1 : digits)} %`;
+
+    function render() {
+      const a = parseNum(aIn.value), b = parseNum(bIn.value), c = parseNum(cIn.value), d = parseNum(dIn.value);
+      out.innerHTML = "";
+      const ok = [a, b, c, d].every((v) => Number.isFinite(v) && v >= 0);
+      sumExp.textContent = ok ? fmtInt(a + b) : "";
+      sumUnexp.textContent = ok ? fmtInt(c + d) : "";
+      if (!ok) {
+        out.appendChild(el("p", { class: "epir-info", text: "Bitte alle vier Felder als Zahlen (≥ 0) ausfüllen." }));
+        return;
+      }
+      if (a + b === 0 || c + d === 0) {
+        out.appendChild(el("p", { class: "epir-warning", text: "Jede Gruppe braucht mindestens eine Person." }));
+        return;
+      }
+      const t = el("table", { class: "epir-calc-table" });
+      const row = (k, v, cls) => t.appendChild(el("tr", { class: cls || "" }, [el("th", { text: k }), el("td", { text: v })]));
+      const timeTxt = Number.isFinite(years) && years > 0 ? ` in ${fmtDE(years, years % 1 === 0 ? 0 : 1)} Jahren` : "";
+
+      if (design === "casecontrol") {
+        if (b === 0 || c === 0) {
+          out.appendChild(el("p", { class: "epir-warning", text: "Für das Odds Ratio dürfen die Felder b und c nicht 0 sein." }));
+          return;
+        }
+        const or = (a * d) / (b * c);
+        row("Odds der Exposition bei Fällen (a/b)", fmtDE(a / b, 3));
+        row("Odds der Exposition bei Kontrollen (c/d)", fmtDE(c / d, 3));
+        row("Odds Ratio (OR)", fmtDE(or, 2), "epir-row-key");
+        out.appendChild(t);
+        out.appendChild(el("p", { class: "epir-warning epir-small", text: "Fall-Kontroll-Design: Die Zeilensummen bestimmen die Forschenden (Zahl der Fälle und Kontrollen) – Risiken, RR und NNT lassen sich daraus nicht berechnen. Nur das OR ist interpretierbar." }));
+        out.appendChild(el("p", { class: "epir-sentence", text: `Antwortsatz: „Die Odds, exponiert zu sein, waren bei den Fällen ${fmtDE(or, 2)}-mal so hoch wie bei den Kontrollen (OR = ${fmtDE(or, 2)}).“` }));
+        return;
+      }
+
+      const r1 = a / (a + b), r0 = c / (c + d);
+      row(`Risiko ${expLab}`, `${fmtInt(a)} / ${fmtInt(a + b)} = ${pp(r1)}`);
+      row(`Risiko ${unexpLab}`, `${fmtInt(c)} / ${fmtInt(c + d)} = ${pp(r0)}`);
+      if (r0 === 0) {
+        out.appendChild(t);
+        out.appendChild(el("p", { class: "epir-warning", text: "Kein Ereignis in der Vergleichsgruppe: RR und OR sind nicht definiert (Division durch 0). Die Risikodifferenz ist trotzdem berechenbar: " + pp(r1 - r0) + "." }));
+        return;
+      }
+      const rr = r1 / r0;
+      const rd = r1 - r0;
+      const or = b > 0 && c > 0 ? (a * d) / (b * c) : NaN;
+      row("Relatives Risiko (RR)", fmtDE(rr, 2), "epir-row-key");
+      if (Number.isFinite(or)) row("Odds Ratio (OR)", fmtDE(or, 2));
+      row(rd >= 0 ? "Risikodifferenz (absolute Risikoerhöhung, ARI)" : "Risikodifferenz (absolute Risikoreduktion, ARR)", `${fmtDE(100 * Math.abs(rd), 1)} Prozentpunkte`, "epir-row-key");
+      if (rd !== 0) {
+        const nn = 1 / Math.abs(rd);
+        row(rd > 0 ? "Number needed to harm (NNH)" : "Number needed to treat (NNT)", `${fmtDE(nn, 1)} → aufgerundet ${fmtInt(Math.ceil(nn - 1e-9))}${timeTxt}`);
+      }
+      out.appendChild(t);
+
+      if (Number.isFinite(or) && Math.max(r1, r0) > 0.1 && Math.abs(or - rr) / rr > 0.05) {
+        out.appendChild(el("p", { class: "epir-info epir-small", text: `OR (${fmtDE(or, 2)}) und RR (${fmtDE(rr, 2)}) weichen hier spürbar voneinander ab, weil das Ereignis nicht selten ist (${pp(Math.max(r1, r0))} in einer Gruppe). Die Faustregel OR ≈ RR gilt nur bei seltenen Ereignissen (etwa < 10 %).` }));
+      }
+      const dir = rd > 0 ? "höher" : "niedriger";
+      let sentence = `Antwortsatz: „Das Risiko für ${outLab}${timeTxt} betrug ${pp(r1)} ${expLab} und ${pp(r0)} ${unexpLab}. Es war ${expLab} ${fmtDE(rr, 2)}-mal so hoch (RR = ${fmtDE(rr, 2)}); absolut lag es um ${fmtDE(100 * Math.abs(rd), 1)} Prozentpunkte ${dir}.`;
+      if (rd !== 0) {
+        const nn = Math.ceil(1 / Math.abs(rd) - 1e-9);
+        sentence += rd > 0
+          ? ` Auf ${fmtInt(nn)} Personen ${expLab} kommt${timeTxt} ein zusätzliches Ereignis (NNH = ${fmtInt(nn)}).“`
+          : ` ${fmtInt(nn)} Personen müssen${timeTxt} behandelt werden, um ein Ereignis zu verhindern (NNT = ${fmtInt(nn)}).“`;
+      } else sentence += "“";
+      out.appendChild(el("p", { class: "epir-sentence", text: sentence }));
+    }
+    [aIn, bIn, cIn, dIn].forEach((i) => i.addEventListener("input", render));
+    root.appendChild(el("div", { class: "epir-calc-body" }, [table, out]));
+    render();
+  }
+
+  // ---------- 5. Relative vs. absolute (sliders) --------------------------
+  function initRelAbs(root) {
+    const id = nextId("epir-relabs");
+    const base0 = parseNum(root.dataset.base) || 7;   // baseline risk in %
+    const rr0 = parseNum(root.dataset.rr) || 2.5;
+    const baseIn = el("input", { type: "range", min: "0.1", max: "50", step: "0.1", value: String(base0), id: `${id}-base`, class: "form-range" });
+    const rrIn = el("input", { type: "range", min: "0.1", max: "5", step: "0.01", value: String(rr0), id: `${id}-rr`, class: "form-range" });
+    const baseVal = el("output", { for: `${id}-base`, class: "epir-slider-val" });
+    const rrVal = el("output", { for: `${id}-rr`, class: "epir-slider-val" });
+
+    // SVG: two bars of 100 persons each (10x10 icon grid), coloured by outcome
+    const svgNS = "http://www.w3.org/2000/svg";
+    const W = 340, H = 190;
+    const svg = document.createElementNS(svgNS, "svg");
+    svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+    svg.setAttribute("class", "epir-pool-svg");
+    svg.setAttribute("role", "img");
+    svg.setAttribute("aria-label", "Zwei Gruppen zu je 100 Personen; markierte Felder zeigen die Zahl der Betroffenen ohne und mit Exposition");
+    const mk = (tag, attrs) => { const n = document.createElementNS(svgNS, tag); Object.entries(attrs).forEach(([k, v]) => n.setAttribute(k, v)); return n; };
+    const cells = [[], []];
+    const grid = (gx, label) => {
+      const t = mk("text", { x: gx + 60, y: 14, "text-anchor": "middle", class: "epir-pool-label" }); t.textContent = label; svg.appendChild(t);
+      for (let i = 0; i < 100; i++) {
+        const r = mk("rect", { x: gx + (i % 10) * 12, y: 24 + Math.floor(i / 10) * 12, width: 10, height: 10, rx: 1.5, class: "epir-ia-cell" });
+        svg.appendChild(r);
+        cells[label === "ohne Exposition" ? 0 : 1].push(r);
+      }
+    };
+    grid(20, "ohne Exposition"); grid(190, "mit Exposition");
+    const cap0 = mk("text", { x: 80, y: H - 30, "text-anchor": "middle", class: "epir-pool-value" });
+    const cap1 = mk("text", { x: 250, y: H - 30, "text-anchor": "middle", class: "epir-pool-value" });
+    const capSub = mk("text", { x: W / 2, y: H - 8, "text-anchor": "middle", class: "epir-pool-label" });
+    svg.appendChild(cap0); svg.appendChild(cap1); svg.appendChild(capSub);
+
+    const out = el("div", { class: "epir-pool-out", "aria-live": "polite" });
+    function render() {
+      const base = Number(baseIn.value) / 100;
+      const rr = Number(rrIn.value);
+      const exp = Math.min(1, base * rr);
+      baseVal.textContent = `${fmtDE(100 * base, 1)} % (von 100 Personen: ${fmtDE(100 * base, 1)})`;
+      rrVal.textContent = `RR = ${fmtDE(rr, 2)}`;
+      const n0 = Math.round(100 * base), n1 = Math.round(100 * exp);
+      cells[0].forEach((r, i) => r.setAttribute("class", i < n0 ? "epir-ia-cell epir-ia-case" : "epir-ia-cell"));
+      cells[1].forEach((r, i) => r.setAttribute("class", i < n1 ? "epir-ia-cell epir-ia-case" : i < n0 ? "epir-ia-cell epir-ia-case" : "epir-ia-cell"));
+      // extra cases (beyond baseline) get the accent colour
+      if (n1 > n0) cells[1].forEach((r, i) => { if (i >= n0 && i < n1) r.setAttribute("class", "epir-ia-cell epir-ia-extra"); });
+      if (n1 < n0) cells[1].forEach((r, i) => { if (i >= n1 && i < n0) r.setAttribute("class", "epir-ia-cell epir-ia-avoided"); });
+      cap0.textContent = `${fmtDE(100 * base, 1)} von 100`;
+      cap1.textContent = `${fmtDE(100 * exp, 1)} von 100`;
+      const rd = exp - base;
+      capSub.textContent = rd >= 0 ? `orange = zusätzliche Fälle: ${fmtDE(100 * rd, 1)} von 100` : `hell umrandet = verhinderte Fälle: ${fmtDE(-100 * rd, 1)} von 100`;
+      out.innerHTML = "";
+      const t = el("table", { class: "epir-calc-table" });
+      const row = (k, v) => t.appendChild(el("tr", null, [el("th", { text: k }), el("td", { text: v })]));
+      row("Relatives Risiko", `${fmtDE(rr, 2)} (${rr >= 1 ? "+" : "−"}${fmtDE(100 * Math.abs(rr - 1), 0)} % relativ)`);
+      row("Risiko mit Exposition", `${fmtDE(100 * exp, 1)} %`);
+      row(rd >= 0 ? "Absolute Risikoerhöhung" : "Absolute Risikoreduktion", `${fmtDE(100 * Math.abs(rd), 1)} Prozentpunkte`);
+      if (rd !== 0) row(rd > 0 ? "NNH" : "NNT", fmtInt(Math.ceil(1 / Math.abs(rd) - 1e-9)));
+      out.appendChild(t);
+      if (exp >= 1) out.appendChild(el("p", { class: "epir-warning epir-small", text: "Basisrisiko × RR übersteigt 100 % – ein so hohes RR ist bei diesem Basisrisiko nicht möglich. Das ist ein weiterer Grund, warum RR und Basisrisiko zusammengehören." }));
+    }
+    const scenario = (txt, fn) => { const b = el("button", { type: "button", class: "btn btn-sm btn-outline-primary", text: txt }); b.addEventListener("click", () => { fn(); render(); }); return b; };
+    const buttons = el("div", { class: "epir-pool-buttons" }, [
+      scenario("Seltenes Ereignis: Basisrisiko 1 %", () => { baseIn.value = "1"; }),
+      scenario("Kohorte: Basisrisiko 6,9 %, RR 2,54", () => { baseIn.value = "6.9"; rrIn.value = "2.54"; }),
+      scenario("Schutzfaktor: RR 0,5", () => { rrIn.value = "0.5"; }),
+      scenario("Zurücksetzen", () => { baseIn.value = String(base0); rrIn.value = String(rr0); }),
+    ]);
+    baseIn.addEventListener("input", render); rrIn.addEventListener("input", render);
+    root.appendChild(el("div", { class: "epir-pool-body" }, [
+      el("div", { class: "epir-pool-controls" }, [
+        el("div", { class: "epir-slider" }, [el("label", { for: `${id}-base`, text: "Basisrisiko (ohne Exposition)" }), baseIn, baseVal]),
+        el("div", { class: "epir-slider" }, [el("label", { for: `${id}-rr`, text: "Relatives Risiko" }), rrIn, rrVal]),
+        buttons,
+      ]),
+      el("div", { class: "epir-pool-vis" }, [svg, out]),
+    ]));
+    render();
+  }
+
   // ---------- boot ---------------------------------------------------------
   function boot() {
     document.querySelectorAll(".epir-quiz").forEach(initQuiz);
     document.querySelectorAll(".epir-calc").forEach(initCalc);
     document.querySelectorAll(".epir-pool").forEach(initPool);
+    document.querySelectorAll(".epir-2x2").forEach(initTwoByTwo);
+    document.querySelectorAll(".epir-relabs").forEach(initRelAbs);
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
   else boot();

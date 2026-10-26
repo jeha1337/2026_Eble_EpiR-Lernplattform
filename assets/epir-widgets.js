@@ -18,6 +18,12 @@
  *             (cohort 2x2 table -> risks, RR, OR, risk difference, NNT/NNH + answer sentence)
  *  5. RelAbs: <div class="epir-relabs" data-base="7" data-rr="2.5"></div>
  *             (sliders: baseline risk x RR -> absolute risk difference and NNT/NNH)
+ *  6. Dx:     <div class="epir-dx" data-tp="175" data-fn="46" data-fp="179" data-tn="1600"
+ *                  data-disease="Albuminurie" data-test="Teststreifen"></div>
+ *             (diagnostic 2x2 table -> prevalence, Sens, Spez, PPV, NPV, LR + answer sentence)
+ *  7. PPV:    <div class="epir-ppv" data-prev="11" data-sens="79" data-spez="90" data-n="1000"
+ *                  data-disease="Albuminurie" data-scenarios="Label|prev|sens|spez;..."></div>
+ *             (sliders prevalence x sensitivity x specificity -> natural-frequency tree, PPV/NPV)
  */
 (function () {
   "use strict";
@@ -629,6 +635,147 @@
     render();
   }
 
+  // ---------- 6. Diagnostic 2x2 table (Sens, Spez, PPV, NPV) --------------
+  // Colours as in R/epir_plots.R (epir_dx_cols): orange = disease present,
+  // petrol = disease absent; light tones = test result wrong.
+  const DX_COLS = { TP: "#d9822b", FN: "#f3cfa6", FP: "#9fd0d0", TN: "#0b6e6e" };
+
+  function initDx(root) {
+    const id = nextId("epir-dx");
+    const d0 = root.dataset;
+    const disease = d0.disease || "Krankheit";
+    const testLab = d0.test || "Test";
+    const mkIn = (key, val) =>
+      el("input", { type: "text", inputmode: "numeric", class: "form-control form-control-sm epir-cell", id: `${id}-${key}`, value: val == null ? "" : String(val), "aria-label": key });
+    const tpIn = mkIn("tp", d0.tp), fnIn = mkIn("fn", d0.fn), fpIn = mkIn("fp", d0.fp), tnIn = mkIn("tn", d0.tn);
+    const cell = (inp, key) => { const td = el("td", { class: "epir-dx-cell" }, [el("span", { class: "epir-dx-tag", text: key }), inp]); td.style.background = DX_COLS[key === "RP" ? "TP" : key === "RN" ? "TN" : key]; if (key === "RP" || key === "RN") td.classList.add("epir-dx-dark"); return td; };
+
+    const table = el("table", { class: "epir-2x2-table epir-dx-table" });
+    table.appendChild(el("tr", null, [el("th", { text: "" }), el("th", { text: `${disease} vorhanden` }), el("th", { text: `${disease} nicht vorhanden` }), el("th", { text: "Zeile gesamt" })]));
+    const sumPos = el("td", { class: "epir-sum" }), sumNeg = el("td", { class: "epir-sum" });
+    const sumSick = el("td", { class: "epir-sum" }), sumWell = el("td", { class: "epir-sum" }), sumAll = el("td", { class: "epir-sum" });
+    table.appendChild(el("tr", null, [el("th", { text: `${testLab} positiv` }), cell(tpIn, "RP"), cell(fpIn, "FP"), sumPos]));
+    table.appendChild(el("tr", null, [el("th", { text: `${testLab} negativ` }), cell(fnIn, "FN"), cell(tnIn, "RN"), sumNeg]));
+    table.appendChild(el("tr", { class: "epir-sum-row" }, [el("th", { text: "Spalte gesamt" }), sumSick, sumWell, sumAll]));
+
+    const out = el("div", { class: "epir-calc-out", "aria-live": "polite" });
+    const pp = (x, digits) => `${fmtDE(100 * x, digits == null ? 1 : digits)} %`;
+
+    function render() {
+      const tp = parseNum(tpIn.value), fn = parseNum(fnIn.value), fp = parseNum(fpIn.value), tn = parseNum(tnIn.value);
+      out.innerHTML = "";
+      const ok = [tp, fn, fp, tn].every((v) => Number.isFinite(v) && v >= 0);
+      [sumPos, sumNeg, sumSick, sumWell, sumAll].forEach((c) => (c.textContent = ""));
+      if (!ok) { out.appendChild(el("p", { class: "epir-info", text: "Bitte alle vier Felder als Zahlen (≥ 0) ausfüllen." })); return; }
+      const n = tp + fn + fp + tn;
+      sumPos.textContent = fmtInt(tp + fp); sumNeg.textContent = fmtInt(fn + tn);
+      sumSick.textContent = fmtInt(tp + fn); sumWell.textContent = fmtInt(fp + tn); sumAll.textContent = fmtInt(n);
+      if (tp + fn === 0 || fp + tn === 0) { out.appendChild(el("p", { class: "epir-warning", text: "Für Sensitivität und Spezifität braucht es Personen mit und ohne " + disease + "." })); return; }
+      const sens = tp / (tp + fn), spez = tn / (fp + tn), prev = (tp + fn) / n;
+      const ppv = tp + fp > 0 ? tp / (tp + fp) : NaN, npv = fn + tn > 0 ? tn / (fn + tn) : NaN;
+      const t = el("table", { class: "epir-calc-table" });
+      const row = (k, v, cls) => t.appendChild(el("tr", { class: cls || "" }, [el("th", { text: k }), el("td", { text: v })]));
+      row("Prävalenz (Vortestwahrscheinlichkeit)", `${fmtInt(tp + fn)} / ${fmtInt(n)} = ${pp(prev)}`);
+      row("Sensitivität (Spalte „vorhanden“)", `${fmtInt(tp)} / ${fmtInt(tp + fn)} = ${pp(sens)}`, "epir-row-key");
+      row("Spezifität (Spalte „nicht vorhanden“)", `${fmtInt(tn)} / ${fmtInt(fp + tn)} = ${pp(spez)}`, "epir-row-key");
+      row("Positiver Vorhersagewert PPV (Zeile „positiv“)", Number.isFinite(ppv) ? `${fmtInt(tp)} / ${fmtInt(tp + fp)} = ${pp(ppv)}` : "nicht definiert (kein positives Ergebnis)");
+      row("Negativer Vorhersagewert NPV (Zeile „negativ“)", Number.isFinite(npv) ? `${fmtInt(tn)} / ${fmtInt(fn + tn)} = ${pp(npv)}` : "nicht definiert (kein negatives Ergebnis)");
+      if (spez < 1 && sens > 0) row("Likelihood-Ratios (Vertiefung)", `LR+ = ${fmtDE(sens / (1 - spez), 2)}, LR− = ${fmtDE((1 - sens) / spez, 2)}`);
+      out.appendChild(t);
+      let sentence = `Antwortsatz: „Der ${testLab} erkennt ${pp(sens, 0)} der Personen mit ${disease} (Sensitivität) und ${pp(spez, 0)} der Personen ohne ${disease} (Spezifität).`;
+      if (Number.isFinite(ppv)) sentence += ` Bei einer Prävalenz von ${pp(prev)} hat von 100 Personen mit positivem Ergebnis etwa ${fmtInt(100 * ppv)} tatsächlich ${disease} (PPV = ${pp(ppv)})`;
+      if (Number.isFinite(npv)) sentence += `; von 100 Personen mit negativem Ergebnis haben etwa ${fmtInt(100 * (1 - npv))} dennoch ${disease} (NPV = ${pp(npv)}).“`; else sentence += ".“";
+      out.appendChild(el("p", { class: "epir-sentence", text: sentence }));
+      if (Number.isFinite(ppv) && Math.abs(ppv - sens) > 0.1) {
+        out.appendChild(el("p", { class: "epir-info epir-small", text: `Sensitivität (${pp(sens)}) und PPV (${pp(ppv)}) sind hier deutlich verschieden: Die Sensitivität liest die Spalte (alle Kranken), der PPV die Zeile (alle Testpositiven). Der PPV hängt von der Prävalenz ab, die Sensitivität nicht.` }));
+      }
+    }
+    [tpIn, fnIn, fpIn, tnIn].forEach((i) => i.addEventListener("input", render));
+    root.appendChild(el("div", { class: "epir-calc-body" }, [table, out]));
+    render();
+  }
+
+  // ---------- 7. Predictive values vs. prevalence (sliders + tree) ---------
+  function initPpv(root) {
+    const id = nextId("epir-ppv");
+    const d = root.dataset;
+    const prev0 = parseNum(d.prev) || 10, sens0 = parseNum(d.sens) || 80, spez0 = parseNum(d.spez) || 90;  // all in %
+    const N = Math.round(parseNum(d.n) || 1000);
+    const disease = d.disease || "Krankheit";
+    const mkRange = (key, min, max, step, val) => el("input", { type: "range", min: String(min), max: String(max), step: String(step), value: String(val), id: `${id}-${key}`, class: "form-range" });
+    const prevIn = mkRange("prev", 0.5, 60, 0.1, prev0), sensIn = mkRange("sens", 50, 100, 0.5, sens0), spezIn = mkRange("spez", 50, 100, 0.5, spez0);
+    const prevVal = el("output", { for: `${id}-prev`, class: "epir-slider-val" }), sensVal = el("output", { for: `${id}-sens`, class: "epir-slider-val" }), spezVal = el("output", { for: `${id}-spez`, class: "epir-slider-val" });
+
+    // natural-frequency tree as SVG
+    const svgNS = "http://www.w3.org/2000/svg";
+    const W = 360, H = 200;
+    const svg = document.createElementNS(svgNS, "svg");
+    svg.setAttribute("viewBox", `0 0 ${W} ${H}`); svg.setAttribute("class", "epir-pool-svg epir-tree-svg"); svg.setAttribute("role", "img");
+    svg.setAttribute("aria-label", `Häufigkeitsbaum für ${N} Personen: Aufteilung nach ${disease} und Testergebnis`);
+    const mk = (tag, attrs) => { const n = document.createElementNS(svgNS, tag); Object.entries(attrs).forEach(([k, v]) => n.setAttribute(k, v)); return n; };
+    const nodes = {};
+    const box = (key, x, y, w, fill, dark) => {
+      const g = mk("g", {});
+      g.appendChild(mk("rect", { x: x - w / 2, y: y - 16, width: w, height: 32, rx: 4, fill, stroke: "#6b7680", "stroke-width": fill === "#ffffff" ? 1 : 0 }));
+      const t1 = mk("text", { x, y: y - 3, "text-anchor": "middle", class: "epir-tree-num", fill: dark ? "#fff" : "#222" });
+      const t2 = mk("text", { x, y: y + 10, "text-anchor": "middle", class: "epir-tree-lab", fill: dark ? "#fff" : "#222" });
+      g.appendChild(t1); g.appendChild(t2); svg.appendChild(g); nodes[key] = { t1, t2 };
+    };
+    const line = (x1, y1, x2, y2) => svg.appendChild(mk("line", { x1, y1, x2, y2, stroke: "#8a949e", "stroke-width": 1 }));
+    line(180, 36, 90, 86); line(180, 36, 270, 86); line(90, 118, 45, 158); line(90, 118, 135, 158); line(270, 118, 225, 158); line(270, 118, 315, 158);
+    box("root", 180, 20, 120, "#ffffff", false);
+    box("sick", 90, 102, 120, DX_COLS.TP, true); box("well", 270, 102, 120, DX_COLS.TN, true);
+    box("TP", 45, 174, 84, DX_COLS.TP, true); box("FN", 135, 174, 84, DX_COLS.FN, false);
+    box("FP", 225, 174, 84, DX_COLS.FP, false); box("TN", 315, 174, 84, DX_COLS.TN, true);
+
+    const out = el("div", { class: "epir-calc-out", "aria-live": "polite" });
+    const setNode = (k, num, lab) => { nodes[k].t1.textContent = num; nodes[k].t2.textContent = lab; };
+
+    function render() {
+      const prev = parseNum(prevIn.value) / 100, sens = parseNum(sensIn.value) / 100, spez = parseNum(spezIn.value) / 100;
+      prevVal.textContent = `Prävalenz ${fmtDE(100 * prev, 1)} % (${fmtInt(N * prev)} von ${fmtInt(N)})`;
+      sensVal.textContent = `Sensitivität ${fmtDE(100 * sens, 1)} %`;
+      spezVal.textContent = `Spezifität ${fmtDE(100 * spez, 1)} %`;
+      const sick = N * prev, well = N - sick;
+      const tp = sick * sens, fn = sick - tp, tn = well * spez, fp = well - tn;
+      const r = (x) => fmtInt(x);   // rounded to whole persons for the tree
+      setNode("root", fmtInt(N), "Personen");
+      setNode("sick", r(sick), `mit ${disease}`); setNode("well", r(well), `ohne ${disease}`);
+      setNode("TP", r(tp), "Test positiv"); setNode("FN", r(fn), "Test negativ");
+      setNode("FP", r(fp), "Test positiv"); setNode("TN", r(tn), "Test negativ");
+      const ppv = tp / (tp + fp), npv = tn / (tn + fn);
+      out.innerHTML = "";
+      const t = el("table", { class: "epir-calc-table" });
+      const row = (k, v, cls) => t.appendChild(el("tr", { class: cls || "" }, [el("th", { text: k }), el("td", { text: v })]));
+      row("Testpositive", `${r(tp)} richtig + ${r(fp)} falsch = ${r(tp + fp)}`);
+      row("PPV", `${r(tp)} / ${r(tp + fp)} ≈ ${fmtDE(100 * ppv, 1)} %`, "epir-row-key");
+      row("Testnegative", `${r(tn)} richtig + ${r(fn)} falsch = ${r(tn + fn)}`);
+      row("NPV", `${r(tn)} / ${r(tn + fn)} ≈ ${fmtDE(100 * npv, 1)} %`, "epir-row-key");
+      out.appendChild(t);
+      out.appendChild(el("p", { class: "epir-sentence", text: `Antwortsatz: „Von 100 Personen mit positivem Test haben in dieser Gruppe etwa ${fmtInt(100 * ppv)} tatsächlich ${disease}; von 100 mit negativem Test ${100 * (1 - npv) < 0.5 ? "weniger als 1" : "etwa " + fmtInt(100 * (1 - npv))}.“` }));
+      out.appendChild(el("p", { class: "epir-info epir-small", text: "Baum und Tabelle sind auf ganze Personen gerundet; PPV und NPV werden aus den ungerundeten Werten berechnet." }));
+    }
+    const scenario = (txt, fn) => { const b = el("button", { type: "button", class: "btn btn-sm btn-outline-primary", text: txt }); b.addEventListener("click", () => { fn(); render(); }); return b; };
+    const buttons = el("div", { class: "epir-pool-buttons" });
+    // scenarios from data-scenarios: "Label|prev|sens|spez;Label|prev|sens|spez"
+    (d.scenarios || "").split(";").map((x) => x.trim()).filter(Boolean).forEach((sc) => {
+      const [lab, p, se, sp] = sc.split("|");
+      buttons.appendChild(scenario(lab, () => { if (p) prevIn.value = p; if (se) sensIn.value = se; if (sp) spezIn.value = sp; }));
+    });
+    buttons.appendChild(scenario("Zurücksetzen", () => { prevIn.value = String(prev0); sensIn.value = String(sens0); spezIn.value = String(spez0); }));
+    [prevIn, sensIn, spezIn].forEach((i) => i.addEventListener("input", render));
+    root.appendChild(el("div", { class: "epir-pool-body" }, [
+      el("div", { class: "epir-pool-controls" }, [
+        el("div", { class: "epir-slider" }, [el("label", { for: `${id}-prev`, text: "Prävalenz in der untersuchten Gruppe" }), prevIn, prevVal]),
+        el("div", { class: "epir-slider" }, [el("label", { for: `${id}-sens`, text: "Sensitivität des Tests" }), sensIn, sensVal]),
+        el("div", { class: "epir-slider" }, [el("label", { for: `${id}-spez`, text: "Spezifität des Tests" }), spezIn, spezVal]),
+        buttons,
+      ]),
+      el("div", { class: "epir-pool-vis" }, [svg, out]),
+    ]));
+    render();
+  }
+
   // ---------- boot ---------------------------------------------------------
   function boot() {
     document.querySelectorAll(".epir-quiz").forEach(initQuiz);
@@ -636,6 +783,8 @@
     document.querySelectorAll(".epir-pool").forEach(initPool);
     document.querySelectorAll(".epir-2x2").forEach(initTwoByTwo);
     document.querySelectorAll(".epir-relabs").forEach(initRelAbs);
+    document.querySelectorAll(".epir-dx").forEach(initDx);
+    document.querySelectorAll(".epir-ppv").forEach(initPpv);
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
   else boot();

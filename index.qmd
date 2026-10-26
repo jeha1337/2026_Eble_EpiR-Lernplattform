@@ -7,7 +7,7 @@ toc: false
 {{< include ./_extensions/r-wasm/live/_knitr.qmd >}}
 
 ::: {.callout-note appearance="simple"}
-**Status: Prototyp (Oktober 2026).** Module 1 und 3 liegen als vollständige Entwürfe zur Durchsicht vor; Modul 2 ist ein technischer Prototyp (Überarbeitung folgt). Alles läuft im Browser – ohne Installation, ohne Login, ohne Server.
+**Status: Prototyp (Oktober 2026).** Module 1 bis 3 liegen als vollständige Entwürfe zur Durchsicht vor. Alles läuft im Browser – ohne Installation, ohne Login, ohne Server.
 :::
 
 ## Was Sie hier lernen
@@ -33,7 +33,7 @@ Sie brauchen **keine Vorkenntnisse** in R oder Statistik.
 | Nr. | Modul | Klinische Leitfrage | Status |
 |---|---|---|---|
 | 1 | [Prävalenz und Inzidenz](module/01_praevalenz_inzidenz.qmd) | Wie häufig ist eine Erkrankung – und was heißt „häufig“? | Entwurf zur Durchsicht |
-| 2 | [Diagnostische Tests](module/02_diagnostische_tests.qmd) | Wie gut ist dieser Screening-Test? | Prototyp |
+| 2 | [Diagnostische Tests (Sensitivität, Spezifität, Vorhersagewerte)](module/02_diagnostische_tests.qmd) | Was sagt ein positiver Test wirklich aus? | Entwurf zur Durchsicht |
 | 3 | [Relatives und absolutes Risiko (RR, OR, NNT)](module/03_risiko_rr_or_nnt.qmd) | Wie groß ist das Risiko – relativ und absolut? | Entwurf zur Durchsicht |
 | 4 | Verteilungen und Zufallsstreuung | Warum sehen zwei Studien verschiedene Ergebnisse? | geplant |
 | 5–9 | Studiendesign & Bias · Konfidenzintervalle & p-Werte · Base R lesen · Reproduzierbare Berichte · Mini-Projekt | | geplant |

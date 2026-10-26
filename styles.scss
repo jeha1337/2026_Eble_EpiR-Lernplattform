@@ -64,7 +64,7 @@ $headings-font-weight: 600;
 
 // ---------------------------------------------------------------------------
 // EpiR widgets (assets/epir-widgets.js)
-.epir-quiz, .epir-calc, .epir-pool, .epir-2x2, .epir-relabs {
+.epir-quiz, .epir-calc, .epir-pool, .epir-2x2, .epir-relabs, .epir-dx, .epir-ppv {
   border: 1px solid #d9dee3;
   border-radius: 6px;
   padding: 1rem 1.1rem;
@@ -175,3 +175,13 @@ figcaption, .figure-caption { color: #555; font-size: 0.9rem; }
 .epir-ia-case { fill: $primary; }
 .epir-ia-extra { fill: #d9822b; }
 .epir-ia-avoided { fill: #fff; stroke: $primary; stroke-width: 1.2; }
+
+/* Module 2: diagnostic 2x2 table and frequency tree */
+.epir-dx-table td.epir-dx-cell { position: relative; padding: 0.9rem 0.5rem 0.4rem 0.5rem; border-radius: 4px; }
+.epir-dx-table td.epir-dx-cell input { background: rgba(255, 255, 255, 0.92); text-align: center; }
+.epir-dx-tag { position: absolute; top: 2px; left: 6px; font-size: 0.7rem; font-weight: 700; color: #333; }
+.epir-dx-dark .epir-dx-tag { color: #fff; }
+.epir-sum-row th, .epir-sum-row td { border-top: 1px solid #c9d1d9; color: #555; font-weight: 400; }
+.epir-tree-svg { max-width: 400px; }
+.epir-tree-num { font-size: 12px; font-weight: 700; }
+.epir-tree-lab { font-size: 9px; }

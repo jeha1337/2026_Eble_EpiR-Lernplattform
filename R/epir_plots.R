@@ -279,3 +279,193 @@ plot_design_schema <- function() {
     epir_theme() +
     theme(axis.text = element_blank(), axis.title = element_blank(), panel.grid = element_blank())
 }
+
+# ---------------------------------------------------------------------------
+# Module 2: diagnostic tests
+# Colour semantics: orange = disease present (dark = detected / TP, light =
+# missed / FN); petrol = disease absent (dark = correctly negative / TN, light =
+# false alarm / FP). Same hex values are used in assets/epir-widgets.js.
+# ---------------------------------------------------------------------------
+epir_dx_cols <- c(
+  TP = "#d9822b",   # krank, Test positiv (richtig positiv)
+  FN = "#f3cfa6",   # krank, Test negativ (falsch negativ)
+  FP = "#9fd0d0",   # gesund, Test positiv (falsch positiv)
+  TN = "#0b6e6e"    # gesund, Test negativ (richtig negativ)
+)
+epir_dx_labels <- c(
+  TP = "krank, Test positiv (richtig positiv)",
+  FN = "krank, Test negativ (falsch negativ)",
+  FP = "gesund, Test positiv (falsch positiv)",
+  TN = "gesund, Test negativ (richtig negativ)"
+)
+
+# German percent formatting for figure labels ("79,2 %")
+fmt_pct_de <- function(x, digits = 1) paste0(formatC(100 * x, format = "f", digits = digits, decimal.mark = ","), "\u00a0%")
+
+# Icon array of the whole cohort: one tile per person, grouped by disease status
+# (columns of the 2x2 table) so that sensitivity/specificity are visible as
+# proportions *within* the orange and the petrol block.
+# counts: named vector c(TP, FN, FP, TN); ncol: tiles per row.
+plot_dx_icon_array <- function(counts, nrow = 25, gap = 3) {
+  stopifnot(all(c("TP", "FN", "FP", "TN") %in% names(counts)))
+  # left block: persons with the disease (TP then FN), right block: without (FP then TN);
+  # both blocks are filled column by column from the top, so the test errors (light tones)
+  # sit at the bottom of each block and the proportion within a block is sensitivity/specificity.
+  block <- function(keys, x0) {
+    st <- factor(rep(keys, times = counts[keys]), levels = c("TP", "FN", "FP", "TN"))
+    i <- seq_along(st) - 1
+    tibble::tibble(status = st, x = x0 + i %/% nrow, y = -(i %% nrow))
+  }
+  n_sick <- sum(counts[c("TP", "FN")]); n_well <- sum(counts[c("FP", "TN")])
+  cols_sick <- ceiling(n_sick / nrow)
+  df <- dplyr::bind_rows(block(c("TP", "FN"), 0), block(c("FP", "TN"), cols_sick + gap))
+  n <- nrow(df)
+  ggplot2::ggplot(df, ggplot2::aes(x, y, fill = status)) +
+    ggplot2::geom_tile(width = 0.85, height = 0.85) +
+    ggplot2::scale_fill_manual(values = epir_dx_cols, labels = epir_dx_labels, name = NULL, drop = FALSE) +
+    ggplot2::annotate("text", x = -0.5, y = 1.8, hjust = 0, label = sprintf("mit Albuminurie (%d)", n_sick),
+                      colour = epir_dx_cols[["TP"]], fontface = "bold", size = 3.6) +
+    ggplot2::annotate("text", x = cols_sick + gap + (ceiling(n_well / nrow) - 1) / 2, y = 1.8,
+                      label = sprintf("ohne Albuminurie (%s)", format(n_well, big.mark = "\u202f")),
+                      colour = epir_dx_cols[["TN"]], fontface = "bold", size = 3.6) +
+    ggplot2::coord_equal(clip = "off") +
+    ggplot2::labs(
+      title = sprintf("%s Personen der Kohorte, jede Kachel eine Person", format(n, big.mark = "\u202f")),
+      subtitle = "links krank, rechts gesund – helle Töne: Testergebnis falsch"
+    ) +
+    epir_theme() +
+    ggplot2::theme(
+      axis.text = ggplot2::element_blank(), axis.title = ggplot2::element_blank(),
+      panel.grid = ggplot2::element_blank(), legend.position = "bottom"
+    ) +
+    ggplot2::guides(fill = ggplot2::guide_legend(nrow = 2))
+}
+
+# Natural-frequency tree: N -> sick / not sick -> test result.
+# counts as above; labels for test and disease are German learning text.
+plot_dx_tree <- function(counts, disease = "Albuminurie", test = "Teststreifen") {
+  stopifnot(all(c("TP", "FN", "FP", "TN") %in% names(counts)))
+  tp <- counts[["TP"]]; fn <- counts[["FN"]]; fp <- counts[["FP"]]; tn <- counts[["TN"]]
+  n <- tp + fn + fp + tn
+  f <- function(x) format(x, big.mark = "\u202f")
+  nodes <- tibble::tibble(
+    id = c("root", "sick", "well", "TP", "FN", "FP", "TN"),
+    x = c(0, -1.6, 1.6, -2.4, -0.8, 0.8, 2.4),
+    y = c(3, 2, 2, 1, 1, 1, 1),
+    label = c(
+      sprintf("%s Personen", f(n)),
+      sprintf("%s mit %s", f(tp + fn), disease),
+      sprintf("%s ohne %s", f(fp + tn), disease),
+      sprintf("%s Test positiv\n(richtig positiv)", f(tp)),
+      sprintf("%s Test negativ\n(falsch negativ)", f(fn)),
+      sprintf("%s Test positiv\n(falsch positiv)", f(fp)),
+      sprintf("%s Test negativ\n(richtig negativ)", f(tn))
+    ),
+    fill = c("#ffffff", epir_dx_cols[["TP"]], epir_dx_cols[["TN"]], epir_dx_cols[["TP"]], epir_dx_cols[["FN"]], epir_dx_cols[["FP"]], epir_dx_cols[["TN"]]),
+    txt = c("#333333", "#ffffff", "#ffffff", "#ffffff", "#333333", "#333333", "#ffffff")
+  )
+  edges <- tibble::tibble(
+    from = c("root", "root", "sick", "sick", "well", "well"),
+    to = c("sick", "well", "TP", "FN", "FP", "TN")
+  )
+  edges <- edges |>
+    dplyr::left_join(nodes[, c("id", "x", "y")], by = c("from" = "id")) |>
+    dplyr::left_join(nodes[, c("id", "x", "y")], by = c("to" = "id"), suffix = c("", "_to"))
+  arrows <- tibble::tibble(
+    x = c(-1.6, 1.6), y = c(0.45, 0.45),
+    label = c(sprintf("Sensitivität = %s / %s = %s", f(tp), f(tp + fn), fmt_pct_de(tp / (tp + fn))),
+              sprintf("Spezifität = %s / %s = %s", f(tn), f(fp + tn), fmt_pct_de(tn / (fp + tn)))),
+    col = c(epir_dx_cols[["TP"]], epir_dx_cols[["TN"]])
+  )
+  ggplot2::ggplot() +
+    ggplot2::geom_segment(data = edges, ggplot2::aes(x = x, y = y - 0.22, xend = x_to, yend = y_to + 0.22), colour = "#666666", linewidth = 0.6) +
+    ggplot2::geom_label(data = nodes, ggplot2::aes(x, y, label = label, fill = fill, colour = txt),
+                        size = 3.4, label.padding = grid::unit(0.35, "lines"), linewidth = 0.3, lineheight = 0.95) +
+    ggplot2::geom_text(data = arrows, ggplot2::aes(x, y, label = label, colour = col), size = 3.4, fontface = "bold") +
+    ggplot2::scale_fill_identity() + ggplot2::scale_colour_identity() +
+    ggplot2::scale_x_continuous(limits = c(-3.3, 3.3)) +
+    ggplot2::scale_y_continuous(limits = c(0.2, 3.4)) +
+    ggplot2::labs(title = "Häufigkeitsbaum: erst Krankheit, dann Testergebnis",
+                  subtitle = "Lesen von oben nach unten ergibt Sensitivität und Spezifität (Spalten der Vierfeldertafel)") +
+    epir_theme() +
+    ggplot2::theme(axis.text = ggplot2::element_blank(), axis.title = ggplot2::element_blank(),
+                   panel.grid = ggplot2::element_blank(), legend.position = "none")
+}
+
+# Column-wise vs row-wise reading of the diagnostic 2x2 table (two panels).
+plot_dx_reading <- function(counts) {
+  stopifnot(all(c("TP", "FN", "FP", "TN") %in% names(counts)))
+  tp <- counts[["TP"]]; fn <- counts[["FN"]]; fp <- counts[["FP"]]; tn <- counts[["TN"]]
+  f <- function(x) format(x, big.mark = "\u202f")
+  cells <- tibble::tibble(
+    key = c("TP", "FP", "FN", "TN"),
+    x = c(1, 2, 1, 2),      # column: 1 = krank, 2 = gesund
+    y = c(2, 2, 1, 1),      # row: 2 = Test positiv, 1 = Test negativ
+    n = c(tp, fp, fn, tn)
+  )
+  cells$label <- sprintf("%s\n%s", c("RP", "FP", "FN", "RN"), f(cells$n))
+  panel <- function(mode) {
+    hl <- if (mode == "col") {
+      tibble::tibble(xmin = c(0.5, 1.5), xmax = c(1.5, 2.5), ymin = 0.5, ymax = 2.5,
+                     txt = c(sprintf("Sensitivität\n%s / %s\n= %s", f(tp), f(tp + fn), fmt_pct_de(tp / (tp + fn))),
+                             sprintf("Spezifität\n%s / %s\n= %s", f(tn), f(fp + tn), fmt_pct_de(tn / (fp + tn)))),
+                     tx = c(1, 2), ty = 2.95)
+    } else {
+      tibble::tibble(xmin = 0.5, xmax = 2.5, ymin = c(1.5, 0.5), ymax = c(2.5, 1.5),
+                     txt = c(sprintf("PPV\n%s / %s\n= %s", f(tp), f(tp + fp), fmt_pct_de(tp / (tp + fp))),
+                             sprintf("NPV\n%s / %s\n= %s", f(tn), f(fn + tn), fmt_pct_de(tn / (fn + tn)))),
+                     tx = 2.75, ty = c(2, 1))
+    }
+    ttl <- if (mode == "col") "Spaltenweise lesen (Testgüte):\nWie gut erkennt der Test?" else "Zeilenweise lesen (Vorhersagewerte):\nWas bedeutet mein Ergebnis?"
+    ggplot2::ggplot() +
+      ggplot2::geom_rect(data = hl, ggplot2::aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax),
+                         fill = NA, colour = epir_cols[["dark"]], linewidth = 1.1, linetype = "dashed") +
+      ggplot2::geom_tile(data = cells, ggplot2::aes(x, y, fill = key), width = 0.9, height = 0.9) +
+      ggplot2::geom_text(data = cells, ggplot2::aes(x, y, label = label, colour = key %in% c("TP", "TN")), size = 3.8, lineheight = 0.9, fontface = "bold") +
+      ggplot2::geom_text(data = hl, ggplot2::aes(tx, ty, label = txt), size = 3.3, lineheight = 0.9, hjust = if (mode == "col") 0.5 else 0) +
+      ggplot2::scale_fill_manual(values = epir_dx_cols, guide = "none") +
+      ggplot2::scale_colour_manual(values = c(`TRUE` = "#ffffff", `FALSE` = "#333333"), guide = "none") +
+      ggplot2::scale_x_continuous(breaks = c(1, 2), labels = c("Albuminurie", "keine\nAlbuminurie"),
+                                  limits = if (mode == "col") c(0.4, 2.6) else c(0.4, 3.9), position = "top") +
+      ggplot2::scale_y_continuous(breaks = c(1, 2), labels = c("Test\nnegativ", "Test\npositiv"), limits = c(0.4, if (mode == "col") 3.4 else 2.6)) +
+      ggplot2::labs(title = ttl, x = NULL, y = NULL) +
+      epir_theme(base_size = 12) +
+      ggplot2::theme(panel.grid = ggplot2::element_blank(), plot.title = ggplot2::element_text(size = 11.5))
+  }
+  patchwork::wrap_plots(panel("col"), panel("row"), ncol = 2, widths = c(1, 1.35))
+}
+
+# PPV and NPV as a function of prevalence for fixed sensitivity/specificity;
+# `mark` = named vector of prevalences (proportions) to highlight.
+plot_dx_ppv_curve <- function(sens, spez, mark = NULL, max_prev = 0.6, nudge = NULL) {
+  pr <- seq(0.001, max_prev, by = 0.001)
+  df <- tibble::tibble(
+    prev = rep(pr, 2),
+    value = c(sens * pr / (sens * pr + (1 - spez) * (1 - pr)),
+              spez * (1 - pr) / (spez * (1 - pr) + (1 - sens) * pr)),
+    measure = rep(c("Positiver Vorhersagewert (PPV)", "Negativer Vorhersagewert (NPV)"), each = length(pr))
+  )
+  p <- ggplot2::ggplot(df, ggplot2::aes(prev, value, colour = measure)) +
+    ggplot2::geom_line(linewidth = 1.2) +
+    ggplot2::scale_colour_manual(values = c("Positiver Vorhersagewert (PPV)" = epir_cols[["accent"]],
+                                            "Negativer Vorhersagewert (NPV)" = epir_cols[["primary"]]), name = NULL) +
+    ggplot2::scale_x_continuous(labels = function(x) paste0(format(100 * x, decimal.mark = ","), " %")) +
+    ggplot2::scale_y_continuous(labels = function(x) paste0(100 * x, " %"), limits = c(0, 1)) +
+    ggplot2::labs(x = "Prävalenz (Vortestwahrscheinlichkeit)", y = NULL,
+                  title = sprintf("Gleicher Test (Sensitivität %s, Spezifität %s), verschiedene Gruppen", fmt_pct_de(sens), fmt_pct_de(spez)),
+                  subtitle = "PPV steigt mit der Prävalenz, NPV sinkt – Sensitivität und Spezifität bleiben gleich") +
+    epir_theme()
+  if (!is.null(mark)) {
+    md <- tibble::tibble(
+      prev = as.numeric(mark), name = names(mark),
+      ppv = sens * prev / (sens * prev + (1 - spez) * (1 - prev)),
+      ny = if (is.null(nudge)) rep(-0.14, length(mark)) else nudge
+    )
+    p <- p +
+      ggplot2::geom_vline(data = md, ggplot2::aes(xintercept = prev), colour = epir_cols[["grey"]], linetype = "dotted") +
+      ggplot2::geom_point(data = md, ggplot2::aes(prev, ppv), colour = epir_cols[["accent"]], size = 3, inherit.aes = FALSE) +
+      ggplot2::geom_label(data = md, ggplot2::aes(prev, ppv + ny, label = sprintf("%s\nPPV %s", name, fmt_pct_de(ppv, 0))),
+                          size = 3.1, lineheight = 0.9, inherit.aes = FALSE, colour = epir_cols[["dark"]])
+  }
+  p
+}

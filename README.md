@@ -15,14 +15,14 @@ _quarto.yml                 site configuration (format live-html, shinylive filt
 index.qmd                   start page
 technik.qmd                 technical self-check page (webR load, packages, data, plotting)
 module/01_*.qmd             module 1 – prevalence and incidence (calculators, pool model, quiz, 4 graded R exercises)
-module/02_*.qmd             module 2 – diagnostic tests (technical prototype: graded exercise + Shinylive app)
+module/02_*.qmd             module 2 – diagnostic tests: Sens/Spez/PPV/NPV (diagnostic 2×2 + predictive-value widgets, quiz, 3 graded R exercises, Shinylive app)
 module/03_*.qmd             module 3 – relative and absolute risk: RR, OR, NNT (2×2 calculators, slider widget, quiz, 4 graded R exercises)
 module/_template.qmd        module template with QA checklist (ignored by Quarto)
 data/simulate_ckd_cohort.R  simulation script for the synthetic cohort (seed 20261026)
 data/ckd_kohorte.csv        synthetic dataset (n = 2000) – NOT real patient data
 data/codebook.md            variable definitions and expected summary values
-R/epir_plots.R              ggplot2 helpers for build-time figures (icon arrays, swimmer plot, person-time bars, RR/OR curves, design schema)
-assets/epir-widgets.js      dependency-free widgets: quiz (MC + numeric), measure calculator, pool model, 2×2 table, relative-vs-absolute slider
+R/epir_plots.R              ggplot2 helpers for build-time figures (icon arrays, swimmer plot, person-time bars, RR/OR curves, design schema, diagnostic tree, PPV curves)
+assets/epir-widgets.js      dependency-free widgets: quiz (MC + numeric), measure calculator, pool model, 2×2 table, relative-vs-absolute slider, diagnostic 2×2, predictive-value tree
 assets/includes/            HTML include that loads the widget script on every page
 styles.scss                 theme tweaks (accent colour, callout classes, widget styles)
 _extensions/                quarto-live (r-wasm/live) and shinylive (quarto-ext/shinylive)
@@ -32,13 +32,13 @@ _extensions/                quarto-live (r-wasm/live) and shinylive (quarto-ext/
 ## Local setup
 
 Requirements: [Quarto](https://quarto.org) >= 1.4 (developed with 1.10.19), R >= 4.3,
-R packages `shinylive`, `knitr`, `rmarkdown`, `dplyr`, `readr`, `tidyr`, `ggplot2`, `ragg`.
+R packages `shinylive`, `knitr`, `rmarkdown`, `dplyr`, `readr`, `tidyr`, `ggplot2`, `patchwork`, `ragg`.
 The render must run in a UTF-8 locale (`LANG=C.UTF-8`), otherwise German umlauts in the
 build-time figures are garbled.
 
 ```bash
 # R packages (shinylive needs libarchive-dev on Debian/Ubuntu)
-Rscript -e 'install.packages(c("shinylive","knitr","rmarkdown","dplyr","readr","tidyr","ggplot2","ragg"))'
+Rscript -e 'install.packages(c("shinylive","knitr","rmarkdown","dplyr","readr","tidyr","ggplot2","patchwork","ragg"))'
 
 # Extensions are vendored in _extensions/. To (re)install or update them:
 #   quarto add r-wasm/quarto-live
@@ -93,7 +93,7 @@ Code: MIT (see `LICENSE`). Learning content and data: CC BY 4.0 (see `LICENSE-CO
 ## Widgets (code-free path)
 
 `assets/epir-widgets.js` is loaded on every page via `include-in-header` (see `_quarto.yml`) and
-initialises five widget types declared as raw HTML blocks in the `.qmd` files:
+initialises seven widget types declared as raw HTML blocks in the `.qmd` files:
 
 | Widget | Markup | Notes |
 |---|---|---|
@@ -102,6 +102,8 @@ initialises five widget types declared as raw HTML blocks in the `.qmd` files:
 | Pool model | `<div class="epir-pool" data-inc="18.5" data-dur="10"></div>` | steady-state relation prevalence odds = incidence rate × mean duration; shows approximation and exact value |
 | 2×2 table | `<div class="epir-2x2" data-a="29" data-b="136" data-c="102" data-d="1371" data-years="5" data-design="cohort|casecontrol" data-exposed="…" data-unexposed="…" data-outcome="…"></div>` | editable four-fold table; cohort mode gives risks, RR, OR, risk difference, NNT/NNH and answer sentence; case-control mode gives odds of exposure and OR only |
 | Relative vs. absolute | `<div class="epir-relabs" data-base="6.9" data-rr="2.54"></div>` | sliders for baseline risk and RR with a 2 × 100 icon array; shows relative change, absolute difference and NNT/NNH |
+| Diagnostic 2×2 | `<div class="epir-dx" data-tp="175" data-fn="46" data-fp="179" data-tn="1600" data-disease="…" data-test="…"></div>` | editable table (TP/FN/FP/TN, colour-coded); prevalence, sensitivity, specificity, PPV, NPV, likelihood ratios, answer sentence; hint when sensitivity and PPV diverge |
+| Predictive values | `<div class="epir-ppv" data-prev="7.4" data-sens="79" data-spez="90" data-n="1000" data-disease="…" data-scenarios="Label|prev|sens|spez;…"></div>` | sliders prevalence × sensitivity × specificity with a natural-frequency tree (SVG) and PPV/NPV |
 
 No state is stored; reloading the page resets all widgets. See the JSDoc header of the script for the
 full field list.

@@ -1,6 +1,6 @@
 ---
 title: "Modul 2 · Diagnostische Tests"
-subtitle: "Wie gut ist dieser Screening-Test – und was bedeutet ein positives Ergebnis?"
+subtitle: "Was sagt ein positiver Test wirklich aus?"
 webr:
   resources:
     - ../data/ckd_kohorte.csv
@@ -8,166 +8,570 @@ webr:
 
 {{< include ../_extensions/r-wasm/live/_knitr.qmd >}}
 
-::: {.callout-warning appearance="simple"}
-**Prototyp.** Dieses Modul testet vor allem die Einbettung einer interaktiven Shinylive-App. Es ist bewusst kürzer als ein fertiges Modul.
+::: {.callout-note appearance="simple"}
+**Entwurf zur Durchsicht (Oktober 2026).** Fachinhalte sind quellengeprüft; Formulierungen und Aufgaben werden nach dem Review durch die Lehrenden angepasst.
 :::
 
+```{r}
+#| include: false
+# Build-time figures and inline numbers (knitr). Uses the synthetic cohort; see R/epir_plots.R.
+source("../R/epir_plots.R", encoding = "UTF-8")
+suppressPackageStartupMessages({ library(dplyr); library(readr) })
+kohorte <- read_csv("../data/ckd_kohorte.csv", show_col_types = FALSE) |>
+  mutate(albuminurie = as.integer(uacr >= 30))
+tafel <- kohorte |> count(albuminurie, teststreifen_pos)
+tp <- tafel$n[tafel$albuminurie == 1 & tafel$teststreifen_pos == 1]
+fn <- tafel$n[tafel$albuminurie == 1 & tafel$teststreifen_pos == 0]
+fp <- tafel$n[tafel$albuminurie == 0 & tafel$teststreifen_pos == 1]
+tn <- tafel$n[tafel$albuminurie == 0 & tafel$teststreifen_pos == 0]
+# guard: the text below quotes these numbers literally
+stopifnot(tp == 175, fn == 46, fp == 179, tn == 1600)
+n_all <- tp + fn + fp + tn
+sens <- tp / (tp + fn); spez <- tn / (tn + fp)
+ppv <- tp / (tp + fp);  npv <- tn / (tn + fn)
+prev <- (tp + fn) / n_all
+lr_pos <- sens / (1 - spez); lr_neg <- (1 - sens) / spez
+# strata by diabetes (same test, different prevalence)
+strata <- kohorte |>
+  group_by(diabetes) |>
+  summarise(n = n(), prev = mean(albuminurie),
+            ppv = sum(albuminurie == 1 & teststreifen_pos == 1) / sum(teststreifen_pos == 1),
+            npv = sum(albuminurie == 0 & teststreifen_pos == 0) / sum(teststreifen_pos == 0),
+            sens = sum(albuminurie == 1 & teststreifen_pos == 1) / sum(albuminurie == 1),
+            spez = sum(albuminurie == 0 & teststreifen_pos == 0) / sum(albuminurie == 0), .groups = "drop")
+prev_nd <- strata$prev[strata$diabetes == 0]; ppv_nd <- strata$ppv[strata$diabetes == 0]; npv_nd <- strata$npv[strata$diabetes == 0]
+prev_d  <- strata$prev[strata$diabetes == 1]; ppv_d  <- strata$ppv[strata$diabetes == 1]; npv_d  <- strata$npv[strata$diabetes == 1]
+de <- function(x, d = 1) formatC(x, format = "f", digits = d, decimal.mark = ",", big.mark = "\u202f")
+dm <- function(x, d = 1) gsub(",", "{,}", de(x, d), fixed = TRUE)   # decimal comma inside LaTeX math
+pct <- function(x, d = 1) paste0(de(100 * x, d), "\u00a0%")
+```
+
 ::: {.leitfrage}
-In der Praxis wird ein **Urin-Teststreifen** auf Albumin eingesetzt, um eine Albuminurie (ein Frühzeichen einer Nierenschädigung) zu erkennen. Der Referenzstandard ist die Labormessung des Albumin-Kreatinin-Quotienten (UACR ≥ 30 mg/g). Eine 55-jährige Patientin ohne Risikofaktoren hat einen **positiven** Teststreifen. **Wie wahrscheinlich ist es, dass sie tatsächlich eine Albuminurie hat?**
+Ein **Urin-Teststreifen** auf Albumin soll eine Albuminurie (Frühzeichen einer Nierenschädigung) erkennen; der Referenzstandard ist die Labormessung des Albumin-Kreatinin-Quotienten (UACR ≥ 30 mg/g). Eine 55-jährige Patientin ohne Diabetes hat einen **positiven** Teststreifen und fragt: „Habe ich jetzt eine Nierenschädigung?“ **Wie wahrscheinlich ist es, dass sie tatsächlich eine Albuminurie hat – und warum reicht die Angabe „Der Test erkennt etwa 80 % der Erkrankten“ nicht als Antwort?**
 :::
 
 ::: {.lernziele}
 **Lernziele.** Nach diesem Modul können Sie …
 
-1. **Sensitivität, Spezifität, positiven und negativen prädiktiven Wert** aus einer Vierfeldertafel **berechnen** und in Worten erklären.
-2. **begründen**, warum der positive prädiktive Wert von der Prävalenz abhängt – und was das für Screening in Niedrigrisikogruppen bedeutet.
-3. eine Vierfeldertafel aus Rohdaten mit R **erstellen** (`count()`).
+**Konzept (ohne R):**
+
+1. aus einer Vierfeldertafel Sensitivität, Spezifität, positiven und negativen Vorhersagewert **berechnen** und jeweils in einem Antwortsatz **interpretieren**.
+2. **erklären**, warum die Vorhersagewerte von der Prävalenz abhängen, Sensitivität und Spezifität dagegen nicht, und dies mit natürlichen Häufigkeiten **veranschaulichen**.
+3. für ein konkretes Testergebnis **beurteilen**, welche Kennzahl die Frage der Patientin beantwortet.
+
+**Vertiefung mit R** (Abschnitt „Dasselbe in R“):
+
+4. mit `count()` und `case_when()` eine Vierfeldertafel **erzeugen** und die vier Kennzahlen mit `summarise()` **berechnen**.
 :::
 
-## Die Vierfeldertafel
+::: {.callout-tip appearance="simple"}
+**Zwei Lesepfade.** Bis zum Selbsttest brauchen Sie kein R. Der Abschnitt [Dasselbe in R](#dasselbe-in-r) am Ende ist Vertiefung, keine Voraussetzung.
+:::
 
-Wir vergleichen das Teststreifen-Ergebnis (`teststreifen_pos`) mit dem Referenzstandard (`uacr >= 30`). Jede Person fällt in genau eines von vier Feldern:
+## Die Beispielkohorte
 
-|  | Albuminurie **ja** (Referenz) | Albuminurie **nein** |
-|---|---|---|
-| Test **positiv** | richtig positiv (RP) | falsch positiv (FP) |
-| Test **negativ** | falsch negativ (FN) | richtig negativ (RN) |
+Dieselbe **simulierte** Kohorte wie in Modul 1 (keine echten Patientendaten): `r format(n_all, big.mark = "\u202f")` Erwachsene. Bei allen liegen zwei Messungen vor: das Ergebnis des Teststreifens (positiv/negativ) und der Laborwert UACR. Als **Referenzstandard** (engl. *reference standard*, die bestmögliche Bestimmung, ob die Krankheit vorliegt) gilt hier UACR ≥ 30 mg/g. *Vereinfacht:* Wir behandeln eine einzelne UACR-Messung als Wahrheit; *exakt* fordert die KDIGO-Leitlinie für die Diagnose einer CKD eine über mindestens drei Monate bestätigte Albuminurie (Quellen).
 
-Daraus ergeben sich vier Kennzahlen – zwei beschreiben den **Test**, zwei beschreiben, was ein **Ergebnis** für die einzelne Person bedeutet:
+## Die Vierfeldertafel eines Tests
 
-| Kennzahl | Formel | Frage, die sie beantwortet |
-|---|---|---|
-| **Sensitivität** | RP / (RP + FN) | Wie viele der Kranken erkennt der Test? |
-| **Spezifität** | RN / (RN + FP) | Wie viele der Gesunden erkennt der Test als gesund? |
-| **Positiver prädiktiver Wert (PPV)** | RP / (RP + FP) | Test positiv – wie wahrscheinlich krank? |
-| **Negativer prädiktiver Wert (NPV)** | RN / (RN + FN) | Test negativ – wie wahrscheinlich gesund? |
+Jede Person hat zwei Eigenschaften: Krankheit vorhanden oder nicht (Spalten) und Test positiv oder negativ (Zeilen). Das ergibt vier Felder:
 
-Sensitivität und Spezifität sind **Eigenschaften des Tests** (bei gegebenem Referenzstandard und Schwellenwert). PPV und NPV hängen zusätzlich von der **Prävalenz** in der untersuchten Gruppe ab – das ist der zentrale Punkt dieses Moduls.
+|                        | Albuminurie vorhanden | Albuminurie nicht vorhanden | Zeile gesamt |
+|------------------------|----------------------:|----------------------------:|-------------:|
+| **Teststreifen positiv** | **RP** = `r tp` (richtig positiv) | **FP** = `r fp` (falsch positiv) | `r tp + fp` |
+| **Teststreifen negativ** | **FN** = `r fn` (falsch negativ) | **RN** = `r format(tn, big.mark = "\u202f")` (richtig negativ) | `r format(fn + tn, big.mark = "\u202f")` |
+| **Spalte gesamt**        | `r tp + fn` | `r format(fp + tn, big.mark = "\u202f")` | `r format(n_all, big.mark = "\u202f")` |
 
-### Durchgerechnetes Beispiel in R
+Die Diagonale (RP, RN) sind die richtigen Ergebnisse; FP und FN sind die beiden Fehlerarten. **Falsch negativ** heißt: krank, aber Test negativ – der Test hat die Krankheit übersehen.
 
-```{webr}
-library(dplyr)
-library(readr)
-
-kohorte <- read_csv("data/ckd_kohorte.csv", show_col_types = FALSE) |>
-  mutate(albuminurie = as.integer(uacr >= 30))
-
-# Vierfeldertafel als Tabelle mit Häufigkeiten
-kohorte |>
-  count(teststreifen_pos, albuminurie)
+```{r}
+#| label: fig-iconarray
+#| echo: false
+#| fig-height: 4.2
+#| fig-cap: "Alle 2 000 Personen der Kohorte als Kacheln, nach Krankheitsstatus gruppiert. Im orangen Block (Albuminurie vorhanden) sind die hellen Kacheln die übersehenen Fälle (falsch negativ), im petrolfarbenen Block (keine Albuminurie) die hellen Kacheln die Fehlalarme (falsch positiv)."
+#| fig-alt: "Zwei Kachelblöcke. Links ein schmaler oranger Block mit 221 Kacheln, davon 46 hell. Rechts ein breiter petrolfarbener Block mit 1 779 Kacheln, davon 179 hell."
+plot_dx_icon_array(c(TP = tp, FN = fn, FP = fp, TN = tn))
 ```
+
+## Sensitivität und Spezifität: Wie gut ist der Test?
+
+Die **Sensitivität** (engl. *sensitivity*) ist der Anteil der Erkrankten, die der Test erkennt – gelesen in der **Spalte „vorhanden“**:
+
+$$
+\text{Sensitivität} = \frac{RP}{RP + FN} = \frac{`r tp`}{`r tp + fn`} = `r dm(sens, 3)` = `r dm(100 * sens)`\ \%
+$$
+
+Die **Spezifität** (engl. *specificity*) ist der Anteil der Nicht-Erkrankten mit negativem Test – gelesen in der **Spalte „nicht vorhanden“**:
+
+$$
+\text{Spezifität} = \frac{RN}{RN + FP} = \frac{`r tn`}{`r tn + fp`} = `r dm(spez, 3)` = `r dm(100 * spez)`\ \%
+$$
+
+**Antwortsatz:** „Der Teststreifen erkennt `r pct(sens, 0)` der Personen mit Albuminurie (Sensitivität) und ist bei `r pct(spez, 0)` der Personen ohne Albuminurie negativ (Spezifität).“
+
+Beide Zahlen beschreiben den **Test**, nicht die Patientin: Sie beantworten „Wie gut erkennt der Test Kranke bzw. Gesunde?“ – nicht „Wie wahrscheinlich bin ich krank?“.
+
+```{r}
+#| label: fig-tree
+#| echo: false
+#| fig-height: 4.5
+#| fig-cap: "Häufigkeitsbaum der Kohorte: zuerst Aufteilung nach Krankheit, dann nach Testergebnis. Sensitivität und Spezifität sind Anteile innerhalb des linken bzw. rechten Astes."
+#| fig-alt: "Baumdiagramm: 2 000 Personen teilen sich in 221 mit und 1 779 ohne Albuminurie. Von den 221 sind 175 testpositiv und 46 testnegativ; von den 1 779 sind 179 testpositiv und 1 600 testnegativ. Darunter: Sensitivität 175 von 221 gleich 79,2 Prozent, Spezifität 1 600 von 1 779 gleich 89,9 Prozent."
+plot_dx_tree(c(TP = tp, FN = fn, FP = fp, TN = tn))
+```
+
+## Vorhersagewerte: Was bedeutet mein Ergebnis?
+
+Die Patientin kennt ihr Testergebnis, nicht ihren Krankheitsstatus. Ihre Frage wird deshalb in der **Zeile** gelesen. Der **positive Vorhersagewert** (PPV, engl. *positive predictive value*) ist der Anteil der Testpositiven, die wirklich krank sind:
+
+$$
+PPV = \frac{RP}{RP + FP} = \frac{`r tp`}{`r tp + fp`} = `r dm(ppv, 3)` = `r dm(100 * ppv)`\ \%
+$$
+
+Der **negative Vorhersagewert** (NPV) ist der Anteil der Testnegativen, die wirklich gesund sind:
+
+$$
+NPV = \frac{RN}{RN + FN} = \frac{`r tn`}{`r tn + fn`} = `r dm(npv, 3)` = `r dm(100 * npv)`\ \%
+$$
+
+**Antwortsatz:** „In dieser Kohorte hat von 100 Personen mit positivem Teststreifen etwa jede zweite (`r pct(ppv, 0)`) tatsächlich eine Albuminurie; von 100 Personen mit negativem Teststreifen haben etwa `r de(100 * (1 - npv), 0)` dennoch eine (NPV `r pct(npv, 0)`).“
+
+```{r}
+#| label: fig-reading
+#| echo: false
+#| fig-height: 4.2
+#| fig-cap: "Dieselbe Tafel, zwei Leserichtungen. Links: spaltenweise (Sensitivität, Spezifität) – Eigenschaften des Tests. Rechts: zeilenweise (PPV, NPV) – Bedeutung eines Ergebnisses für die getestete Person."
+#| fig-alt: "Zwei Vierfeldertafeln nebeneinander. Links sind die beiden Spalten gestrichelt umrandet und mit Sensitivität 79,2 Prozent und Spezifität 89,9 Prozent beschriftet. Rechts sind die beiden Zeilen umrandet und mit PPV 49,4 Prozent und NPV 97,2 Prozent beschriftet."
+plot_dx_reading(c(TP = tp, FN = fn, FP = fp, TN = tn))
+```
+
+::: {.epir-cards}
+::: {.epir-card}
+**Sensitivität**
+
+- **Rechnung:** RP ÷ (RP + FN), Spalte „krank“
+- **Frage:** Wie viele Kranke erkennt der Test?
+- **Hängt ab von:** Test, nicht von der Prävalenz
+- **Hoch nötig für:** Ausschluss (ein negativer Test bei hoher Sensitivität spricht gegen die Krankheit)
+:::
+::: {.epir-card .epir-card-accent}
+**Spezifität**
+
+- **Rechnung:** RN ÷ (RN + FP), Spalte „gesund“
+- **Frage:** Wie viele Gesunde erkennt der Test als gesund?
+- **Hängt ab von:** Test, nicht von der Prävalenz
+- **Hoch nötig für:** Bestätigung (wenige Fehlalarme)
+:::
+::: {.epir-card .epir-card-blue}
+**PPV / NPV**
+
+- **Rechnung:** RP ÷ (RP + FP) bzw. RN ÷ (RN + FN), Zeilen
+- **Frage:** Wie wahrscheinlich bin ich krank (positiv) bzw. gesund (negativ)?
+- **Hängt ab von:** Test **und Prävalenz** in der untersuchten Gruppe
+- **Antwort für:** die einzelne Patientin
+:::
+:::
+
+## Rechner: Vierfeldertafel eines Tests
+
+Vorbelegt mit der Kohorte. Ändern Sie die Zahlen und beobachten Sie, welche Kennzahlen sich bewegen: Vergrößern Sie z. B. nur FP (mehr Fehlalarme) – Sensitivität bleibt gleich, Spezifität und PPV sinken.
+
+<div class="epir-dx" data-tp="175" data-fn="46" data-fp="179" data-tn="1600" data-disease="Albuminurie" data-test="Teststreifen"></div>
+
+**Aufgabe 1.** *Fiktive Zahlen zum Ausprobieren (keine reale Studie):* 1000 Personen, davon 100 mit der Krankheit; der Test ist bei 90 Kranken und bei 180 Gesunden positiv. Tragen Sie die Tafel ein (RP = 90, FN = 10, FP = 180, RN = 720) und lesen Sie Sensitivität, Spezifität und PPV ab. Prüfen Sie Ihr Ergebnis im Selbsttest (Fragen 1 und 2).
+
+## Warum der PPV von der Prävalenz abhängt
+
+Zurück zur Patientin: Sie hat **keinen Diabetes**. In dieser Gruppe ist Albuminurie seltener (`r pct(prev_nd)`) als bei Personen mit Diabetes (`r pct(prev_d)`). Der Teststreifen ist in beiden Gruppen derselbe – in der simulierten Kohorte sind Sensitivität und Spezifität in beiden Gruppen praktisch identisch (`r pct(sens, 0)` / `r pct(spez, 0)`). Trotzdem unterscheidet sich die Bedeutung eines positiven Ergebnisses deutlich:
+
+| Gruppe | Prävalenz (Vortestwahrscheinlichkeit) | PPV | NPV |
+|--------|------:|-----:|-----:|
+| ohne Diabetes (n = `r format(strata$n[strata$diabetes == 0], big.mark = "\u202f")`) | `r pct(prev_nd)` | **`r pct(ppv_nd)`** | `r pct(npv_nd)` |
+| Gesamtkohorte (n = `r format(n_all, big.mark = "\u202f")`) | `r pct(prev)` | `r pct(ppv)` | `r pct(npv)` |
+| mit Diabetes (n = `r strata$n[strata$diabetes == 1]`) | `r pct(prev_d)` | **`r pct(ppv_d)`** | `r pct(npv_d)` |
+
+Der Grund ist einfach zu zählen – mit **natürlichen Häufigkeiten** (Gigerenzer et al. 2007, Quellen) statt Prozenten. *Von 1000 Personen ohne Diabetes* (gerundet): etwa `r round(1000 * prev_nd)` haben eine Albuminurie, davon erkennt der Test `r pct(sens, 0)`, also etwa `r round(1000 * prev_nd * sens)`. Von den `r 1000 - round(1000 * prev_nd)` ohne Albuminurie erhalten `r pct(1 - spez, 0)` ein falsch positives Ergebnis, also etwa `r round((1000 - round(1000 * prev_nd)) * (1 - spez))`. Unter den `r round(1000 * prev_nd * sens) + round((1000 - round(1000 * prev_nd)) * (1 - spez))` Testpositiven sind nur `r round(1000 * prev_nd * sens)` wirklich krank: Je seltener die Krankheit, desto mehr Fehlalarme kommen auf jeden richtig erkannten Fall.
+
+```{r}
+#| label: fig-ppvcurve
+#| echo: false
+#| fig-height: 4.5
+#| fig-cap: "Positiver und negativer Vorhersagewert in Abhängigkeit von der Prävalenz bei fester Sensitivität und Spezifität des Teststreifens. Punkte: die drei Gruppen der Kohorte."
+#| fig-alt: "Liniendiagramm mit Prävalenz 0 bis 60 Prozent auf der x-Achse. Die orange PPV-Kurve steigt von 0 steil an und flacht ab, markiert bei 7,4 Prozent (PPV 39), 11,1 Prozent (PPV 49) und 31,5 Prozent (PPV 78). Die petrolfarbene NPV-Kurve sinkt langsam von 100 auf etwa 74 Prozent."
+plot_dx_ppv_curve(sens, spez,
+  mark = c("ohne Diabetes" = prev_nd, "Gesamtkohorte" = prev, "mit Diabetes" = prev_d),
+  nudge = c(-0.16, 0.16, -0.16))
+```
+
+**Antwort auf die Leitfrage:** Bei einer Patientin ohne Risikofaktoren bedeutet ein positiver Teststreifen eine Wahrscheinlichkeit von etwa `r pct(ppv_nd, 0)` für eine Albuminurie – häufiger falsch als richtig. Das Ergebnis ist ein Anlass zur **Bestätigungsdiagnostik** (quantitative UACR-Messung, wie in der KDIGO-Leitlinie vorgesehen), keine Diagnose. „Der Test erkennt 80 % der Erkrankten“ ist eine Aussage über den Test (Sensitivität) und beantwortet ihre Frage nicht.
+
+## Rechner: Prävalenz, Testgüte und Vorhersagewerte
+
+Verschieben Sie Prävalenz, Sensitivität und Spezifität. Der Baum zählt für 1000 Personen durch, was passiert.
+
+<div class="epir-ppv" data-prev="7.4" data-sens="79" data-spez="90" data-n="1000" data-disease="Albuminurie" data-scenarios="Ohne Diabetes: Prävalenz 7,4 %|7.4||;Gesamtkohorte: 11 %|11||;Mit Diabetes: 31,5 %|31.5||;Besserer Test: Spezifität 98 %|||98"></div>
+
+**Aufgabe 2.** Stellen Sie die Prävalenz auf 1 % (seltene Krankheit, Screening in der Allgemeinbevölkerung). Wie groß ist der PPV? Erhöhen Sie dann die Spezifität auf 99 % – was passiert, und warum hilft eine höhere Sensitivität hier weniger?
 
 ::: {.callout-note collapse="true"}
-## Code Schritt für Schritt
-- `mutate()` erzeugt eine neue Spalte. `uacr >= 30` ergibt `TRUE`/`FALSE`; `as.integer()` macht daraus 1/0.
-- `count()` zählt, wie oft jede Kombination der genannten Spalten vorkommt – das ist unsere Vierfeldertafel in „langer“ Form.
+## Mehr dazu: Likelihood-Ratios und Vortest-/Nachtestwahrscheinlichkeit
+Sensitivität und Spezifität lassen sich zu zwei Kennzahlen verdichten, die unabhängig von der Prävalenz sind und sich direkt auf eine Patientin anwenden lassen: Die **positive Likelihood-Ratio** LR+ = Sensitivität ÷ (1 − Spezifität) = `r de(lr_pos, 2)` sagt, wievielmal häufiger ein positiver Test bei Kranken als bei Gesunden ist; die **negative Likelihood-Ratio** LR− = (1 − Sensitivität) ÷ Spezifität = `r de(lr_neg, 2)` entsprechend für den negativen Test. Mit den Odds (Modul 3) gilt: Nachtest-Odds = Vortest-Odds × LR. Für die Patientin ohne Diabetes: Vortest-Odds `r de(prev_nd / (1 - prev_nd), 3)` × `r de(lr_pos, 2)` = `r de(prev_nd / (1 - prev_nd) * lr_pos, 3)` → Nachtestwahrscheinlichkeit `r pct((prev_nd / (1 - prev_nd) * lr_pos) / (1 + prev_nd / (1 - prev_nd) * lr_pos), 0)` – dasselbe wie der PPV in ihrer Gruppe. Grafisch geht das mit dem Fagan-Nomogramm (Fagan 1975; Deeks & Altman 2004, Quellen). Faustregel: LR+ über 10 bzw. LR− unter 0,1 verändern die Wahrscheinlichkeit stark; unser Teststreifen (LR+ ≈ 8, LR− ≈ 0,23) liegt darunter.
 :::
 
-Aus den vier Häufigkeiten berechnen wir die Kennzahlen:
+## Typische Fehler
 
-```{webr}
-tafel <- kohorte |>
-  summarise(
-    RP = sum(teststreifen_pos == 1 & albuminurie == 1),
-    FP = sum(teststreifen_pos == 1 & albuminurie == 0),
-    FN = sum(teststreifen_pos == 0 & albuminurie == 1),
-    RN = sum(teststreifen_pos == 0 & albuminurie == 0)
-  )
+| Fehler | Richtig |
+|---|---|
+| „Sensitivität 80 % – also ist die Patientin zu 80 % krank“ | Die Sensitivität beschreibt den Test (Spalte „krank“). Die Wahrscheinlichkeit, krank zu sein, ist der PPV (Zeile „positiv“) – hier je nach Gruppe 39 % bis 78 % |
+| Spalten und Zeilen vertauschen | Sensitivität/Spezifität: Nenner = alle Kranken bzw. alle Gesunden. PPV/NPV: Nenner = alle Testpositiven bzw. alle Testnegativen |
+| „Ein guter Test hat in jeder Gruppe denselben PPV“ | Der PPV steigt mit der Prävalenz, der NPV sinkt – bei unverändertem Test |
+| „Der Test ist negativ, also ist die Krankheit ausgeschlossen“ | NPV 97 % heißt: etwa 3 von 100 Testnegativen sind dennoch krank. Ausschluss braucht hohe Sensitivität *und* niedrige Vortestwahrscheinlichkeit |
+| „Hoher NPV = guter Test“ | Bei seltener Krankheit ist der NPV fast immer hoch – auch bei einem schlechten Test (ohne Test wären ja schon 93 % „richtig negativ“) |
+| „Prävalenz senkt die Sensitivität“ | Sensitivität und Spezifität ändern sich mit der Prävalenz nicht – sie beschreiben den Test im Vergleich zum Referenzstandard |
 
-tafel |>
-  mutate(
-    sensitivitaet = RP / (RP + FN),
-    spezifitaet   = RN / (RN + FP),
-    ppv           = RP / (RP + FP),
-    npv           = RN / (RN + FN),
-    praevalenz    = (RP + FN) / (RP + FP + FN + RN)
-  )
-```
+::: {.takehome}
+**Take-Home-Messages**
 
-### Übung: Sensitivität und Spezifität
+- **Vierfeldertafel:** Spalten = Krankheit (Referenzstandard), Zeilen = Testergebnis; vier Felder RP, FP, FN, RN.
+- **Sensitivität und Spezifität** lesen die Spalten: Wie gut erkennt der Test Kranke bzw. Gesunde? Sie beschreiben den Test und hängen nicht von der Prävalenz ab.
+- **PPV und NPV** lesen die Zeilen: Was bedeutet ein Ergebnis für die getestete Person? Sie hängen von der **Prävalenz** ab – gleicher Test, andere Gruppe, anderer PPV.
+- **Natürliche Häufigkeiten** („von 1000 Personen …“) machen die Rechnung nachvollziehbar und sind das Mittel der Wahl für die Patientenkommunikation.
+- Ein positives Screening-Ergebnis bei niedriger Vortestwahrscheinlichkeit ist ein Anlass zur **Bestätigung**, keine Diagnose.
+:::
 
-Vervollständigen Sie die Berechnung von Sensitivität und Spezifität aus der Tafel `tafel` (sie ist bereits vorbereitet).
+## Selbsttest
+
+Die Fragen entsprechen dem Format der Klausurfragen (eine richtige Antwort; Rechenaufgaben mit Zahleneingabe). Das Feedback erklärt auch, warum die anderen Antworten nicht stimmen.
+
+<div class="epir-quiz">
+<script type="application/json">
+{
+  "items": [
+    {
+      "type": "num",
+      "question": "<em>Zu Aufgabe 1 (fiktive Zahlen):</em> 1000 Personen, 100 mit der Krankheit. Der Test ist bei 90 Kranken und bei 180 Gesunden positiv. Wie groß ist die <strong>Sensitivität</strong> in Prozent?",
+      "label": "Sensitivität:",
+      "unit": "%",
+      "answer": 90,
+      "tol": 0.5,
+      "feedback_correct": "Sensitivität = RP / (RP + FN) = 90 / 100 = 90 %. Antwortsatz: „Der Test erkennt 90 von 100 Erkrankten.“",
+      "feedback_wrong": "Sensitivität = richtig positive / alle Kranken. Die Kranken stehen in einer Spalte: 100 Personen, davon 90 testpositiv.",
+      "near": [
+        { "value": 33.3, "tol": 0.5, "feedback": "33,3 % ist der PPV (90 von 270 Testpositiven). Die Sensitivität liest die Spalte der Kranken: 90 / 100." },
+        { "value": 80, "tol": 0.5, "feedback": "80 % ist die Spezifität (720 von 900 Gesunden). Gefragt war die Sensitivität: 90 / 100." },
+        { "value": 0.9, "tol": 0.01, "feedback": "0,9 ist der Anteil – gefragt war die Angabe in Prozent: 90 %." },
+        { "value": 9, "tol": 0.3, "feedback": "90 von 1000 wären 9 % – der Nenner sind aber nur die 100 Kranken, nicht alle 1000 Personen." }
+      ]
+    },
+    {
+      "type": "num",
+      "question": "<em>Dieselben fiktiven Zahlen:</em> Wie groß ist der <strong>positive Vorhersagewert</strong> (PPV) in Prozent?",
+      "label": "PPV:",
+      "unit": "%",
+      "answer": 33.3,
+      "tol": 0.5,
+      "feedback_correct": "PPV = RP / (RP + FP) = 90 / (90 + 180) = 33,3 %. Antwortsatz: „Von 100 Testpositiven ist nur etwa ein Drittel tatsächlich krank“ – trotz 90 % Sensitivität, weil die Krankheit selten ist (10 %).",
+      "feedback_wrong": "PPV = richtig positive / alle Testpositiven. Zählen Sie die Zeile „positiv“: 90 richtig + 180 falsch positiv.",
+      "near": [
+        { "value": 90, "tol": 0.5, "feedback": "90 % ist die Sensitivität (Spalte). Der PPV liest die Zeile der Testpositiven: 90 / 270." },
+        { "value": 80, "tol": 0.5, "feedback": "80 % ist die Spezifität. PPV = 90 / (90 + 180)." },
+        { "value": 98.6, "tol": 0.5, "feedback": "98,6 % ist der NPV (720 von 730 Testnegativen). Gefragt war der positive Vorhersagewert: 90 / 270 = 33,3 %." },
+        { "value": 50, "tol": 0.5, "feedback": "90 / 180 vergleicht richtig mit falsch positiven. Der Nenner des PPV ist die Summe beider: 90 / (90 + 180)." }
+      ]
+    },
+    {
+      "type": "mc",
+      "question": "Welche Aussage ist <strong>falsch</strong>?",
+      "options": [
+        { "text": "Die Sensitivität ist der Anteil der Erkrankten mit positivem Testergebnis.", "correct": false, "feedback": "Das ist die korrekte Definition (Spalte „krank“)." },
+        { "text": "Wird derselbe Test in einer Gruppe mit niedrigerer Prävalenz eingesetzt, sinkt seine Sensitivität.", "correct": true, "feedback": "Diese Aussage ist falsch und damit die gesuchte Antwort: Sensitivität und Spezifität hängen nicht von der Prävalenz ab. Was in der Gruppe mit niedrigerer Prävalenz sinkt, ist der PPV." },
+        { "text": "Der positive Vorhersagewert ist der Anteil der Testpositiven, die tatsächlich erkrankt sind.", "correct": false, "feedback": "Das ist die korrekte Definition (Zeile „positiv“)." },
+        { "text": "Der negative Vorhersagewert sinkt, wenn die Prävalenz steigt.", "correct": false, "feedback": "Richtig beschrieben: Je häufiger die Krankheit, desto mehr Kranke verstecken sich unter den Testnegativen." }
+      ]
+    },
+    {
+      "type": "num",
+      "question": "Von 1000 Personen <strong>ohne Diabetes</strong> haben etwa 74 eine Albuminurie (Prävalenz 7,4 %). Der Teststreifen hat 79 % Sensitivität und 90 % Spezifität. Wie groß ist der PPV in dieser Gruppe in Prozent (gerundet auf ganze Zahlen genügt)?",
+      "label": "PPV:",
+      "unit": "%",
+      "answer": 38.8,
+      "tol": 1.5,
+      "feedback_correct": "Von 74 Kranken erkennt der Test etwa 58 (79 %); von 926 Gesunden erhalten etwa 93 (10 %) ein falsch positives Ergebnis. PPV = 58 / (58 + 93) ≈ 39 %. Antwortsatz: „Von 100 Personen ohne Diabetes mit positivem Teststreifen haben etwa 39 wirklich eine Albuminurie.“",
+      "feedback_wrong": "Rechnen Sie in natürlichen Häufigkeiten: Kranke × Sensitivität = richtig positive; Gesunde × (1 − Spezifität) = falsch positive; PPV = richtig positive / alle Testpositiven.",
+      "near": [
+        { "value": 79, "tol": 0.5, "feedback": "79 % ist die Sensitivität – sie gilt für alle Gruppen und beantwortet die Frage nicht. PPV = 58 / (58 + 93)." },
+        { "value": 90, "tol": 0.5, "feedback": "90 % ist die Spezifität. Gefragt war der PPV: 58 / (58 + 93) ≈ 39 %." },
+        { "value": 7.4, "tol": 0.3, "feedback": "7,4 % ist die Prävalenz (Vortestwahrscheinlichkeit). Nach positivem Test steigt sie auf etwa 39 % (Nachtestwahrscheinlichkeit = PPV)." },
+        { "value": 58, "tol": 1.5, "feedback": "58 ist die Zahl der richtig positiven Personen. Der PPV teilt sie durch alle Testpositiven (58 + 93 = 151): 38 % bis 39 %." }
+      ]
+    },
+    {
+      "type": "mc",
+      "question": "Der Teststreifen wird statt in der Allgemeinbevölkerung in einer Diabetes-Sprechstunde eingesetzt (höhere Prävalenz der Albuminurie). Was ändert sich?",
+      "options": [
+        { "text": "PPV steigt, NPV sinkt; Sensitivität und Spezifität bleiben gleich.", "correct": true, "feedback": "Mehr Kranke pro Testpositivem → höherer PPV; mehr Kranke unter den Testnegativen → niedrigerer NPV. Der Test selbst ist unverändert (in der Kohorte: PPV 39 % → 78 %)." },
+        { "text": "Sensitivität und PPV steigen, Spezifität sinkt.", "correct": false, "feedback": "Sensitivität und Spezifität sind Eigenschaften des Tests und ändern sich mit der Prävalenz nicht." },
+        { "text": "Alle vier Kennzahlen bleiben gleich, weil derselbe Test verwendet wird.", "correct": false, "feedback": "Der Test ist gleich, aber die Vorhersagewerte hängen zusätzlich von der Prävalenz ab." },
+        { "text": "PPV sinkt, weil mehr Personen getestet werden.", "correct": false, "feedback": "Die Zahl der Getesteten spielt keine Rolle; entscheidend ist der Anteil Kranker unter ihnen – und der ist in der Diabetes-Sprechstunde höher." }
+      ]
+    },
+    {
+      "type": "mc",
+      "question": "Ein Patient aus der Kohorte hat einen <strong>negativen</strong> Teststreifen (NPV in der Gesamtkohorte 97 %). Welche Aussage ist korrekt?",
+      "options": [
+        { "text": "Von 100 Personen mit negativem Teststreifen haben etwa 3 dennoch eine Albuminurie.", "correct": true, "feedback": "NPV 97 % heißt 97 von 100 Testnegativen sind wirklich gesund – und 3 nicht. Ein negativer Test macht die Krankheit unwahrscheinlicher, schließt sie aber nicht aus." },
+        { "text": "Eine Albuminurie ist ausgeschlossen, weil der Test eine Spezifität von 90 % hat.", "correct": false, "feedback": "Die Spezifität beschreibt die Gesunden; für den Ausschluss zählen Sensitivität (79 % – jeder fünfte Fall wird übersehen) und Vortestwahrscheinlichkeit." },
+        { "text": "Der Patient ist zu 79 % gesund.", "correct": false, "feedback": "79 % ist die Sensitivität, eine Eigenschaft des Tests. Die Wahrscheinlichkeit, gesund zu sein, ist der NPV (97 %)." },
+        { "text": "Der Patient ist zu 90 % gesund.", "correct": false, "feedback": "90 % ist die Spezifität (Anteil der Gesunden mit negativem Test). Die Frage „Wie wahrscheinlich gesund bei negativem Test?“ beantwortet der NPV: 97 %." }
+      ]
+    }
+  ]
+}
+</script>
+</div>
+
+## Dasselbe in R {#dasselbe-in-r}
+
+::: {.callout-note appearance="simple" icon="false"}
+<span class="epir-badge epir-badge-r">Vertiefung R</span> Baut auf dem R-Teil von Modul 1 auf (`read_csv()`, `filter()`, `mutate()`, `count()`, Pipe `|>`). Neu hier: `case_when()` für mehrere Bedingungen und `summarise()` mit mehreren Kennzahlen. Code-Blöcke laufen direkt im Browser („Run Code“); der erste Start dauert bis zu einer Minute.
+:::
+
+### Übung R1: Vierfeldertafel zählen
+
+Der Datensatz enthält `uacr` (mg/g) und `teststreifen_pos` (1 = positiv). Die Spalte `albuminurie` (1, wenn UACR ≥ 30) ist vorbereitet. Ersetzen Sie die Lücke so, dass `count()` alle vier Kombinationen zählt.
 
 ```{webr}
 #| setup: true
-#| exercise: ex_sens
+#| exercise: ex_count
+library(dplyr)
+library(readr)
+kohorte <- read_csv("data/ckd_kohorte.csv", show_col_types = FALSE) |>
+  mutate(albuminurie = as.integer(uacr >= 30))
+```
+
+```{webr}
+#| exercise: ex_count
+kohorte |>
+  count(albuminurie, ______)
+```
+
+::: {.hint exercise="ex_count"}
+::: {.callout-note collapse="false"}
+## Hinweis
+`count()` zählt Zeilen je Kombination der angegebenen Spalten. Die zweite Spalte ist das Testergebnis.
+:::
+:::
+
+::: {.solution exercise="ex_count"}
+::: {.callout-tip collapse="false"}
+## Lösung
+```r
+kohorte |>
+  count(albuminurie, teststreifen_pos)
+```
+Vier Zeilen: 0/0 → 1600 (RN), 0/1 → 179 (FP), 1/0 → 46 (FN), 1/1 → 175 (RP). Das ist die Vierfeldertafel in „langer“ Form.
+:::
+:::
+
+```{webr}
+#| exercise: ex_count
+#| check: true
+erw <- c(1600, 179, 46, 175)
+ok <- tryCatch(is.data.frame(.result) && "n" %in% names(.result) && nrow(.result) == 4 &&
+                 all(sort(.result$n) == sort(erw)), error = function(e) FALSE)
+if (isTRUE(ok)) {
+  list(correct = TRUE, type = "success", message = "Richtig. 175 richtig positiv, 46 falsch negativ, 179 falsch positiv, 1600 richtig negativ.")
+} else if (tryCatch(is.data.frame(.result) && nrow(.result) == 2, error = function(e) FALSE)) {
+  list(correct = FALSE, type = "warning", message = "Nur zwei Zeilen: Es wurde nach einer einzigen Spalte gezählt. Geben Sie beide Spalten an: albuminurie und teststreifen_pos.")
+} else {
+  list(correct = FALSE, type = "info", message = "Noch nicht ganz. Erwartet wird eine Tabelle mit vier Zeilen (albuminurie × teststreifen_pos) und der Spalte n.")
+}
+```
+
+### Übung R2: Die vier Felder benennen
+
+`case_when()` prüft Bedingungen von oben nach unten und vergibt für die erste zutreffende ein Label. Ergänzen Sie die fehlende Bedingung für **falsch negativ** (Test negativ, Albuminurie vorhanden).
+
+```{webr}
+#| setup: true
+#| exercise: ex_case
+library(dplyr)
+library(readr)
+kohorte <- read_csv("data/ckd_kohorte.csv", show_col_types = FALSE) |>
+  mutate(albuminurie = as.integer(uacr >= 30))
+```
+
+```{webr}
+#| exercise: ex_case
+tafel <- kohorte |>
+  mutate(ergebnis = case_when(
+    teststreifen_pos == 1 & albuminurie == 1 ~ "RP",
+    teststreifen_pos == 1 & albuminurie == 0 ~ "FP",
+    ______ ~ "FN",
+    teststreifen_pos == 0 & albuminurie == 0 ~ "RN"
+  ))
+
+tafel |> count(ergebnis)
+```
+
+::: {.hint exercise="ex_case"}
+::: {.callout-note collapse="false"}
+## Hinweis
+Falsch negativ: `teststreifen_pos == 0` **und** (`&`) `albuminurie == 1`.
+:::
+:::
+
+::: {.solution exercise="ex_case"}
+::: {.callout-tip collapse="false"}
+## Lösung
+```r
+tafel <- kohorte |>
+  mutate(ergebnis = case_when(
+    teststreifen_pos == 1 & albuminurie == 1 ~ "RP",
+    teststreifen_pos == 1 & albuminurie == 0 ~ "FP",
+    teststreifen_pos == 0 & albuminurie == 1 ~ "FN",
+    teststreifen_pos == 0 & albuminurie == 0 ~ "RN"
+  ))
+tafel |> count(ergebnis)
+```
+`==` vergleicht, `&` verknüpft zwei Bedingungen mit „und“. Fehlt eine Kombination, bekommt sie `NA` – ein guter Hinweis darauf, dass eine Bedingung nicht stimmt.
+:::
+:::
+
+```{webr}
+#| exercise: ex_case
+#| check: true
+res <- tryCatch(if (is.data.frame(.result) && all(c("ergebnis", "n") %in% names(.result))) .result else NULL, error = function(e) NULL)
+if (is.null(res)) {
+  list(correct = FALSE, type = "info", message = "Erwartet wird die gezählte Tabelle (tafel |> count(ergebnis)).")
+} else if (any(is.na(res$ergebnis))) {
+  list(correct = FALSE, type = "warning", message = sprintf("%d Personen fallen in keine Kategorie (NA). Die Bedingung für FN muss genau die Testnegativen mit Albuminurie treffen: teststreifen_pos == 0 & albuminurie == 1.", res$n[is.na(res$ergebnis)]))
+} else if (all(c("RP", "FP", "FN", "RN") %in% res$ergebnis) && res$n[res$ergebnis == "FN"] == 46 && res$n[res$ergebnis == "RP"] == 175) {
+  list(correct = TRUE, type = "success", message = "Richtig. FN = 46: 46 Personen mit Albuminurie hatten einen negativen Teststreifen – das sind die übersehenen Fälle.")
+} else {
+  list(correct = FALSE, type = "info", message = "Noch nicht ganz. Erwartet: RP 175, FP 179, FN 46, RN 1600.")
+}
+```
+
+### Übung R3: Die vier Kennzahlen
+
+Aus den Feldern lassen sich alle Kennzahlen in einem `summarise()` berechnen; spätere Zeilen dürfen frühere Ergebnisse verwenden. Sensitivität und Spezifität sind vorgegeben – ergänzen Sie die Nenner von PPV und NPV.
+
+```{webr}
+#| setup: true
+#| exercise: ex_measures
 library(dplyr)
 library(readr)
 kohorte <- read_csv("data/ckd_kohorte.csv", show_col_types = FALSE) |>
   mutate(albuminurie = as.integer(uacr >= 30))
 tafel <- kohorte |>
-  summarise(
-    RP = sum(teststreifen_pos == 1 & albuminurie == 1),
-    FP = sum(teststreifen_pos == 1 & albuminurie == 0),
-    FN = sum(teststreifen_pos == 0 & albuminurie == 1),
-    RN = sum(teststreifen_pos == 0 & albuminurie == 0)
-  )
+  mutate(ergebnis = case_when(
+    teststreifen_pos == 1 & albuminurie == 1 ~ "RP",
+    teststreifen_pos == 1 & albuminurie == 0 ~ "FP",
+    teststreifen_pos == 0 & albuminurie == 1 ~ "FN",
+    teststreifen_pos == 0 & albuminurie == 0 ~ "RN"
+  ))
 ```
 
 ```{webr}
-#| exercise: ex_sens
+#| exercise: ex_measures
 tafel |>
-  mutate(
-    sensitivitaet = RP / (RP + ______),
-    spezifitaet   = RN / (RN + ______)
+  summarise(
+    rp = sum(ergebnis == "RP"),
+    fp = sum(ergebnis == "FP"),
+    fn = sum(ergebnis == "FN"),
+    rn = sum(ergebnis == "RN"),
+    sensitivitaet = rp / (rp + fn),
+    spezifitaet   = rn / (rn + fp),
+    ppv           = rp / ______,
+    npv           = rn / ______
   )
 ```
 
-::: {.hint exercise="ex_sens"}
+::: {.hint exercise="ex_measures"}
 ::: {.callout-note collapse="false"}
 ## Hinweis
-Der Nenner der Sensitivität sind **alle Kranken** – also richtig positive plus falsch negative. Der Nenner der Spezifität sind **alle Gesunden**.
+Die Vorhersagewerte lesen die **Zeilen**: Nenner des PPV sind alle Testpositiven (rp + fp), Nenner des NPV alle Testnegativen (rn + fn).
 :::
 :::
 
-::: {.solution exercise="ex_sens"}
+::: {.solution exercise="ex_measures"}
 ::: {.callout-tip collapse="false"}
 ## Lösung
 ```r
 tafel |>
-  mutate(
-    sensitivitaet = RP / (RP + FN),
-    spezifitaet   = RN / (RN + FP)
+  summarise(
+    rp = sum(ergebnis == "RP"), fp = sum(ergebnis == "FP"),
+    fn = sum(ergebnis == "FN"), rn = sum(ergebnis == "RN"),
+    sensitivitaet = rp / (rp + fn),     # Spalte „krank“
+    spezifitaet   = rn / (rn + fp),     # Spalte „gesund“
+    ppv           = rp / (rp + fp),     # Zeile „positiv“
+    npv           = rn / (rn + fn)      # Zeile „negativ“
   )
 ```
-Sensitivität ≈ 0,79, Spezifität ≈ 0,90 (die Simulation wurde mit 0,80 / 0,90 erzeugt; Abweichungen sind Zufallsstreuung).
+Sensitivität 0,792, Spezifität 0,899, PPV 0,494, NPV 0,972. `sum(ergebnis == "RP")` zählt, wie oft der Vergleich `TRUE` ist – `TRUE` zählt als 1.
 :::
 :::
 
 ```{webr}
-#| exercise: ex_sens
+#| exercise: ex_measures
 #| check: true
-sens_erw <- tafel$RP / (tafel$RP + tafel$FN)
-spez_erw <- tafel$RN / (tafel$RN + tafel$FP)
-ppv_wert <- tafel$RP / (tafel$RP + tafel$FP)
-
-werte <- tryCatch({
-  if (is.data.frame(.result)) unlist(Filter(is.numeric, .result)) else as.numeric(.result)
-}, error = function(e) numeric(0))
-nahe <- function(x, ziel) any(abs(x - ziel) < 1e-6, na.rm = TRUE)
-
-if (length(werte) > 0 && nahe(werte, sens_erw) && nahe(werte, spez_erw)) {
-  list(correct = TRUE, type = "success",
-       message = sprintf("Richtig. Sensitivität %.3f, Spezifität %.3f. Beide Werte hängen nicht von der Prävalenz ab – PPV und NPV schon.", sens_erw, spez_erw))
-} else if (length(werte) > 0 && nahe(werte, ppv_wert)) {
-  list(correct = FALSE, type = "warning",
-       message = "Sie haben RP / (RP + FP) berechnet – das ist der positive prädiktive Wert, nicht die Sensitivität. Die Sensitivität bezieht sich auf alle Kranken (RP + FN).")
+res <- tryCatch(if (is.data.frame(.result)) .result else NULL, error = function(e) NULL)
+val <- function(k) if (!is.null(res) && k %in% names(res)) as.numeric(res[[k]][1]) else NA_real_
+near <- function(x, y) is.finite(x) && abs(x - y) < 1e-4
+if (near(val("ppv"), 175 / 354) && near(val("npv"), 1600 / 1646)) {
+  list(correct = TRUE, type = "success", message = "Richtig. PPV 49,4 %, NPV 97,2 % – die Zeilen der Tafel. Zum Vergleich die Spalten: Sensitivität 79,2 %, Spezifität 89,9 %.")
+} else if (near(val("ppv"), 175 / 221) || near(val("npv"), 1600 / 1779)) {
+  list(correct = FALSE, type = "warning", message = "Das sind Sensitivität bzw. Spezifität (Spalten: rp + fn bzw. rn + fp). PPV und NPV teilen durch die Zeilensummen: rp + fp bzw. rn + fn.")
+} else if (near(val("ppv"), 175 / 179) || near(val("npv"), 1600 / 46)) {
+  list(correct = FALSE, type = "warning", message = "rp / fp vergleicht richtig mit falsch positiv – der Nenner muss die Summe beider sein: rp + fp (bzw. rn + fn).")
 } else {
-  list(correct = FALSE, type = "info",
-       message = "Noch nicht ganz. Sensitivität = RP / (RP + FN); Spezifität = RN / (RN + FP).")
+  list(correct = FALSE, type = "info", message = "Noch nicht ganz. ppv = rp / (rp + fp), npv = rn / (rn + fn).")
 }
 ```
 
-## Warum der PPV von der Prävalenz abhängt
+### Bonus: Vorhersagewerte je Gruppe (ohne Bewertung)
 
-Zurück zur Leitfrage: Unsere Patientin ist 55, ohne Risikofaktoren. In dieser Gruppe ist Albuminurie seltener als in der Gesamtkohorte. Was bedeutet das für ihren positiven Test?
+Mit `group_by(diabetes)` liefert derselbe Code die Kennzahlen getrennt für Personen ohne und mit Diabetes – Sensitivität und Spezifität bleiben (fast) gleich, PPV und NPV nicht. Der Block ist eigenständig lauffähig.
 
-Probieren Sie es aus. Die App unten rechnet für **1000 Personen** durch, was bei gegebener Prävalenz, Sensitivität und Spezifität passiert (sogenannte **natürliche Häufigkeiten**).
+```{webr}
+library(dplyr)
+library(readr)
+library(ggplot2)
+library(tidyr)
+kohorte <- read_csv("data/ckd_kohorte.csv", show_col_types = FALSE) |>
+  mutate(albuminurie = as.integer(uacr >= 30))
+
+je_gruppe <- kohorte |>
+  group_by(diabetes) |>
+  summarise(
+    n = n(),
+    praevalenz    = mean(albuminurie),
+    sensitivitaet = sum(teststreifen_pos == 1 & albuminurie == 1) / sum(albuminurie == 1),
+    spezifitaet   = sum(teststreifen_pos == 0 & albuminurie == 0) / sum(albuminurie == 0),
+    ppv           = sum(teststreifen_pos == 1 & albuminurie == 1) / sum(teststreifen_pos == 1),
+    npv           = sum(teststreifen_pos == 0 & albuminurie == 0) / sum(teststreifen_pos == 0)
+  )
+je_gruppe
+
+je_gruppe |>
+  pivot_longer(c(sensitivitaet, spezifitaet, ppv, npv), names_to = "kennzahl", values_to = "wert") |>
+  mutate(gruppe = if_else(diabetes == 1, "mit Diabetes", "ohne Diabetes")) |>
+  ggplot(aes(x = kennzahl, y = wert, fill = gruppe)) +
+  geom_col(position = "dodge") +
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_manual(values = c("ohne Diabetes" = "#0b6e6e", "mit Diabetes" = "#d9822b")) +
+  labs(x = NULL, y = NULL, fill = NULL, title = "Gleicher Test, zwei Gruppen") +
+  theme_minimal()
+```
+
+::: {.callout-note collapse="true"}
+## Mehr dazu: der Prävalenz-Rechner als Shiny-App
+Der Slider-Rechner oben ist ein kleines JavaScript-Widget. Dieselbe Logik lässt sich in R als interaktive **Shiny-App** schreiben, die hier dank Shinylive komplett im Browser läuft (Start dauert etwa eine Minute; in manchen Vorschau-Umgebungen nicht verfügbar). Der Code zeigt, wie Eingaben (`input$prev`) über eine reaktive Funktion zu Ausgaben werden – ein Vorgeschmack auf Modul 8.
 
 ```{shinylive-r}
 #| standalone: true
-#| viewerHeight: 500
+#| viewerHeight: 520
 library(shiny)
 
 ui <- fluidPage(
@@ -179,10 +583,10 @@ ui <- fluidPage(
   fluidRow(
     column(4,
       sliderInput("prev", "Prävalenz in der untersuchten Gruppe (%)",
-                  min = 0.5, max = 50, value = 5, step = 0.5),
-      sliderInput("sens", "Sensitivität (%)", min = 50, max = 100, value = 80, step = 1),
+                  min = 0.5, max = 60, value = 7.5, step = 0.5),
+      sliderInput("sens", "Sensitivität (%)", min = 50, max = 100, value = 79, step = 1),
       sliderInput("spez", "Spezifität (%)", min = 50, max = 100, value = 90, step = 1),
-      helpText("Voreinstellung: Testgüte des simulierten Teststreifens, Prävalenz einer Niedrigrisikogruppe.")
+      helpText("Voreinstellung: Testgüte des simulierten Teststreifens, Prävalenz der Gruppe ohne Diabetes.")
     ),
     column(8,
       div(class = "box",
@@ -191,12 +595,12 @@ ui <- fluidPage(
       ),
       fluidRow(
         column(6, div(class = "box",
-          div(class = "lbl", "Positiver prädiktiver Wert (PPV)"),
+          div(class = "lbl", "Positiver Vorhersagewert (PPV)"),
           div(class = "big", textOutput("ppv", inline = TRUE)),
           div(class = "lbl", "Test positiv → tatsächlich krank")
         )),
         column(6, div(class = "box",
-          div(class = "lbl", "Negativer prädiktiver Wert (NPV)"),
+          div(class = "lbl", "Negativer Vorhersagewert (NPV)"),
           div(class = "big", textOutput("npv", inline = TRUE)),
           div(class = "lbl", "Test negativ → tatsächlich gesund")
         ))
@@ -232,52 +636,36 @@ server <- function(input, output, session) {
 
   output$kurve <- renderPlot({
     se <- input$sens / 100; sp <- input$spez / 100
-    p <- seq(0.001, 0.5, by = 0.001)
+    p <- seq(0.001, 0.6, by = 0.001)
     ppv <- (se * p) / (se * p + (1 - sp) * (1 - p))
     par(mar = c(4, 4, 1, 1))
-    plot(100 * p, 100 * ppv, type = "l", lwd = 2, col = "#0b6e6e",
+    plot(100 * p, 100 * ppv, type = "l", lwd = 2, col = "#d9822b",
          xlab = "Prävalenz (%)", ylab = "PPV (%)", ylim = c(0, 100), las = 1)
     abline(v = input$prev, lty = 2, col = "grey40")
-    points(input$prev, 100 * zahlen()$ppv, pch = 19, col = "#0b6e6e", cex = 1.4)
+    points(input$prev, 100 * zahlen()$ppv, pch = 19, col = "#d9822b", cex = 1.4)
     grid()
   })
 }
 
 shinyApp(ui, server)
 ```
-
-::: {.callout-tip}
-## Was Sie beobachten sollten
-Bei 5 % Prävalenz, 80 % Sensitivität und 90 % Spezifität sind von 1000 Personen 50 krank, davon werden 40 erkannt. Aber von den 950 Gesunden erhalten 95 ein falsch positives Ergebnis. Unter den 135 Testpositiven sind also nur 40 wirklich krank: **PPV ≈ 30 %**. Schieben Sie die Prävalenz auf 30 % – der PPV steigt deutlich, obwohl der Test unverändert ist.
 :::
 
-**Antwort auf die Leitfrage:** Bei einer Patientin aus einer Niedrigrisikogruppe ist ein positiver Teststreifen eher ein Anlass zur **Bestätigungsdiagnostik** (UACR-Labormessung) als eine Diagnose. Genau deshalb wird ein positives Screening-Ergebnis in Leitlinien in der Regel durch eine quantitative Messung bestätigt (siehe KDIGO 2024, Kapitel 1).
-
-## Typische Fehler
-
-::: {.callout-warning}
-## Sensitivität mit PPV verwechseln
-„Der Test hat 80 % Sensitivität, also ist sie zu 80 % krank“ – falsch. Die Sensitivität beschreibt, wie der Test sich **bei Kranken** verhält. Was ein positives Ergebnis für die einzelne Person bedeutet, sagt der PPV, und der hängt von der Vortestwahrscheinlichkeit (Prävalenz) ab.
-:::
-
-::: {.callout-warning}
-## Spalten und Zeilen der Tafel vertauschen
-Sensitivität und Spezifität werden **spaltenweise** (nach Krankheitsstatus) berechnet, PPV und NPV **zeilenweise** (nach Testergebnis). Prüfen Sie immer, welche Gruppe im Nenner steht.
-:::
-
-::: {.takehome}
-**Take-Home-Messages**
-
-- Sensitivität und Spezifität sind Testeigenschaften; PPV und NPV beschreiben die Bedeutung eines Ergebnisses für die Person.
-- Je niedriger die Prävalenz, desto niedriger der PPV – auch bei gutem Test.
-- Mit natürlichen Häufigkeiten („von 1000 Personen …“) lassen sich diese Zusammenhänge ohne Formeln nachvollziehen und Patientinnen und Patienten erklären.
-- In R: `count()` für die Vierfeldertafel, `mutate()` für die Kennzahlen.
+::: {.callout-note collapse="true"}
+## Was Sie in R mitnehmen
+- `count(a, b)` zählt alle Kombinationen zweier Spalten – die Vierfeldertafel in langer Form.
+- `case_when()` vergibt Labels nach Bedingungen; `==` vergleicht, `&` bedeutet „und“. Nicht abgedeckte Fälle werden `NA`.
+- In `summarise()` dürfen spätere Kennzahlen auf frühere zugreifen (`ppv = rp / (rp + fp)`).
+- `sum(bedingung)` zählt, wie oft eine Bedingung zutrifft.
 :::
 
 ## Quellen und weiterführende Literatur
 
-- Gigerenzer G, Gaissmaier W, Kurz-Milcke E, Schwartz LM, Woloshin S. Helping doctors and patients make sense of health statistics. *Psychol Sci Public Interest.* 2007;8(2):53–96. <https://doi.org/10.1111/j.1539-6053.2008.00033.x> – natürliche Häufigkeiten in der Risikokommunikation.
-- Altman DG, Bland JM. Diagnostic tests 1: sensitivity and specificity. *BMJ.* 1994;308(6943):1552. <https://doi.org/10.1136/bmj.308.6943.1552>
-- Altman DG, Bland JM. Diagnostic tests 2: predictive values. *BMJ.* 1994;309(6947):102. <https://doi.org/10.1136/bmj.309.6947.102>
-- Kidney Disease: Improving Global Outcomes (KDIGO) CKD Work Group. KDIGO 2024 Clinical Practice Guideline for the Evaluation and Management of Chronic Kidney Disease. *Kidney Int.* 2024;105(4S):S117–S314. <https://doi.org/10.1016/j.kint.2023.10.018>
-- dplyr-Dokumentation zu `count()` und `mutate()`: <https://dplyr.tidyverse.org>
+- Altman DG, Bland JM. Diagnostic tests 1: sensitivity and specificity. *BMJ* 1994;308:1552. <https://doi.org/10.1136/bmj.308.6943.1552> – Definitionen, Spaltenlesart.
+- Altman DG, Bland JM. Diagnostic tests 2: predictive values. *BMJ* 1994;309:102. <https://doi.org/10.1136/bmj.309.6947.102> – PPV/NPV und ihre Abhängigkeit von der Prävalenz.
+- Deeks JJ, Altman DG. Diagnostic tests 4: likelihood ratios. *BMJ* 2004;329:168–169. <https://doi.org/10.1136/bmj.329.7458.168> – Likelihood-Ratios, Vor-/Nachtestwahrscheinlichkeit, Faustregel LR > 10 bzw. < 0,1.
+- Fagan TJ. Nomogram for Bayes theorem. *N Engl J Med* 1975;293:257. <https://doi.org/10.1056/NEJM197507312930513>
+- Gigerenzer G, Gaissmaier W, Kurz-Milcke E, Schwartz LM, Woloshin S. Helping doctors and patients make sense of health statistics. *Psychol Sci Public Interest* 2007;8:53–96. <https://doi.org/10.1111/j.1539-6053.2008.00033.x> – natürliche Häufigkeiten.
+- Kidney Disease: Improving Global Outcomes (KDIGO) CKD Work Group. KDIGO 2024 Clinical Practice Guideline for the Evaluation and Management of Chronic Kidney Disease. *Kidney Int* 2024;105(4S):S117–S314. <https://doi.org/10.1016/j.kint.2023.10.018> – Albuminurie-Kategorien (UACR ≥ 30 mg/g), Bestätigung über ≥ 3 Monate.
+- Gordis L, Celentano DD. *Gordis Epidemiology.* 6. Aufl. Philadelphia: Elsevier; 2019. Kapitel „Assessing the Validity and Reliability of Diagnostic and Screening Tests“ (Kapitelnummer bitte am Buch prüfen).
+- dplyr-Dokumentation: `count()`, `case_when()`, `summarise()`: <https://dplyr.tidyverse.org>

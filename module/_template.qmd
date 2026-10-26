@@ -23,6 +23,15 @@ Checklist before submitting a module (QS, project instructions section 5):
   [ ] quiz: one correct answer per MC item; feedback for every distractor; "near" feedback for typical miscalculations
   [ ] German text, English code/comments; gender-neutral language; no stigmatising cases
   [ ] render with LANG=C.UTF-8 (umlauts in figures)
+  Lessons from the review of modules 1-3 (2026-10-26):
+  [ ] citations checked against the publisher's table of contents / DOI record: author order of the
+      current edition (e.g. Modern Epidemiology 4th ed. = Lash, VanderWeele, Haneuse, Rothman;
+      Gordis Epidemiology 6th ed. = Celentano, Szklo), chapter numbers, DOI resolves
+  [ ] numbers in fig-cap / fig-alt computed from the same objects as the figure (no hand-typed values)
+  [ ] "Dasselbe in R" intro lists only functions actually introduced in earlier modules; new ones under "Neu hier"
+  [ ] same block classes as module 1: .leitfrage, .lernziele, .epir-cards, .takehome, .r-pfad + epir-badge-r
+  [ ] textbook rules that are idealisations (e.g. Sens/Spez independent of prevalence, OR ~ RR below 10 %)
+      marked "vereinfacht ... exakt ..." with a source
 
 Figure colour semantics (R/epir_plots.R, epir_cols): accent/orange = case/event, primary/petrol = healthy /
 reference, blue = censored / unknown, grey = not at risk / not applicable. Keep this across modules.

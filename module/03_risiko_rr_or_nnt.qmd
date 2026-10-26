@@ -159,8 +159,8 @@ Ein RR von `r de(rr, 2)` klingt immer gleich – was es für eine Person bedeute
 #| label: fig-relabs
 #| echo: false
 #| fig-height: 3.2
-#| fig-cap: "Gleiches relatives Risiko (2,54), verschiedene Basisrisiken: Bei einem seltenen Ereignis (1 %) bedeutet „2,5-mal so hoch“ 1,5 zusätzliche Fälle pro 100 Personen, in der Kohorte (6,9 %) sind es 10,6."
-#| fig-alt: "Zwei horizontale Linien. Oben: Basisrisiko 1,0 Prozent, mit Exposition 2,5 Prozent, Differenz 1,5 Prozentpunkte. Unten: Basisrisiko 6,9 Prozent, mit Exposition 17,6 Prozent, Differenz 10,6 Prozentpunkte."
+#| fig-cap: "Gleiches relatives Risiko (2,54), verschiedene Basisrisiken: Bei einem seltenen Ereignis (1 %) bedeutet „2,5-mal so hoch“ 1,5 zusätzliche Fälle pro 100 Personen, in der Kohorte (6,9 %) sind es 10,7."
+#| fig-alt: "Zwei horizontale Linien. Oben: Basisrisiko 1,0 Prozent, mit Exposition 2,5 Prozent, Differenz 1,5 Prozentpunkte. Unten: Basisrisiko 6,9 Prozent, mit Exposition 17,6 Prozent, Differenz 10,7 Prozentpunkte."
 plot_rel_vs_abs(base_risks = c(0.01, r0), rr = round(rr, 2))
 ```
 
@@ -207,7 +207,7 @@ plot_or_vs_rr(base_risks = c(0.01, round(r0, 3), 0.20), mark = list(rr = rr, or 
 
 ::: {.callout-note collapse="true"}
 ## Mehr dazu: Warum überhaupt Odds?
-Zwei Gründe: (1) In **Fall-Kontroll-Studien** ist das OR das einzige berechenbare Maß (nächster Abschnitt). (2) Die **logistische Regression**, das Standardverfahren für Ja/Nein-Ergebnisse mit mehreren Einflussgrößen, liefert Odds Ratios (Modul 6 und später). Mathematisch: OR = RR × (1 − *p*₀)/(1 − *p*₁); für kleine *p* ist der zweite Faktor ≈ 1 (Rothman et al., Quellen).
+Zwei Gründe: (1) In **Fall-Kontroll-Studien** ist das OR das einzige berechenbare Maß (nächster Abschnitt). (2) Die **logistische Regression**, das Standardverfahren für Ja/Nein-Ergebnisse mit mehreren Einflussgrößen, liefert Odds Ratios (Modul 6 und später). Mathematisch: OR = RR × (1 − *p*₀)/(1 − *p*₁); für kleine *p* ist der zweite Faktor ≈ 1 (Lash et al. 2021, Quellen).
 :::
 
 ## Warum Fall-Kontroll-Studien nur das OR liefern
@@ -227,7 +227,7 @@ Das Kreuzprodukt a·d / b·c ergibt in beiden Leserichtungen denselben Wert – 
 
 ::: {.callout-note collapse="true"}
 ## Mehr dazu: fiktives Fall-Kontroll-Beispiel zum Ausprobieren
-**Fiktive Zahlen (keine reale Studie):** 200 Fälle, davon 120 exponiert; 400 Kontrollen, davon 120 exponiert. Odds der Exposition: Fälle 120/80 = 1,5; Kontrollen 120/280 = 0,43; OR = 3,5. Hätte man 800 Kontrollen gewählt (240 exponiert), bliebe das OR 3,5 – ein „Risiko“ 200/600 wäre dagegen bedeutungslos. Vereinfacht gilt: Bei seltener Erkrankung nähert das OR einer Fall-Kontroll-Studie das RR der Ausgangsbevölkerung an; exakt hängt die Interpretation davon ab, wie die Kontrollen gezogen wurden (Rothman et al., Quellen).
+**Fiktive Zahlen (keine reale Studie):** 200 Fälle, davon 120 exponiert; 400 Kontrollen, davon 120 exponiert. Odds der Exposition: Fälle 120/80 = 1,5; Kontrollen 120/280 = 0,43; OR = 3,5. Hätte man 800 Kontrollen gewählt (240 exponiert), bliebe das OR 3,5 – ein „Risiko“ 200/600 wäre dagegen bedeutungslos. Vereinfacht gilt: Bei seltener Erkrankung nähert das OR einer Fall-Kontroll-Studie das RR der Ausgangsbevölkerung an; exakt hängt die Interpretation davon ab, wie die Kontrollen gezogen wurden (Lash et al. 2021, Kap. 8, Quellen).
 
 ```{=html}
 <div class="epir-2x2" data-design="casecontrol" data-a="120" data-b="80" data-c="120" data-d="280" data-exposed="Fälle" data-unexposed="Kontrollen" data-outcome="exponiert" data-outcome-no="nicht exponiert"></div>
@@ -256,8 +256,9 @@ Vorbelegt mit der Kohorte (Diabetes → neue CKD). Ändern Sie die Zahlen und be
 | Risiko oder RR aus einer Fall-Kontroll-Studie berechnen | Dort ist nur das OR interpretierbar; die Zahl der Kontrollen ist frei gewählt |
 | RR < 1 als „Risiko um 0,67 gesenkt“ lesen | RR = 0,67 heißt: Risiko auf 67 % des Ausgangswerts, also um 33 % relativ gesenkt |
 
-::: {.callout-important icon=false}
-## Take-Home-Messages
+::: {.takehome}
+**Take-Home-Messages**
+
 - **Risiko je Gruppe** = kumulative Inzidenz getrennt nach Exposition; alles Weitere sind Quotienten oder Differenzen dieser zwei Zahlen.
 - **RR** = Quotient der Risiken („wievielmal so hoch“); **RD** = Differenz in Prozentpunkten („wie viele zusätzlich“); **NNT/NNH** = 1/RD, aufgerundet, immer mit Zeitraum.
 - Relativ klingt groß, absolut entscheidet: Für Patient:innen zählen Risikodifferenz, NNT oder „x von 100“.
@@ -358,8 +359,8 @@ Die Fragen entsprechen im Format den Klausurfragen (eine richtige Antwort; Reche
 
 ## Dasselbe in R {#dasselbe-in-r}
 
-::: {.callout-tip appearance="simple" icon=false}
-<span class="epir-badge">Vertiefung R</span> Baut auf dem R-Teil von Modul 1 auf (`read_csv()`, `filter()`, `group_by()`, `summarise()`, Pipe `|>`). Neu hier: `pull()` und eine eigene Funktion. Code-Blöcke laufen direkt im Browser („Run Code“); der erste Start dauert bis zu einer Minute.
+::: {.r-pfad}
+<span class="epir-badge epir-badge-r">Vertiefung R</span> Baut auf dem R-Teil von Modul 1 auf (`read_csv()`, `filter()`, `group_by()`, `summarise()`, Pipe `|>`). Neu hier: `pull()` und eine eigene Funktion. Code-Blöcke laufen direkt im Browser („Run Code“); der erste Start dauert bis zu einer Minute.
 :::
 
 ### Übung R1: Risiko je Gruppe
@@ -640,8 +641,8 @@ rel_risiko(a = 66, b = 555, c = 65, d = 952)
 
 ## Quellen und weiterführende Literatur
 
-- Rothman KJ, Lash TL, VanderWeele TJ, Haneuse S. *Modern Epidemiology*. 4. Aufl. Philadelphia: Wolters Kluwer; 2021. Kapitel „Measures of Effect and Measures of Association“ (Risk Ratio, Risk Difference, Odds Ratio, Beziehung OR–RR) und Kapitel zu Fall-Kontroll-Studien (Interpretation des OR je nach Auswahl der Kontrollen).
-- Celentano DD, Szklo M. *Gordis Epidemiology*. 6. Aufl. Philadelphia: Elsevier; 2019. Kapitel „Estimating Risk: Is There an Association?“ (RR, OR, Kohorten- vs. Fall-Kontroll-Studie).
+- Lash TL, VanderWeele TJ, Haneuse S, Rothman KJ. *Modern Epidemiology*. 4. Aufl. Philadelphia: Wolters Kluwer; 2021. Kapitel 5 „Measures of Effect and Measures of Association“ (Risk Ratio, Risk Difference, Odds Ratio, Beziehung OR–RR) und Kapitel 8 „Case-Control Studies“ (Interpretation des OR je nach Auswahl der Kontrollen).
+- Celentano DD, Szklo M. *Gordis Epidemiology*. 6. Aufl. Philadelphia: Elsevier; 2019. Kapitel 12 „Estimating Risk: Is There an Association?“ (RR, OR, Kohorten- vs. Fall-Kontroll-Studie).
 - Altman DG. Confidence intervals for the number needed to treat. *BMJ* 1998;317:1309–1312. <https://doi.org/10.1136/bmj.317.7168.1309> – NNT = 1/ARR; bei fehlendem Effekt ist die NNT unendlich.
 - Bender R, Blettner M. Calculating the "number needed to be exposed" with adjustment for confounding variables in epidemiological studies. *J Clin Epidemiol* 2002;55:525–530. <https://doi.org/10.1016/S0895-4356(01)00510-8> – Begriff NNE für Expositionen.
 - Laupacis A, Sackett DL, Roberts RS. An assessment of clinically useful measures of the consequences of treatment. *N Engl J Med* 1988;318:1728–1733. [https://doi.org/10.1056/NEJM198806303182605](https://doi.org/10.1056/NEJM198806303182605) – Einführung der NNT.

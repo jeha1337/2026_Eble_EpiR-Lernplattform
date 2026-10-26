@@ -205,6 +205,11 @@ plot_dx_ppv_curve(sens, spez,
 
 **Antwort auf die Leitfrage:** Bei einer Patientin ohne Risikofaktoren bedeutet ein positiver Teststreifen eine Wahrscheinlichkeit von etwa `r pct(ppv_nd, 0)` für eine Albuminurie – häufiger falsch als richtig. Das Ergebnis ist ein Anlass zur **Bestätigungsdiagnostik** (quantitative UACR-Messung, wie in der KDIGO-Leitlinie vorgesehen), keine Diagnose. „Der Test erkennt 80 % der Erkrankten“ ist eine Aussage über den Test (Sensitivität) und beantwortet ihre Frage nicht.
 
+::: {.callout-note collapse="true"}
+## Mehr dazu: Sind Sensitivität und Spezifität wirklich prävalenzunabhängig?
+**Vereinfacht** gilt: Sensitivität und Spezifität sind Eigenschaften des Tests und ändern sich nicht mit der Prävalenz – so ist es in unserer simulierten Kohorte konstruiert, und so steht es in den Lehrbüchern. **Exakt** gilt das nur, wenn sich die Kranken und Gesunden in beiden Gruppen gleichen. In realen Studien unterscheidet sich oft das Krankheitsspektrum (z. B. leichtere Fälle beim Screening, schwerere in der Spezialambulanz), und mit ihm variieren Sensitivität und Spezifität – in einer Auswertung von 23 Metaanalysen um bis zu 40 Prozentpunkte zwischen Studien mit niedriger und hoher Prävalenz (Leeflang et al. 2013, Quellen). Für dieses Modul bleibt die Kernaussage: Die *Rechenregel* für PPV und NPV macht sie prävalenzabhängig; Sensitivität und Spezifität sind es *rechnerisch* nicht.
+:::
+
 ## Rechner: Prävalenz, Testgüte und Vorhersagewerte
 
 Verschieben Sie Prävalenz, Sensitivität und Spezifität. Der Baum zählt für 1000 Personen durch, was passiert.
@@ -332,8 +337,8 @@ Die Fragen entsprechen dem Format der Klausurfragen (eine richtige Antwort; Rech
 
 ## Dasselbe in R {#dasselbe-in-r}
 
-::: {.callout-note appearance="simple" icon="false"}
-<span class="epir-badge epir-badge-r">Vertiefung R</span> Baut auf dem R-Teil von Modul 1 auf (`read_csv()`, `filter()`, `mutate()`, `count()`, Pipe `|>`). Neu hier: `case_when()` für mehrere Bedingungen und `summarise()` mit mehreren Kennzahlen. Code-Blöcke laufen direkt im Browser („Run Code“); der erste Start dauert bis zu einer Minute.
+::: {.r-pfad}
+<span class="epir-badge epir-badge-r">Vertiefung R</span> Baut auf dem R-Teil von Modul 1 auf (`read_csv()`, `filter()`, `summarise()`, Pipe `|>`). Neu hier: `count()` zum Zählen von Kombinationen, `mutate()` für neue Spalten, `case_when()` für mehrere Bedingungen und `summarise()` mit mehreren Kennzahlen. Code-Blöcke laufen direkt im Browser („Run Code“); der erste Start dauert bis zu einer Minute.
 :::
 
 ### Übung R1: Vierfeldertafel zählen
@@ -667,5 +672,6 @@ shinyApp(ui, server)
 - Fagan TJ. Nomogram for Bayes theorem. *N Engl J Med* 1975;293:257. <https://doi.org/10.1056/NEJM197507312930513>
 - Gigerenzer G, Gaissmaier W, Kurz-Milcke E, Schwartz LM, Woloshin S. Helping doctors and patients make sense of health statistics. *Psychol Sci Public Interest* 2007;8:53–96. <https://doi.org/10.1111/j.1539-6053.2008.00033.x> – natürliche Häufigkeiten.
 - Kidney Disease: Improving Global Outcomes (KDIGO) CKD Work Group. KDIGO 2024 Clinical Practice Guideline for the Evaluation and Management of Chronic Kidney Disease. *Kidney Int* 2024;105(4S):S117–S314. <https://doi.org/10.1016/j.kint.2023.10.018> – Albuminurie-Kategorien (UACR ≥ 30 mg/g), Bestätigung über ≥ 3 Monate.
-- Gordis L, Celentano DD. *Gordis Epidemiology.* 6. Aufl. Philadelphia: Elsevier; 2019. Kapitel „Assessing the Validity and Reliability of Diagnostic and Screening Tests“ (Kapitelnummer bitte am Buch prüfen).
+- Celentano DD, Szklo M. *Gordis Epidemiology*. 6. Aufl. Philadelphia: Elsevier; 2019. Kapitel 5 „Assessing the Validity and Reliability of Diagnostic and Screening Tests“.
+- Leeflang MMG, Rutjes AWS, Reitsma JB, Hooft L, Bossuyt PMM. Variation of a test's sensitivity and specificity with disease prevalence. *CMAJ* 2013;185:E537–E544. <https://doi.org/10.1503/cmaj.121286> – empirisch variieren Sensitivität und Spezifität mit dem Patientenspektrum (Grundlage des Hinweises „vereinfacht … exakt …“).
 - dplyr-Dokumentation: `count()`, `case_when()`, `summarise()`: <https://dplyr.tidyverse.org>

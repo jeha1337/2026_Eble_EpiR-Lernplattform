@@ -220,7 +220,7 @@ b) Zufluss halbiert sich sofort, aber die bereits Erkrankten bleiben im Becken �
 
 ::: {.callout-note collapse="true"}
 ## Mehr dazu: exakte Formel
-Exakt gilt für die *Prävalenz-Odds*: $P/(1-P) = \text{Inzidenzrate} \times \text{mittlere Dauer}$. Für Prävalenzen unter etwa 10 % sind Odds und Anteil fast gleich; dann stimmt die Näherung (Rothman et al. 2021, Kap. 4; Celentano & Szklo 2019, Kap. 3). Das Modell setzt eine stabile Population ohne Zu- und Abwanderung voraus.
+Exakt gilt für die *Prävalenz-Odds*: $P/(1-P) = \text{Inzidenzrate} \times \text{mittlere Dauer}$. Für Prävalenzen unter etwa 10 % sind Odds und Anteil fast gleich; dann stimmt die Näherung (Lash et al. 2021, Kap. 4; Celentano & Szklo 2019, Kap. 3). Das Modell setzt eine stabile Population ohne Zu- und Abwanderung voraus.
 :::
 
 ## Typische Fehler
@@ -730,7 +730,7 @@ kohorte |>
 
 ## Quellen und weiterführende Literatur
 
-- Rothman KJ, Lash TL, VanderWeele TJ, Haneuse S. *Modern Epidemiology*. 4. Aufl. Philadelphia: Wolters Kluwer; 2021. Kapitel 4 „Measures of Occurrence“ (Inzidenzrate, Risiko, Prävalenz; Beziehung Prävalenz-Odds = Inzidenzrate × mittlere Dauer).
+- Lash TL, VanderWeele TJ, Haneuse S, Rothman KJ. *Modern Epidemiology*. 4. Aufl. Philadelphia: Wolters Kluwer; 2021. Kapitel 4 „Measures of Occurrence“ (Inzidenzrate, Risiko, Prävalenz; Beziehung Prävalenz-Odds = Inzidenzrate × mittlere Dauer).
 - Celentano DD, Szklo M. *Gordis Epidemiology*. 6. Aufl. Philadelphia: Elsevier; 2019. Kapitel 3 „The Occurrence of Disease: I. Disease Surveillance and Measures of Morbidity“ (Becken-Modell der Prävalenz).
 - Porta M (Hrsg.). *A Dictionary of Epidemiology*. 6. Aufl. Oxford: Oxford University Press; 2014. Einträge „Prevalence“, „Incidence rate“, „Cumulative incidence“, „Person-time“.
 - Kidney Disease: Improving Global Outcomes (KDIGO) CKD Work Group. KDIGO 2024 Clinical Practice Guideline for the Evaluation and Management of Chronic Kidney Disease. *Kidney Int.* 2024;105(4S):S117–S314. <https://doi.org/10.1016/j.kint.2023.10.018> – vollständige CKD-Definition (Persistenz ≥ 3 Monate), die in diesem Modul vereinfacht wurde.

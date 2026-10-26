@@ -440,6 +440,10 @@
     render();
   }
 
+  // Direction note for NNT/NNH (used by 2x2 and rel/abs widgets)
+  const NN_NOTE = "Lesart: RR > 1 – die Exposition schadet, der Kehrwert der Risikodifferenz heißt NNH (Exponierte pro zusätzlichem Ereignis). RR < 1 – die Exposition schützt (z. B. eine Behandlung), derselbe Kehrwert heißt NNT (Behandelte pro verhindertem Ereignis). RR = 1 – keine Risikodifferenz, NNT/NNH → ∞. Für Expositionen in Beobachtungsstudien wird auch der Begriff „number needed to be exposed“ (NNE) verwendet.";
+  const NN_LARGE = 1000;   // above this, the absolute difference is practically negligible
+
   // ---------- 4. 2x2 table calculator (RR, OR, RD, NNT) --------------------
   function initTwoByTwo(root) {
     const id = nextId("epir-2x2");
@@ -513,9 +517,13 @@
       row(rd >= 0 ? "Risikodifferenz (absolute Risikoerhöhung, ARI)" : "Risikodifferenz (absolute Risikoreduktion, ARR)", `${fmtDE(100 * Math.abs(rd), 1)} Prozentpunkte`, "epir-row-key");
       if (rd !== 0) {
         const nn = 1 / Math.abs(rd);
-        row(rd > 0 ? "Number needed to harm (NNH)" : "Number needed to treat (NNT)", `${fmtDE(nn, 1)} → aufgerundet ${fmtInt(Math.ceil(nn - 1e-9))}${timeTxt}`);
+        const big = nn > NN_LARGE ? " – praktisch kein Effekt" : "";
+        row(rd > 0 ? "Number needed to harm (NNH)" : "Number needed to treat (NNT)", `${fmtDE(nn, 1)} → aufgerundet ${fmtInt(Math.ceil(nn - 1e-9))}${timeTxt}${big}`);
+      } else {
+        row("NNT / NNH", "∞ (kein Unterschied zwischen den Gruppen)");
       }
       out.appendChild(t);
+      if (rd <= 0) out.appendChild(el("p", { class: "epir-info epir-small", text: NN_NOTE }));
 
       if (Number.isFinite(or) && Math.max(r1, r0) > 0.1 && Math.abs(or - rr) / rr > 0.05) {
         out.appendChild(el("p", { class: "epir-info epir-small", text: `OR (${fmtDE(or, 2)}) und RR (${fmtDE(rr, 2)}) weichen hier spürbar voneinander ab, weil das Ereignis nicht selten ist (${pp(Math.max(r1, r0))} in einer Gruppe). Die Faustregel OR ≈ RR gilt nur bei seltenen Ereignissen (etwa < 10 %).` }));
@@ -527,7 +535,7 @@
         sentence += rd > 0
           ? ` Auf ${fmtInt(nn)} Personen ${expLab} kommt${timeTxt} ein zusätzliches Ereignis (NNH = ${fmtInt(nn)}).“`
           : ` ${fmtInt(nn)} Personen müssen${timeTxt} behandelt werden, um ein Ereignis zu verhindern (NNT = ${fmtInt(nn)}).“`;
-      } else sentence += "“";
+      } else sentence += " Da sich die Risiken nicht unterscheiden, gibt es keine NNT/NNH (→ ∞).“";
       out.appendChild(el("p", { class: "epir-sentence", text: sentence }));
     }
     [aIn, bIn, cIn, dIn].forEach((i) => i.addEventListener("input", render));
@@ -591,9 +599,15 @@
       const row = (k, v) => t.appendChild(el("tr", null, [el("th", { text: k }), el("td", { text: v })]));
       row("Relatives Risiko", `${fmtDE(rr, 2)} (${rr >= 1 ? "+" : "−"}${fmtDE(100 * Math.abs(rr - 1), 0)} % relativ)`);
       row("Risiko mit Exposition", `${fmtDE(100 * exp, 1)} %`);
-      row(rd >= 0 ? "Absolute Risikoerhöhung" : "Absolute Risikoreduktion", `${fmtDE(100 * Math.abs(rd), 1)} Prozentpunkte`);
-      if (rd !== 0) row(rd > 0 ? "NNH" : "NNT", fmtInt(Math.ceil(1 / Math.abs(rd) - 1e-9)));
+      row(rd === 0 ? "Risikodifferenz" : rd > 0 ? "Absolute Risikoerhöhung" : "Absolute Risikoreduktion", `${fmtDE(100 * Math.abs(rd), 1)} Prozentpunkte`);
+      if (rd !== 0) {
+        const nn = Math.ceil(1 / Math.abs(rd) - 1e-9);
+        row(rd > 0 ? "NNH (Exponierte pro zusätzlichem Ereignis)" : "NNT (Behandelte pro verhindertem Ereignis)", `${fmtInt(nn)}${nn > NN_LARGE ? " – praktisch kein Effekt" : ""}`);
+      } else {
+        row("NNT / NNH", "∞ (kein Unterschied zwischen den Gruppen)");
+      }
       out.appendChild(t);
+      out.appendChild(el("p", { class: "epir-info epir-small", text: NN_NOTE }));
       if (exp >= 1) out.appendChild(el("p", { class: "epir-warning epir-small", text: "Basisrisiko × RR übersteigt 100 % – ein so hohes RR ist bei diesem Basisrisiko nicht möglich. Das ist ein weiterer Grund, warum RR und Basisrisiko zusammengehören." }));
     }
     const scenario = (txt, fn) => { const b = el("button", { type: "button", class: "btn btn-sm btn-outline-primary", text: txt }); b.addEventListener("click", () => { fn(); render(); }); return b; };

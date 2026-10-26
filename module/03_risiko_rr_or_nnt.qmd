@@ -147,6 +147,8 @@ Die **Number needed to treat** (NNT) ist der Kehrwert der absoluten Risiko*reduk
 - NNT = 1 / 0,03 = 33,3 → **34 Personen müssen drei Jahre behandelt werden, um eine CKD zu verhindern.**
 
 Die NNT wurde von Laupacis, Sackett und Roberts (1988) eingeführt, gerade weil „33 % weniger“ ohne Basisrisiko nicht sagt, wie vielen Menschen die Behandlung tatsächlich nützt (Quellen).
+
+**Richtung und Grenzfall.** NNT und NNH sind dieselbe Rechnung (1 / Risikodifferenz) – nur die Richtung unterscheidet sich: RR > 1 → Exposition schadet → NNH; RR < 1 → Exposition schützt → NNT. Je näher das RR an 1 liegt, desto kleiner die Risikodifferenz und desto größer die NNT; bei RR = 1 gibt es keinen Unterschied, die NNT geht gegen unendlich (Altman 1998, Quellen). Eine NNT von 1500 heißt also nicht „die Behandlung wirkt“, sondern „der absolute Nutzen ist verschwindend klein“. Für Expositionen in Beobachtungsstudien (statt Behandlungen) wird auch der Begriff *number needed to be exposed* (NNE) verwendet (Bender & Blettner 2002, Quellen).
 :::
 
 ## Relativ oder absolut? Dieselbe Zahl, verschiedene Bedeutung
@@ -172,7 +174,7 @@ Verschieben Sie Basisrisiko und RR. Die Felder zeigen 100 Personen ohne und 100 
 <div class="epir-relabs" data-base="6.9" data-rr="2.54"></div>
 ```
 
-**Aufgabe 1.** Stellen Sie das Basisrisiko auf 1 % und dann auf 30 %, jeweils bei RR = 2,5. Wie ändert sich die Zahl der zusätzlichen Fälle pro 100 Personen? Und was passiert bei Basisrisiko 30 % und RR 4? (Antwort im Selbsttest nicht nötig – beobachten Sie die Warnung.)
+**Aufgabe 1.** Stellen Sie das Basisrisiko auf 1 % und dann auf 30 %, jeweils bei RR = 2,5. Wie ändert sich die Zahl der zusätzlichen Fälle pro 100 Personen? Schieben Sie dann das RR langsam Richtung 1 und unter 1: Was passiert mit NNH bzw. NNT, und wie heißt die Zahl bei RR = 1? Und was passiert bei Basisrisiko 30 % und RR 4? (Antwort im Selbsttest nicht nötig – beobachten Sie die Hinweise unter der Tabelle.)
 
 ## Die Odds Ratio: ein anderer Quotient
 
@@ -249,6 +251,7 @@ Vorbelegt mit der Kohorte (Diabetes → neue CKD). Ändern Sie die Zahlen und be
 | „OR = 2,87 – das Risiko ist 2,87-mal so hoch“ | Das OR vergleicht Odds, nicht Risiken. Risiko 2,54-mal so hoch (RR); OR ≈ RR nur bei seltenem Ereignis |
 | „Halbiert das Risiko“ ohne Basisrisiko | Immer mit absoluter Angabe: von 0,2 % auf 0,1 % ist etwas anderes als von 20 % auf 10 % |
 | „NNT = 34“ ohne Zeitraum | NNT = 34 **über drei Jahre** – ein anderer Zeitraum ergibt eine andere NNT |
+| „Große NNT = starker Effekt“ | Umgekehrt: Je kleiner die Risikodifferenz, desto größer die NNT; bei RR = 1 ist sie unendlich. Eine NNT von 1500 bedeutet einen verschwindend kleinen absoluten Nutzen |
 | „Das Risiko steigt um 10,7 Prozent“ | Um 10,7 **Prozentpunkte** (von 6,9 % auf 17,6 %); relativ sind es +154 % |
 | Risiko oder RR aus einer Fall-Kontroll-Studie berechnen | Dort ist nur das OR interpretierbar; die Zahl der Kontrollen ist frei gewählt |
 | RR < 1 als „Risiko um 0,67 gesenkt“ lesen | RR = 0,67 heißt: Risiko auf 67 % des Ausgangswerts, also um 33 % relativ gesenkt |
@@ -639,6 +642,8 @@ rel_risiko(a = 66, b = 555, c = 65, d = 952)
 
 - Rothman KJ, Lash TL, VanderWeele TJ, Haneuse S. *Modern Epidemiology*. 4. Aufl. Philadelphia: Wolters Kluwer; 2021. Kapitel „Measures of Effect and Measures of Association“ (Risk Ratio, Risk Difference, Odds Ratio, Beziehung OR–RR) und Kapitel zu Fall-Kontroll-Studien (Interpretation des OR je nach Auswahl der Kontrollen).
 - Celentano DD, Szklo M. *Gordis Epidemiology*. 6. Aufl. Philadelphia: Elsevier; 2019. Kapitel „Estimating Risk: Is There an Association?“ (RR, OR, Kohorten- vs. Fall-Kontroll-Studie).
+- Altman DG. Confidence intervals for the number needed to treat. *BMJ* 1998;317:1309–1312. <https://doi.org/10.1136/bmj.317.7168.1309> – NNT = 1/ARR; bei fehlendem Effekt ist die NNT unendlich.
+- Bender R, Blettner M. Calculating the "number needed to be exposed" with adjustment for confounding variables in epidemiological studies. *J Clin Epidemiol* 2002;55:525–530. <https://doi.org/10.1016/S0895-4356(01)00510-8> – Begriff NNE für Expositionen.
 - Laupacis A, Sackett DL, Roberts RS. An assessment of clinically useful measures of the consequences of treatment. *N Engl J Med* 1988;318:1728–1733. [https://doi.org/10.1056/NEJM198806303182605](https://doi.org/10.1056/NEJM198806303182605) – Einführung der NNT.
 - Gigerenzer G, Gaissmaier W, Kurz-Milcke E, Schwartz LM, Woloshin S. Helping doctors and patients make sense of health statistics. *Psychol Sci Public Interest* 2007;8:53–96. [https://doi.org/10.1111/j.1539-6053.2008.00033.x](https://doi.org/10.1111/j.1539-6053.2008.00033.x) – relative vs. absolute Risikoangaben, natürliche Häufigkeiten.
 - Wickham H, Çetinkaya-Rundel M, Grolemund G. *R for Data Science*. 2. Aufl. O'Reilly; 2023. Kapitel „Functions“: [https://r4ds.hadley.nz/functions](https://r4ds.hadley.nz/functions)

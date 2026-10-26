@@ -24,6 +24,8 @@ website:
             text: "2 · Diagnostische Tests"
           - href: module/03_risiko_rr_or_nnt.qmd
             text: "3 · Relatives & absolutes Risiko"
+          - href: module/04_verteilungen_zufall.qmd
+            text: "4 · Verteilungen & Zufall"
       - href: technik.qmd
         text: Technik-Check
     right:
@@ -39,6 +41,7 @@ website:
           - module/01_praevalenz_inzidenz.qmd
           - module/02_diagnostische_tests.qmd
           - module/03_risiko_rr_or_nnt.qmd
+          - module/04_verteilungen_zufall.qmd
       - technik.qmd
   page-footer:
     left: "Inhalte: CC BY 4.0 · Code: MIT · Prototyp, Stand Oktober 2026"

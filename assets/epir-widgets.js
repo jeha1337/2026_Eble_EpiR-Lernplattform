@@ -24,6 +24,9 @@
  *  7. PPV:    <div class="epir-ppv" data-prev="11" data-sens="79" data-spez="90" data-n="1000"
  *                  data-disease="Albuminurie" data-scenarios="Label|prev|sens|spez;..."></div>
  *             (sliders prevalence x sensitivity x specificity -> natural-frequency tree, PPV/NPV)
+ *  8. Sample: <div class="epir-sample" data-prev="18.1" data-n="100"></div>
+ *             (study simulator: draw 1 / 100 / 1000 studies of size n from a population with
+ *              a given prevalence -> histogram of the estimates, SD = standard error)
  */
 (function () {
   "use strict";
@@ -777,6 +780,127 @@
   }
 
   // ---------- boot ---------------------------------------------------------
+
+  // ---------- 8. Study simulator (sampling variation of a prevalence) -----
+  // Random numbers come from Math.random() without a seed: every visit shows
+  // different studies on purpose. Quiz items never depend on widget output.
+  function initSample(root) {
+    const id = nextId("epir-sample");
+    const prev0 = parseNum(root.dataset.prev) || 18.1;   // true prevalence in %
+    const n0 = parseInt(root.dataset.n, 10) || 100;
+    const nIn = el("input", { type: "range", min: "20", max: "1000", step: "10", value: String(n0), id: `${id}-n`, class: "form-range" });
+    const pIn = el("input", { type: "range", min: "1", max: "50", step: "0.1", value: String(prev0), id: `${id}-p`, class: "form-range" });
+    const nVal = el("output", { for: `${id}-n`, class: "epir-slider-val" });
+    const pVal = el("output", { for: `${id}-p`, class: "epir-slider-val" });
+
+    const svgNS = "http://www.w3.org/2000/svg";
+    const W = 360, H = 230, L = 14, R = 10, AX = H - 34, TOP = 62;
+    const svg = document.createElementNS(svgNS, "svg");
+    svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+    svg.setAttribute("class", "epir-pool-svg");
+    svg.setAttribute("role", "img");
+    svg.setAttribute("aria-label", "Verteilung der geschätzten Prävalenzen über viele simulierte Studien; blaue Linie: wahre Prävalenz; orange Marke: letzte Studie");
+    const mk = (tag, attrs) => { const n = document.createElementNS(svgNS, tag); Object.entries(attrs).forEach(([k, v]) => n.setAttribute(k, v)); return n; };
+    const gBars = mk("g", {});
+    const gAxis = mk("g", {});
+    const trueLine = mk("line", { class: "epir-sample-true", y1: TOP - 8, y2: AX });
+    const trueLab = mk("text", { y: TOP - 14, "text-anchor": "middle", class: "epir-pool-label epir-sample-true-lab" });
+    const lastMark = mk("path", { class: "epir-sample-last" });
+    const lastLab = mk("text", { y: 14, "text-anchor": "middle", class: "epir-pool-value epir-sample-last-lab" });
+    const lastSub = mk("text", { y: 30, "text-anchor": "middle", class: "epir-pool-label" });
+    const emptyLab = mk("text", { x: W / 2, y: (TOP + AX) / 2, "text-anchor": "middle", class: "epir-pool-label" });
+    emptyLab.textContent = "Noch keine Studie gezogen – klicken Sie auf einen Button.";
+    [gBars, gAxis, trueLine, trueLab, lastMark, lastLab, lastSub, emptyLab].forEach((n) => svg.appendChild(n));
+
+    let est = [];      // estimates in percent
+    let xmax = 50;
+    const out = el("div", { class: "epir-pool-out", "aria-live": "polite" });
+    const sx = (v) => L + (v / xmax) * (W - L - R);
+
+    function params() { return { n: Number(nIn.value), p: Number(pIn.value) / 100 }; }
+    function drawStudy(n, p) { let k = 0; for (let i = 0; i < n; i++) if (Math.random() < p) k++; return k; }
+    function sd(a) { if (a.length < 2) return NaN; const m = a.reduce((x, y) => x + y, 0) / a.length; return Math.sqrt(a.reduce((x, y) => x + (y - m) * (y - m), 0) / (a.length - 1)); }
+    function quant(a, q) { const s = [...a].sort((x, y) => x - y); const pos = (s.length - 1) * q; const lo = Math.floor(pos), hi = Math.ceil(pos); return s[lo] + (s[hi] - s[lo]) * (pos - lo); }
+
+    function render() {
+      const { n, p } = params();
+      const seTheory = 100 * Math.sqrt(p * (1 - p) / n);
+      nVal.textContent = `n = ${fmtInt(n)} Personen je Studie`;
+      pVal.textContent = `${fmtDE(100 * p, 1)} % (wahre Prävalenz in der Bevölkerung)`;
+      // x axis: 0 .. xmax, wide enough for +-5 theoretical SE
+      xmax = Math.min(100, Math.max(30, Math.ceil((100 * p + 5 * seTheory) / 10) * 10));
+      gAxis.innerHTML = ""; gBars.innerHTML = "";
+      gAxis.appendChild(mk("line", { x1: L, x2: W - R, y1: AX, y2: AX, class: "epir-sample-axis" }));
+      const step = xmax <= 40 ? 5 : 10;
+      for (let v = 0; v <= xmax; v += step) {
+        gAxis.appendChild(mk("line", { x1: sx(v), x2: sx(v), y1: AX, y2: AX + 4, class: "epir-sample-axis" }));
+        const t = mk("text", { x: sx(v), y: AX + 15, "text-anchor": "middle", class: "epir-pool-label" }); t.textContent = `${v}`; gAxis.appendChild(t);
+      }
+      const xt = mk("text", { x: W / 2, y: H - 4, "text-anchor": "middle", class: "epir-pool-label" }); xt.textContent = "geschätzte Prävalenz der einzelnen Studie (%)"; gAxis.appendChild(xt);
+      trueLine.setAttribute("x1", sx(100 * p)); trueLine.setAttribute("x2", sx(100 * p));
+      trueLab.setAttribute("x", sx(100 * p)); trueLab.textContent = `wahr: ${fmtDE(100 * p, 1)} %`;
+      // histogram of estimates, 1-percentage-point bins
+      const counts = new Map();
+      est.forEach((e) => { const b = Math.min(xmax, Math.round(e)); counts.set(b, (counts.get(b) || 0) + 1); });
+      const maxC = Math.max(1, ...counts.values());
+      const bw = Math.max(1.5, (W - L - R) / xmax - 0.6);
+      counts.forEach((c, b) => {
+        const h = ((AX - TOP) * c) / maxC;
+        gBars.appendChild(mk("rect", { x: sx(b) - bw / 2, y: AX - h, width: bw, height: h, class: "epir-sample-bar" }));
+      });
+      emptyLab.style.display = est.length ? "none" : "";
+      if (est.length) {
+        const last = est[est.length - 1];
+        const x = sx(Math.min(xmax, last));
+        lastMark.setAttribute("d", `M ${x} ${TOP - 4} l -6 -9 l 12 0 z`);
+        lastMark.style.display = ""; lastLab.style.display = ""; lastSub.style.display = "";
+        lastLab.setAttribute("x", Math.max(60, Math.min(W - 60, x)));
+        lastSub.setAttribute("x", Math.max(60, Math.min(W - 60, x)));
+        lastLab.textContent = `letzte Studie: ${fmtDE(last, 1)} %`;
+        lastSub.textContent = `${fmtInt(Math.round((last / 100) * n))} von ${fmtInt(n)} Personen`;
+      } else { lastMark.style.display = "none"; lastLab.style.display = "none"; lastSub.style.display = "none"; }
+      // numbers
+      out.innerHTML = "";
+      const t = el("table", { class: "epir-calc-table" });
+      const row = (k, v) => t.appendChild(el("tr", null, [el("th", { text: k }), el("td", { text: v })]));
+      row("Gezogene Studien", fmtInt(est.length));
+      if (est.length >= 2) {
+        const m = est.reduce((a, b) => a + b, 0) / est.length;
+        row("Mittel aller Schätzungen", `${fmtDE(m, 1)} %`);
+        row("Streuung der Schätzungen (SD)", `${fmtDE(sd(est), 1)} Prozentpunkte`);
+        if (est.length >= 40) row("95 % der Studien lagen zwischen", `${fmtDE(quant(est, 0.025), 1)} % und ${fmtDE(quant(est, 0.975), 1)} %`);
+        row("Kleinste / größte Schätzung", `${fmtDE(Math.min(...est), 1)} % / ${fmtDE(Math.max(...est), 1)} %`);
+      }
+      row("Erwartete Streuung (Standardfehler, Formel)", `${fmtDE(seTheory, 1)} Prozentpunkte`);
+      out.appendChild(t);
+      if (est.length >= 100) {
+        out.appendChild(el("p", { class: "epir-success epir-small", text: `Die Streuung der Schätzungen über viele Studien heißt Standardfehler. Bei n = ${fmtInt(n)} liegt er hier bei etwa ${fmtDE(sd(est), 1)} Prozentpunkten (Formel: ${fmtDE(seTheory, 1)}). Vervierfachen Sie n und ziehen Sie erneut – die Streuung sollte sich etwa halbieren.` }));
+      } else if (est.length > 0) {
+        out.appendChild(el("p", { class: "epir-info epir-small", text: "Jede Studie liefert eine andere Zahl – obwohl die wahre Prävalenz unverändert ist. Ziehen Sie 100 oder 1000 Studien, um das Muster der Streuung zu sehen." }));
+      }
+    }
+    const btn = (txt, fn) => { const b = el("button", { type: "button", class: "btn btn-sm btn-outline-primary", text: txt }); b.addEventListener("click", () => { fn(); render(); }); return b; };
+    const draw = (k) => { const { n, p } = params(); for (let i = 0; i < k; i++) est.push((100 * drawStudy(n, p)) / n); };
+    const buttons = el("div", { class: "epir-pool-buttons" }, [
+      btn("1 Studie ziehen", () => draw(1)),
+      btn("100 Studien ziehen", () => draw(100)),
+      btn("1000 Studien ziehen", () => draw(1000)),
+      btn("Zurücksetzen", () => { est = []; nIn.value = String(n0); pIn.value = String(prev0); }),
+    ]);
+    const resetOnChange = () => { est = []; render(); };
+    nIn.addEventListener("input", resetOnChange); pIn.addEventListener("input", resetOnChange);
+    root.appendChild(el("div", { class: "epir-pool-body" }, [
+      el("div", { class: "epir-pool-controls" }, [
+        el("div", { class: "epir-slider" }, [el("label", { for: `${id}-n`, text: "Stichprobengröße n (Personen je Studie)" }), nIn, nVal]),
+        el("div", { class: "epir-slider" }, [el("label", { for: `${id}-p`, text: "Wahre Prävalenz" }), pIn, pVal]),
+        buttons,
+        el("p", { class: "epir-small", text: "Ändern Sie n oder die Prävalenz, beginnt die Sammlung von vorn." }),
+      ]),
+      el("div", { class: "epir-pool-vis" }, [svg, out]),
+    ]));
+    render();
+  }
+
   function boot() {
     document.querySelectorAll(".epir-quiz").forEach(initQuiz);
     document.querySelectorAll(".epir-calc").forEach(initCalc);
@@ -785,6 +909,7 @@
     document.querySelectorAll(".epir-relabs").forEach(initRelAbs);
     document.querySelectorAll(".epir-dx").forEach(initDx);
     document.querySelectorAll(".epir-ppv").forEach(initPpv);
+    document.querySelectorAll(".epir-sample").forEach(initSample);
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
   else boot();

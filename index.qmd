@@ -35,7 +35,7 @@ Sie brauchen **keine Vorkenntnisse** in R oder Statistik.
 | 1 | [Prävalenz und Inzidenz](module/01_praevalenz_inzidenz.qmd) | Wie häufig ist eine Erkrankung – und was heißt „häufig“? | Entwurf zur Durchsicht |
 | 2 | [Diagnostische Tests (Sensitivität, Spezifität, Vorhersagewerte)](module/02_diagnostische_tests.qmd) | Was sagt ein positiver Test wirklich aus? | Entwurf zur Durchsicht |
 | 3 | [Relatives und absolutes Risiko (RR, OR, NNT)](module/03_risiko_rr_or_nnt.qmd) | Wie groß ist das Risiko – relativ und absolut? | Entwurf zur Durchsicht |
-| 4 | Verteilungen und Zufallsstreuung | Warum sehen zwei Studien verschiedene Ergebnisse? | geplant |
+| 4 | [Verteilungen und Zufall](module/04_verteilungen_zufall.qmd) | Warum sehen zwei Studien verschiedene Ergebnisse? | Entwurf zur Durchsicht |
 | 5–9 | Studiendesign & Bias · Konfidenzintervalle & p-Werte · Base R lesen · Reproduzierbare Berichte · Mini-Projekt | | geplant |
 
 ## Kurzer Funktionstest

@@ -64,7 +64,7 @@ $headings-font-weight: 600;
 
 // ---------------------------------------------------------------------------
 // EpiR widgets (assets/epir-widgets.js)
-.epir-quiz, .epir-calc, .epir-pool, .epir-2x2, .epir-relabs, .epir-dx, .epir-ppv {
+.epir-quiz, .epir-calc, .epir-pool, .epir-2x2, .epir-relabs, .epir-dx, .epir-ppv, .epir-sample {
   border: 1px solid #d9dee3;
   border-radius: 6px;
   padding: 1rem 1.1rem;
@@ -185,3 +185,11 @@ figcaption, .figure-caption { color: #555; font-size: 0.9rem; }
 .epir-tree-svg { max-width: 400px; }
 .epir-tree-num { font-size: 12px; font-weight: 700; }
 .epir-tree-lab { font-size: 9px; }
+
+// study simulator (module 4)
+.epir-sample-bar { fill: #d9822b; }
+.epir-sample-true { stroke: #4a6fa5; stroke-width: 2; }
+.epir-sample-true-lab { fill: #4a6fa5; font-weight: 700; }
+.epir-sample-last { fill: #d9822b; }
+.epir-sample-last-lab { fill: #d9822b; font-size: 13px; }
+.epir-sample-axis { stroke: #555; stroke-width: 1; }

@@ -1,0 +1,711 @@
+---
+title: "Modul 4 · Verteilungen und Zufall"
+subtitle: "Warum sehen zwei Studien verschiedene Ergebnisse?"
+webr:
+  resources:
+    - ../data/ckd_kohorte.csv
+---
+
+{{< include ../_extensions/r-wasm/live/_knitr.qmd >}}
+
+::: {.callout-note appearance="simple"}
+**Entwurf zur Durchsicht (Oktober 2026).** Fachinhalte sind quellengeprüft; Formulierungen und Aufgaben werden nach dem Review durch die Lehrenden angepasst.
+:::
+
+```{r}
+#| include: false
+# Build-time figures and numbers (knitr). Uses the synthetic cohort; see R/epir_plots.R.
+source("../R/epir_plots.R", encoding = "UTF-8")
+kohorte <- readr::read_csv("../data/ckd_kohorte.csv", show_col_types = FALSE)
+de <- function(x, d = 1) formatC(x, format = "f", digits = d, decimal.mark = ",", big.mark = "\u202f")
+dm <- function(x, d = 1) gsub(",", "{,}", de(x, d), fixed = TRUE)   # decimal comma inside LaTeX math
+# eGFR: roughly symmetric
+m_e <- mean(kohorte$egfr); s_e <- sd(kohorte$egfr); md_e <- median(kohorte$egfr)
+q_e <- quantile(kohorte$egfr, c(0.25, 0.75))
+in1_e <- mean(abs(kohorte$egfr - m_e) < s_e); in2_e <- mean(abs(kohorte$egfr - m_e) < 2 * s_e)
+# UACR: right-skewed, log-normal
+m_u <- mean(kohorte$uacr); s_u <- sd(kohorte$uacr); md_u <- median(kohorte$uacr)
+q_u <- quantile(kohorte$uacr, c(0.25, 0.75)); max_u <- max(kohorte$uacr); min_u <- min(kohorte$uacr)
+in1_u <- mean(abs(kohorte$uacr - m_u) < s_u)
+lg <- log10(kohorte$uacr); m_l <- mean(lg); s_l <- sd(lg); md_l <- median(lg); gm_u <- 10^m_l
+# groups
+grp <- kohorte |> dplyr::group_by(diabetes) |>
+  dplyr::summarise(n = dplyr::n(), m_egfr = mean(egfr), sd_egfr = sd(egfr), md_uacr = median(uacr), .groups = "drop")
+# sampling variation: cohort treated as the population, sampling WITH replacement
+p_true <- mean(kohorte$ckd_baseline)
+n_sizes <- c(50, 200, 1000)
+set.seed(20261026)
+est <- lapply(n_sizes, function(n) replicate(1000, mean(sample(kohorte$ckd_baseline, n, replace = TRUE))))
+names(est) <- sprintf("n = %d", n_sizes)
+sd_est <- sapply(est, sd)                      # empirical standard errors (proportions)
+se_theory <- sqrt(p_true * (1 - p_true) / n_sizes)
+set.seed(20261026)
+means100 <- replicate(1000, mean(sample(kohorte$egfr, 100, replace = TRUE)))
+se_means100 <- sd(means100)
+# the two practices of the opening question
+set.seed(5)
+praxis_a <- sum(sample(kohorte$ckd_baseline, 100, replace = TRUE))
+praxis_b <- sum(sample(kohorte$ckd_baseline, 100, replace = TRUE))
+se100 <- sqrt(p_true * (1 - p_true) / 100)
+# figure captions (computed here so that numbers come from the same objects as the figures)
+cap <- list(
+  praxen = sprintf("Zwei fiktive Praxen, je 100 untersuchte Personen: %d bzw. %d mit CKD. Beide Stichproben wurden zufällig aus derselben simulierten Kohorte gezogen – die wahre Prävalenz ist in beiden Fällen %s %%.", praxis_a, praxis_b, de(100 * p_true)),
+  egfr = sprintf("Verteilung der eGFR in der Kohorte (n = 2000). Mittelwert %s und Median %s liegen fast aufeinander – die Verteilung ist annähernd symmetrisch. Die Bänder zeigen Mittelwert ± 1 SD (%s bis %s) und ± 2 SD (%s bis %s).", de(m_e), de(md_e), de(m_e - s_e), de(m_e + s_e), de(m_e - 2 * s_e), de(m_e + 2 * s_e)),
+  normal = sprintf("Dieselbe eGFR-Verteilung (graue Balken) mit der Normalverteilung, die denselben Mittelwert μ = %s und dieselbe Standardabweichung σ = %s hat. Unter der Kurve liegen etwa 68 %% der Fläche innerhalb ± 1 σ und etwa 95 %% innerhalb ± 2 σ. In der Kohorte sind es %s %% bzw. %s %% der Personen – das Modell passt gut.", de(m_e), de(s_e), de(100 * in1_e), de(100 * in2_e)),
+  uacr = sprintf("Oben: UACR auf linearer Achse – die meisten Werte liegen unter 20 mg/g, einzelne reichen bis %s mg/g; der Mittelwert (%s) liegt deutlich rechts vom Median (%s). Unten: dieselben Werte auf einer log₁₀-Achse – die Verteilung wird symmetrisch. Gepunktet: die KDIGO-Grenze für Albuminurie (30 mg/g).", de(max_u), de(m_u), de(md_u)),
+  box = sprintf("eGFR (links) und UACR (rechts, log₁₀-Achse) nach Diabetesstatus. Personen mit Diabetes haben im Mittel eine niedrigere eGFR (%s gegenüber %s) und eine höhere UACR (Median %s gegenüber %s mg/g); die Boxen überlappen aber deutlich – Gruppenunterschiede sagen wenig über die einzelne Person.", de(grp$m_egfr[grp$diabetes == 1]), de(grp$m_egfr[grp$diabetes == 0]), de(grp$md_uacr[grp$diabetes == 1]), de(grp$md_uacr[grp$diabetes == 0])),
+  sampling = sprintf("Je 1000 simulierte Studien aus derselben Bevölkerung (wahre Prävalenz %s %%, blaue Linie). Bei n = 50 streuen die geschätzten Prävalenzen mit einer Standardabweichung von %s Prozentpunkten (95 %% der Studien zwischen %s und %s %%), bei n = 200 mit %s, bei n = 1000 mit %s Prozentpunkten.", de(100 * p_true), de(100 * sd_est[1]), de(100 * quantile(est[[1]], 0.025)), de(100 * quantile(est[[1]], 0.975)), de(100 * sd_est[2]), de(100 * sd_est[3])),
+  sdse = sprintf("Gleiche Achse, zwei Streuungen. Oben: die eGFR-Werte der 2000 Personen (SD %s). Unten: die Mittelwerte von 1000 simulierten Studien mit je 100 Personen (Standardfehler %s). Die Personen streuen breit, die Studienmittelwerte eng um den wahren Mittelwert (blaue Linie).", de(s_e), de(se_means100, 2))
+)
+alt <- list(
+  praxen = sprintf("Zwei 10-mal-10-Raster. Links Praxis A mit %d petrol markierten Feldern, rechts Praxis B mit %d markierten Feldern.", praxis_a, praxis_b)
+)
+# guards: the text below quotes these numbers
+stopifnot(praxis_a == 24, praxis_b == 14, round(100 * p_true, 1) == 18.1,
+          round(m_e, 1) == 81.4, round(s_e, 1) == 15.5, round(md_u, 1) == 8.5, round(m_u, 1) == 14.5,
+          round(100 * sd_est, 1) == c(5.4, 2.8, 1.2))
+```
+
+::: {.leitfrage}
+Zwei Hausarztpraxen beteiligen sich an einem Screening auf chronische Nierenkrankheit (CKD) und untersuchen je 100 Personen ab 40 Jahren aus derselben Region. Praxis A findet CKD bei **`r praxis_a` von 100**, Praxis B bei **`r praxis_b` von 100**. **Ist die Bevölkerung von Praxis A kränker – oder sehen zwei Studien auch dann verschiedene Ergebnisse, wenn in Wahrheit kein Unterschied besteht?**
+:::
+
+```{r}
+#| label: fig-praxen
+#| echo: false
+#| fig-height: 3.4
+#| fig-cap: !expr cap$praxen
+#| fig-alt: !expr alt$praxen
+plot_icon_array(setNames(c(praxis_a, praxis_b), c(sprintf("Praxis A: %d von 100", praxis_a), sprintf("Praxis B: %d von 100", praxis_b))),
+                label_case = "CKD", label_no = "keine CKD")
+```
+
+::: {.lernziele}
+**Lernziele.** Nach diesem Modul können Sie …
+
+**Konzept (ohne R):**
+
+1. eine Messgröße mit Histogramm und Boxplot **beschreiben** und passende Lage- und Streuungsmaße **auswählen** (Mittelwert und Standardabweichung bei symmetrischer, Median und Quartile bei schiefer Verteilung).
+2. die Normalverteilung als **Modell** (nicht als Norm) **erklären**, die 68 %/95 %-Regel **anwenden** und **erkennen**, wann eine Log-Skala die angemessene Darstellung ist.
+3. **vorhersagen**, wie sich die Streuung einer Schätzung über wiederholte Studien mit der Stichprobengröße verändert, und Standardabweichung von Standardfehler **unterscheiden**.
+4. Zufallsfehler von systematischem Fehler **abgrenzen** und **begründen**, warum eine größere Stichprobe nur den ersten verkleinert.
+
+**Vertiefung mit R** (Abschnitt „Dasselbe in R“):
+
+5. Lage- und Streuungsmaße mit `summarise()` **berechnen**, Histogramme mit `ggplot2` **erstellen** und mit `set.seed()`, `sample()` und `replicate()` eine kleine Simulation wiederholter Studien **ausführen** und **lesen**.
+:::
+
+::: {.callout-tip appearance="simple" icon=false}
+**Zwei Lesepfade.** Bis zum Selbsttest brauchen Sie kein R. Der Abschnitt [Dasselbe in R](#dasselbe-in-r) am Ende ist Vertiefung, keine Voraussetzung.
+:::
+
+## Die Beispielkohorte – diesmal mit Messwerten
+
+Dieselbe **simulierte** Kohorte wie in den Modulen 1–3 (keine echten Patientendaten): 2000 Erwachsene zwischen 40 und 85 Jahren. Bisher haben wir Ja/Nein-Merkmale ausgewertet (CKD ja/nein, Diabetes ja/nein). Jetzt geht es um **Messwerte**: die geschätzte glomeruläre Filtrationsrate (**eGFR**, in mL/min/1,73 m²) und den Albumin-Kreatinin-Quotienten im Urin (**UACR**, in mg/g).
+
+## Eine Messgröße beschreiben: die eGFR
+
+2000 Zahlen kann niemand überblicken. Die **Verteilung** (engl. *distribution*) einer Messgröße zeigt, welche Werte wie häufig vorkommen. Das **Histogramm** (engl. *histogram*) teilt die Werteachse in gleich breite Klassen und zählt die Personen je Klasse:
+
+```{r}
+#| label: fig-egfr
+#| echo: false
+#| fig-height: 4.4
+#| fig-cap: !expr cap$egfr
+#| fig-alt: "Histogramm der eGFR mit glockenförmigem Verlauf zwischen etwa 35 und 130. Eine orange Linie markiert den Mittelwert, eine blau gestrichelte den Median; beide liegen bei etwa 81. Zwei hinterlegte Bänder markieren plus/minus eine und plus/minus zwei Standardabweichungen."
+plot_hist_sd(kohorte$egfr, "eGFR (mL/min/1,73 m²)")
+```
+
+Zwei Fragen beantwortet jede Beschreibung: **Wo liegt die Verteilung?** (Lage) und **Wie breit ist sie?** (Streuung).
+
+::: {.epir-cards}
+::: {.epir-card}
+**Mittelwert (mean)**
+
+- **Rechnung:** Summe aller Werte ÷ Anzahl
+- **Kohorte:** eGFR `r de(m_e)`
+- **Frage:** Wo liegt der Schwerpunkt?
+- **Achtung:** Einzelne Extremwerte ziehen ihn mit
+:::
+::: {.epir-card .epir-card-blue}
+**Median**
+
+- **Rechnung:** Der mittlere Wert, wenn alle sortiert sind – die Hälfte liegt darunter
+- **Kohorte:** eGFR `r de(md_e)`
+- **Frage:** Wo ist die Mitte der Personen?
+- **Robust:** Extremwerte ändern ihn kaum
+:::
+::: {.epir-card .epir-card-accent}
+**Standardabweichung (SD)**
+
+- **Rechnung:** typische Abweichung der Einzelwerte vom Mittelwert (vereinfacht; exakt: Wurzel der mittleren quadrierten Abweichung)
+- **Kohorte:** eGFR `r de(s_e)`
+- **Frage:** Wie weit streuen die Personen?
+:::
+::: {.epir-card}
+**Quartile und IQR**
+
+- **Rechnung:** Q1 = Wert, unter dem 25 % liegen; Q3 = 75 %; IQR = Q3 − Q1
+- **Kohorte:** eGFR Q1 `r de(q_e[[1]])`, Q3 `r de(q_e[[2]])`
+- **Frage:** Wo liegt die mittlere Hälfte?
+- **Robust** wie der Median
+:::
+:::
+
+**Antwortsatz:** „Die eGFR lag in der Kohorte im Mittel bei `r de(m_e)` mL/min/1,73 m² (SD `r de(s_e)`); die mittlere Hälfte der Personen hatte Werte zwischen `r de(q_e[[1]])` und `r de(q_e[[2]])`.“
+
+## Die Normalverteilung: ein Modell, keine Norm
+
+Die Glockenform der eGFR lässt sich durch ein mathematisches Modell beschreiben, die **Normalverteilung** (engl. *normal* oder *Gaussian distribution*). Sie ist vollständig durch zwei Zahlen festgelegt: den Mittelwert μ („mü“) und die Standardabweichung σ („sigma“). Daraus folgt eine praktische Regel:
+
+```{r}
+#| label: fig-normal
+#| echo: false
+#| fig-height: 4.4
+#| fig-cap: !expr cap$normal
+#| fig-alt: "Glockenkurve über einem grauen Histogramm der eGFR. Der Bereich plus/minus eine Standardabweichung um den Mittelwert ist dunkel petrol, der Bereich plus/minus zwei Standardabweichungen hell petrol hinterlegt. Eine orange Linie markiert den Mittelwert, ein Pfeil die Standardabweichung."
+plot_hist_normal(kohorte$egfr, "eGFR (mL/min/1,73 m²)")
+```
+
+**68 %/95 %-Regel.** Bei normalverteilten Werten liegen etwa 68 % der Personen innerhalb von ± 1 SD um den Mittelwert und etwa 95 % innerhalb von ± 2 SD (exakt: ± 1,96 SD; Altman & Bland 1995, Quellen). Für die eGFR: etwa 95 % der Teilnehmenden haben Werte zwischen `r de(m_e - 2 * s_e, 0)` und `r de(m_e + 2 * s_e, 0)` mL/min/1,73 m².
+
+::: {.callout-warning appearance="simple"}
+**„Normal“ ist ein Modellname, kein Urteil.** Die Normalverteilung heißt so, weil sie in der Natur häufig auftaucht – nicht, weil ihre Werte „gesund“ wären. Ein eGFR-Wert von 50 liegt innerhalb der ± 2 SD der Kohorte und ist trotzdem (vereinfacht, bei Persistenz) eine CKD im Stadium G3a. Referenzbereiche und Krankheitsgrenzen sind ein anderes Konzept als die Form einer Verteilung.
+:::
+
+## Schiefe Verteilungen: die UACR und die Log-Skala
+
+Nicht jede Messgröße ist glockenförmig. Die UACR zeigt ein ganz anderes Bild:
+
+```{r}
+#| label: fig-uacr
+#| echo: false
+#| fig-height: 6.4
+#| fig-cap: !expr cap$uacr
+#| fig-alt: "Zwei Histogramme der UACR untereinander. Oben auf linearer Achse ein hoher Balken ganz links und ein langer flacher Ausläufer nach rechts bis über 300. Unten auf logarithmischer Achse mit Markierungen 1, 3, 10, 30, 100, 300 eine symmetrische Glockenform. In beiden Panels markieren eine orange Linie den Mittelwert, eine blau gestrichelte den Median und eine gepunktete Linie den Wert 30."
+plot_hist_log(kohorte$uacr, "UACR (mg/g)", cutoff = 30, cutoff_label = "KDIGO-Grenze 30 mg/g")
+```
+
+Diese Verteilung ist **rechtsschief** (engl. *right-skewed*): Viele kleine Werte, ein langer Ausläufer zu großen Werten. Woran erkennt man das auch ohne Grafik?
+
+- **Mittelwert > Median:** `r de(m_u)` gegenüber `r de(md_u)` mg/g. Die wenigen sehr großen Werte ziehen den Mittelwert nach oben, den Median nicht.
+- **Faustregel:** Ist bei einer Messgröße, die nur positive Werte annehmen kann, der Mittelwert kleiner als 2 × SD, ist die Verteilung sehr wahrscheinlich schief (Altman & Bland 1996, Quellen). Hier: `r de(m_u)` < 2 × `r de(s_u)` = `r de(2 * s_u)`. Dann wäre „Mittelwert − 2 SD“ = `r de(m_u - 2 * s_u)` mg/g – ein unmöglicher Wert.
+- **68 %-Regel versagt:** Innerhalb von ± 1 SD um den Mittelwert liegen `r de(100 * in1_u, 0)` % der Personen statt 68 %.
+
+**Was tun?** Zwei gleichwertige Wege:
+
+1. **Robuste Maße berichten:** „Die UACR lag im Median bei `r de(md_u)` mg/g (Quartile `r de(q_u[[1]])`–`r de(q_u[[2]])`).“
+2. **Logarithmieren:** Auf der Log-Skala bedeuten gleiche Abstände gleiche *Faktoren* (1 → 10 → 100 statt 1 → 2 → 3). Viele biologische Messgrößen – Konzentrationen, Antikörpertiter, Genexpression – sind auf dieser Skala annähernd normalverteilt; man nennt sie **lognormalverteilt** (Limpert et al. 2001, Quellen). Für log₁₀(UACR) gilt: Mittelwert `r de(m_l, 2)`, Median `r de(md_l, 2)`, SD `r de(s_l, 2)` – symmetrisch. Zurückgerechnet ist 10^`r de(m_l, 2)` ≈ `r de(gm_u)` mg/g das **geometrische Mittel**, das hier nahe am Median liegt.
+
+::: {.callout-note collapse="true"}
+## Mehr dazu: Welche Basis für den Logarithmus?
+Ob log₁₀, log₂ (üblich in der Genomik: „Verdopplung“) oder der natürliche Logarithmus ln verwendet wird, ändert nur den Maßstab der Achse, nicht die Form der Verteilung – die drei Skalen unterscheiden sich um einen konstanten Faktor. Wir verwenden log₁₀, weil Zehnerpotenzen (1, 10, 100, 1000 mg/g) klinisch leicht lesbar sind.
+:::
+
+## Gruppen vergleichen: der Boxplot
+
+Für den Vergleich mehrerer Gruppen ist der **Boxplot** (engl. *box plot*) kompakter als mehrere Histogramme. Die Box reicht von Q1 bis Q3 (mittlere Hälfte), der Strich darin ist der Median, die „Whisker“ reichen bis zum letzten Wert innerhalb von 1,5 × IQR (Standard in `ggplot2`; andere Konventionen existieren), einzelne Punkte darüber hinaus sind Ausreißer.
+
+```{r}
+#| label: fig-box
+#| echo: false
+#| fig-height: 4.2
+#| fig-cap: !expr cap$box
+#| fig-alt: "Zwei Boxplot-Paare. Links eGFR: die petrolfarbene Box ohne Diabetes liegt höher als die orange Box mit Diabetes, beide überlappen. Rechts UACR auf logarithmischer Achse: die Box mit Diabetes liegt höher und reicht über die gepunktete Linie bei 30 mg/g."
+plot_box_by_group(kohorte)
+```
+
+**Lesehilfe:** Ein Boxplot zeigt fünf Zahlen (Minimum, Q1, Median, Q3, Maximum) und die Ausreißer – aber nicht die Form innerhalb der Box. Bei zweigipfligen Verteilungen führt er in die Irre; im Zweifel zusätzlich das Histogramm ansehen.
+
+## Zufallsstreuung: dieselbe Studie 1000-mal
+
+Zurück zur Leitfrage. Praxis A und B haben beide nur eine **Stichprobe** (engl. *sample*) von 100 Personen untersucht. Hätte eine der Praxen 100 *andere* Personen aus derselben Region erwischt, wäre eine andere Zahl herausgekommen – obwohl sich an der Bevölkerung nichts geändert hat. Diese Schwankung heißt **Zufallsfehler** oder **Zufallsstreuung** (engl. *random error*, *sampling variation*).
+
+Wie groß ist sie? Das lässt sich ausprobieren. Wir tun so, als wäre unsere Kohorte die gesamte Bevölkerung (wahre CKD-Prävalenz `r de(100 * p_true)` %, Modul 1), und ziehen daraus per Zufall immer wieder „Studien“ von je 50, 200 oder 1000 Personen – 1000-mal je Größe:
+
+```{r}
+#| label: fig-sampling
+#| echo: false
+#| fig-height: 6
+#| fig-cap: !expr cap$sampling
+#| fig-alt: "Drei Histogramme untereinander, jeweils orange Balken um eine blaue senkrechte Linie bei 18,1 Prozent. Oben für n gleich 50 eine breite Verteilung von etwa 5 bis 35 Prozent, in der Mitte für n gleich 200 eine schmalere von etwa 10 bis 27 Prozent, unten für n gleich 1000 eine sehr schmale von etwa 14 bis 22 Prozent."
+plot_sampling_dist(est, p_true)
+```
+
+Drei Beobachtungen:
+
+1. **Jede einzelne Studie liefert eine andere Zahl.** Mit 50 Personen sind Werte von unter 10 % bis über 30 % normal – ohne dass irgendjemand einen Fehler gemacht hätte.
+2. **Im Mittel treffen die Studien die Wahrheit.** Die Verteilung der Schätzungen ist um die wahre Prävalenz zentriert.
+3. **Mit wachsendem n wird die Streuung kleiner – aber langsam.** Von n = 50 auf n = 200 (× 4) halbiert sich die Streuung (`r de(100 * sd_est[1])` → `r de(100 * sd_est[2])` Prozentpunkte); von 200 auf 1000 (× 5) sinkt sie auf `r de(100 * sd_est[3])`. Das ist die **Wurzel-n-Regel**: Die Streuung der Schätzung ist proportional zu 1/√n. Für die vierfache Präzision braucht man die 16-fache Stichprobe.
+
+Die Streuung der Schätzungen über viele gedachte Wiederholungen hat einen eigenen Namen: **Standardfehler** (engl. *standard error*, SE). Vereinfacht gesagt: „die SD der Studienergebnisse“. Exakt wird der Standardfehler nicht aus 1000 Wiederholungen bestimmt – man hat ja nur **eine** Studie –, sondern aus ihr geschätzt: für einen Mittelwert SE = SD/√n (Altman & Bland 2005, Quellen), für einen Anteil p entsprechend SE = √(p(1 − p)/n). Für unsere Simulation ergibt die Formel `r de(100 * se_theory[1])`, `r de(100 * se_theory[2])` und `r de(100 * se_theory[3])` Prozentpunkte – fast genau die beobachteten Werte.
+
+## Standardabweichung oder Standardfehler?
+
+Beide Größen sind Standardabweichungen – aber von verschiedenen Dingen. Das ist die häufigste Verwechslung in Abschlussarbeiten und Publikationen (Altman & Bland 2005, Quellen):
+
+::: {.epir-cards}
+::: {.epir-card}
+**Standardabweichung (SD)**
+
+- **Beschreibt:** die **Personen** – wie weit streuen die Einzelwerte?
+- **Kohorte:** eGFR-SD `r de(s_e)`
+- **Bei größerem n:** bleibt etwa gleich – die Menschen werden nicht ähnlicher
+- **Verwendung:** Daten beschreiben („Mittelwert ± SD“)
+:::
+::: {.epir-card .epir-card-accent}
+**Standardfehler (SE)**
+
+- **Beschreibt:** die **Schätzung** – wie weit würde der Mittelwert von Studie zu Studie streuen?
+- **Kohorte:** bei n = 100 wäre SE = `r de(s_e)`/√100 = `r de(s_e / 10, 2)`; in 1000 simulierten Studien à 100: `r de(se_means100, 2)`
+- **Bei größerem n:** schrumpft mit 1/√n
+- **Verwendung:** Unsicherheit angeben (daraus entsteht in Modul 6 das Konfidenzintervall)
+:::
+:::
+
+```{r}
+#| label: fig-sdse
+#| echo: false
+#| fig-height: 4.4
+#| fig-cap: !expr cap$sdse
+#| fig-alt: "Zwei Histogramme übereinander auf derselben x-Achse von etwa 35 bis 130. Oben ein breites petrolfarbenes Histogramm der Einzelwerte, unten ein sehr schmales oranges Histogramm der Studienmittelwerte um 81. Eine blaue Linie markiert den Mittelwert."
+plot_sd_vs_se(kohorte$egfr, means100, "eGFR (mL/min/1,73 m²)")
+```
+
+**Merksatz:** Wer sagen will, *wie unterschiedlich die Patient:innen sind*, nennt die SD. Wer sagen will, *wie genau die Schätzung ist*, nennt den Standardfehler (oder gleich das Konfidenzintervall).
+
+## Studien-Simulator
+
+Ziehen Sie selbst Studien aus einer Bevölkerung mit bekannter Prävalenz. Jeder Klick auf „1 Studie ziehen“ untersucht n zufällig ausgewählte Personen; die Marke oben zeigt das Ergebnis, die Balken sammeln alle bisherigen Studien.
+
+```{=html}
+<div class="epir-sample" data-prev="18.1" data-n="100"></div>
+```
+
+**Aufgabe 1.** Lassen Sie n = 100 und ziehen Sie fünfmal je eine Studie. Wie weit liegen Ihre fünf Ergebnisse auseinander? Ziehen Sie dann 1000 Studien und lesen Sie die Streuung (SD) ab. Stellen Sie anschließend n = 400 ein, ziehen Sie erneut 1000 Studien und vergleichen Sie: Hat sich die Streuung etwa halbiert? Probieren Sie zuletzt n = 20 – wie plausibel wären hier zwei Praxen mit 5 % und 35 %?
+
+**Aufgabe 2 (Leitfrage).** Bei wahrer Prävalenz 18 % und n = 100 beträgt der Standardfehler √(0,18 × 0,82 / 100) ≈ `r de(100 * se100)` Prozentpunkte. Ergebnisse innerhalb von etwa ± 2 Standardfehlern (`r de(100 * (p_true - 2 * se100))` bis `r de(100 * (p_true + 2 * se100))` %) sind bei dieser Stichprobengröße gewöhnlich. Liegen `r praxis_a` % und `r praxis_b` % in diesem Bereich? (Auflösung im Selbsttest, Frage 7.)
+
+## Zufall ist nicht alles
+
+Mehr Personen zu untersuchen verkleinert den Zufallsfehler – aber nur ihn. Davon zu unterscheiden ist der **systematische Fehler** (engl. *bias*): eine Abweichung, die in jeder Wiederholung in dieselbe Richtung geht, etwa weil ein Test Albuminurie regelmäßig übersieht oder weil vor allem gesunde Menschen zur Vorsorge kommen.
+
+```{r}
+#| label: fig-target
+#| echo: false
+#| fig-height: 3
+#| fig-cap: "Zufallsfehler und systematischer Fehler sind unabhängig voneinander. Links: Studien treffen im Mittel den wahren Wert (kein Bias). Rechts: Sie verfehlen ihn systematisch, egal wie präzise sie sind. Eine größere Stichprobe rückt die Punkte enger zusammen – aber nicht näher ans Kreuz."
+#| fig-alt: "Vier Zielscheiben nebeneinander. Erste: Punkte eng um das Zentrum. Zweite: Punkte eng beieinander, aber abseits des Zentrums. Dritte: Punkte weit gestreut um das Zentrum. Vierte: Punkte weit gestreut und abseits des Zentrums."
+plot_target_schema()
+```
+
+Für die Leitfrage heißt das: Der Unterschied zwischen `r praxis_a` % und `r praxis_b` % ist mit Zufall allein gut erklärbar. Wären die Zahlen weiter auseinander oder die Praxen größer, blieben noch andere Erklärungen als „kränkere Bevölkerung“ zu prüfen: andere Altersstruktur, anderer Test, andere CKD-Definition. Solche systematischen Unterschiede sind das Thema von Modul 5; wie man die Unsicherheit einer einzelnen Studie als Konfidenzintervall angibt, das von Modul 6.
+
+## Typische Fehler
+
+| Fehler | Richtig |
+|---|---|
+| „Mittelwert ± SE“ als Streuung der Patient:innen lesen | Der SE beschreibt die Unsicherheit der Schätzung. Für die Streuung der Personen gilt die SD – sie ist bei großem n viel größer als der SE |
+| UACR als „Mittelwert `r de(m_u)` ± SD `r de(s_u)`“ berichten | Bei Schiefe ist das irreführend („Mittelwert − 2 SD“ wäre negativ). Median und Quartile oder Log-Skala |
+| „Normalverteilt“ = „normal/gesund“ | Modellname für eine Form. Krankhafte Werte können normalverteilt sein; Referenzbereiche sind ein anderes Konzept |
+| „10 000 Teilnehmende – das Ergebnis muss stimmen“ | Große Stichproben verkleinern den Zufallsfehler, nicht den systematischen. Eine verzerrte Studie wird mit mehr Personen nur präziser falsch |
+| Spannweite (Minimum–Maximum) als Streuungsmaß | Hängt nur von zwei Extremwerten ab (UACR `r de(min_u)`–`r de(max_u)`). SD oder IQR beschreiben die Masse der Personen |
+| Log-Achse linear lesen | Gleiche Abstände bedeuten gleiche Faktoren (× 10), nicht gleiche Differenzen. Achsenbeschriftung prüfen |
+| Zwei Studien unterscheiden sich → „Widerspruch“ | Erst fragen: Wie groß ist die Zufallsstreuung bei diesen Stichprobengrößen? |
+
+::: {.takehome}
+**Take-Home-Messages**
+
+- **Verteilung zuerst ansehen** (Histogramm oder Boxplot), dann Maße wählen: symmetrisch → Mittelwert und SD; schief → Median und Quartile oder Log-Skala.
+- Die **Normalverteilung** ist ein Modell mit zwei Parametern (μ, σ): etwa 68 % der Werte innerhalb ± 1 SD, etwa 95 % innerhalb ± 2 SD. „Normal“ heißt nicht „gesund“.
+- Viele biomedizinische Messgrößen sind **lognormalverteilt**: Auf der Log-Skala werden sie symmetrisch; der Mittelwert liegt dann rechts vom Median.
+- **Zufallsstreuung** ist unvermeidlich: Zwei Studien aus derselben Bevölkerung liefern verschiedene Zahlen. Ihre Streuung über Wiederholungen ist der **Standardfehler**; er schrumpft mit 1/√n (Vervierfachung von n → Halbierung).
+- **SD** beschreibt die Personen, **SE** die Schätzung. Mehr Personen machen die Schätzung präziser, nicht die Menschen ähnlicher – und beseitigen **keinen** systematischen Fehler.
+:::
+
+## Selbsttest
+
+Die Fragen entsprechen im Format den Klausurfragen (eine richtige Antwort; Rechenaufgaben mit Zahleneingabe). Das Feedback erklärt auch, warum die anderen Antworten nicht stimmen.
+
+```{=html}
+<div class="epir-quiz">
+<script type="application/json">
+{
+  "items": [
+    {
+      "type": "mc",
+      "question": "Für die UACR der Kohorte gilt: Mittelwert 14,5 mg/g, Median 8,5 mg/g, SD 19,9 mg/g, kleinster Wert 0,5 mg/g. Welche Angaben beschreiben diese Verteilung am besten?",
+      "options": [
+        { "text": "Mittelwert und Standardabweichung.", "correct": false, "feedback": "Mittelwert > Median und Mittelwert < 2 × SD zeigen eine rechtsschiefe Verteilung; „14,5 ± 19,9“ würde negative Werte suggerieren, die es nicht gibt." },
+        { "text": "Median und Quartile (oder Mittelwert und SD der log-transformierten Werte).", "correct": true, "feedback": "Bei schiefen Verteilungen sind Median und Quartile robust; alternativ wird auf der Log-Skala beschrieben, auf der die UACR annähernd symmetrisch ist." },
+        { "text": "Minimum und Maximum.", "correct": false, "feedback": "Die Spannweite hängt nur von zwei Extremwerten ab und sagt nichts darüber, wo die Masse der Personen liegt." },
+        { "text": "Mittelwert und Standardfehler.", "correct": false, "feedback": "Der Standardfehler beschreibt die Unsicherheit der Schätzung, nicht die Verteilung der Werte in der Kohorte – und löst das Problem der Schiefe nicht." }
+      ]
+    },
+    {
+      "type": "mc",
+      "question": "In der Kohorte beträgt die Standardabweichung der eGFR 15,5 mL/min/1,73 m². Was bedeutet diese Zahl?",
+      "options": [
+        { "text": "Der Mittelwert der eGFR ist auf etwa ± 15,5 unsicher.", "correct": false, "feedback": "Das wäre die Aussage eines Standardfehlers. Bei n = 2000 ist der Standardfehler des Mittelwerts nur 15,5/√2000 ≈ 0,35." },
+        { "text": "Die eGFR-Werte der einzelnen Personen weichen typischerweise etwa 15,5 vom Mittelwert ab.", "correct": true, "feedback": "Die SD beschreibt die Streuung der Einzelwerte; etwa 68 % der Personen liegen innerhalb ± 15,5 um den Mittelwert, etwa 95 % innerhalb ± 31." },
+        { "text": "15,5 % der Personen haben eine auffällige eGFR.", "correct": false, "feedback": "Die SD ist kein Anteil, sondern hat die Einheit der Messgröße (mL/min/1,73 m²)." },
+        { "text": "Das Messgerät hat einen Fehler von 15,5.", "correct": false, "feedback": "Die SD der Kohorte beschreibt die biologische Unterschiedlichkeit der Personen plus Messvariabilität – nicht einen Gerätefehler." }
+      ]
+    },
+    {
+      "type": "num",
+      "question": "In 1000 simulierten Prävalenzstudien mit je n = 200 streuten die Schätzungen mit einem Standardfehler von 2,7 Prozentpunkten. Wie groß wäre der Standardfehler bei n = 800? (zwei Nachkommastellen)",
+      "label": "Standardfehler:",
+      "unit": "Prozentpunkte",
+      "answer": 1.35,
+      "tol": 0.1,
+      "feedback_correct": "Vervierfachung von n halbiert den Standardfehler (Wurzel-n-Regel): 2,7 / √4 = 2,7 / 2 = 1,35 Prozentpunkte.",
+      "feedback_wrong": "Der Standardfehler ist proportional zu 1/√n. Um welchen Faktor wächst n, und was ist die Wurzel daraus?",
+      "near": [
+        { "value": 0.675, "tol": 0.05, "feedback": "Sie haben durch 4 geteilt. Der Standardfehler schrumpft aber nur mit der Wurzel aus dem Faktor: √4 = 2, also 2,7 / 2 = 1,35." },
+        { "value": 5.4, "tol": 0.2, "feedback": "Mehr Personen machen die Schätzung präziser, der Standardfehler wird kleiner, nicht größer: 2,7 / √4 = 1,35." },
+        { "value": 2.7, "tol": 0.05, "feedback": "Die SD der Personen bliebe bei größerem n gleich – der Standardfehler der Schätzung aber nicht. Er sinkt auf 2,7 / √4 = 1,35." }
+      ]
+    },
+    {
+      "type": "mc",
+      "question": "Eine Kohortenstudie wird von 500 auf 5000 Teilnehmende vergrößert; Rekrutierung und Messmethoden bleiben gleich. Was verändert sich dadurch mit Sicherheit?",
+      "options": [
+        { "text": "Zufallsfehler und systematischer Fehler werden beide kleiner.", "correct": false, "feedback": "Ein systematischer Fehler (z. B. ein Test, der Albuminurie regelmäßig übersieht) wirkt in jeder Wiederholung gleich – mehr Personen ändern daran nichts." },
+        { "text": "Der Zufallsfehler wird kleiner; ein systematischer Fehler bleibt unverändert.", "correct": true, "feedback": "Der Standardfehler sinkt um den Faktor √10 ≈ 3,2; Bias durch Rekrutierung oder Messung bleibt bestehen – die Studie wird „präziser falsch“." },
+        { "text": "Die Standardabweichung der Messwerte wird kleiner.", "correct": false, "feedback": "Die SD beschreibt die Unterschiedlichkeit der Personen; sie ändert sich mit n nicht systematisch." },
+        { "text": "Das Ergebnis entspricht dann dem wahren Wert.", "correct": false, "feedback": "Auch 5000 Personen liefern eine Schätzung mit Zufallsfehler (kleiner, aber nicht null) – und ein eventueller Bias bleibt." }
+      ]
+    },
+    {
+      "type": "mc",
+      "question": "Im Histogramm einer Laborgröße liegt der Mittelwert deutlich rechts vom Median. Was folgt daraus?",
+      "options": [
+        { "text": "Die Verteilung ist rechtsschief – einzelne große Werte ziehen den Mittelwert nach oben.", "correct": true, "feedback": "Der Median ist robust gegen Extremwerte, der Mittelwert nicht; liegt er rechts, gibt es einen Ausläufer nach rechts (wie bei der UACR)." },
+        { "text": "Die Verteilung ist linksschief.", "correct": false, "feedback": "Bei Linksschiefe zieht der Ausläufer nach links und der Mittelwert liegt unter dem Median." },
+        { "text": "Die Verteilung ist symmetrisch, aber die Stichprobe zu klein.", "correct": false, "feedback": "Bei symmetrischen Verteilungen liegen Mittelwert und Median nahe beieinander – unabhängig von n." },
+        { "text": "Die Daten sind normalverteilt.", "correct": false, "feedback": "Bei der Normalverteilung fallen Mittelwert und Median zusammen; ein deutlicher Abstand spricht gegen das Modell." }
+      ]
+    },
+    {
+      "type": "mc",
+      "question": "„Etwa 95 % der Werte liegen innerhalb von ± 2 Standardabweichungen um den Mittelwert.“ Wann gilt diese Regel?",
+      "options": [
+        { "text": "Für jede Verteilung, sobald n groß genug ist.", "correct": false, "feedback": "Die Regel folgt aus der Form der Normalverteilung, nicht aus der Stichprobengröße. Für die UACR gilt sie bei n = 2000 nicht." },
+        { "text": "Für annähernd normalverteilte Werte – etwa die eGFR der Kohorte, nicht aber die UACR.", "correct": true, "feedback": "Bei der eGFR liegen 95,6 % innerhalb ± 2 SD; bei der schiefen UACR wäre „Mittelwert − 2 SD“ sogar negativ." },
+        { "text": "Nur für den Standardfehler, nicht für die Standardabweichung.", "correct": false, "feedback": "Die Regel gilt für jede normalverteilte Größe – Einzelwerte ebenso wie Schätzungen. Für Schätzungen führt sie in Modul 6 zum 95 %-Konfidenzintervall." },
+        { "text": "Für Laborwerte immer, weil Referenzbereiche so definiert sind.", "correct": false, "feedback": "Referenzbereiche werden häufig als mittlere 95 % einer Referenzpopulation festgelegt – das setzt aber eine passende (ggf. log-transformierte) Verteilung voraus und ist kein Naturgesetz." }
+      ]
+    },
+    {
+      "type": "mc",
+      "question": "<em>Zur Leitfrage:</em> Praxis A findet CKD bei 24 von 100, Praxis B bei 14 von 100 Personen. Die wahre Prävalenz in der Region beträgt 18 %, der Standardfehler bei n = 100 etwa 3,9 Prozentpunkte. Welche Schlussfolgerung ist angemessen?",
+      "options": [
+        { "text": "Die Bevölkerung von Praxis A ist kränker; der Unterschied von 10 Prozentpunkten ist zu groß für Zufall.", "correct": false, "feedback": "Bei n = 100 sind Ergebnisse zwischen etwa 10 % und 26 % (± 2 SE um 18 %) gewöhnlich. Beide Praxen liegen in diesem Bereich." },
+        { "text": "Beide Ergebnisse sind mit Zufallsstreuung bei n = 100 vereinbar; der Unterschied allein belegt keinen Unterschied der Bevölkerungen.", "correct": true, "feedback": "24 % und 14 % liegen beide innerhalb von ± 2 Standardfehlern um 18 %. Erst größere Stichproben oder ein Konfidenzintervall (Modul 6) erlauben eine genauere Aussage." },
+        { "text": "Praxis B hat bei der Untersuchung Fehler gemacht.", "correct": false, "feedback": "Ein niedrigerer Wert ist kein Beleg für einen Fehler – 14 % ist bei n = 100 ein völlig gewöhnliches Zufallsergebnis." },
+        { "text": "Man müsste beide Zahlen mitteln, dann ist das Ergebnis exakt.", "correct": false, "feedback": "Das Mittel (19 %) ist eine Schätzung aus n = 200 mit kleinerem, aber nicht verschwundenem Standardfehler (≈ 2,7 Prozentpunkte)." }
+      ]
+    }
+  ]
+}
+</script>
+</div>
+```
+
+## Dasselbe in R {#dasselbe-in-r}
+
+::: {.r-pfad}
+<span class="epir-badge epir-badge-r">Vertiefung R</span> Baut auf den R-Teilen der Module 1–3 auf (`read_csv()`, `filter()`, `group_by()`, `summarise()`, `mutate()`, Pipe `|>`, `ggplot()` mit `geom_col()`). Neu hier: `sd()`, `median()`, `quantile()`, `geom_histogram()`, `scale_x_log10()`, `set.seed()`, `sample()`, `replicate()` und `rnorm()`. Die Übungen 3 und 4 sind vollständig vorgegeben – Sie ändern jeweils nur eine Stelle. Code-Blöcke laufen direkt im Browser („Run Code“); der erste Start dauert bis zu einer Minute.
+:::
+
+### Übung R1: Lage und Streuung
+
+`summarise()` kennen Sie aus Modul 1. `mean()`, `sd()`, `median()` und `quantile()` berechnen Mittelwert, Standardabweichung, Median und Quantile einer Spalte. Ergänzen Sie die Standardabweichung der eGFR.
+
+```{webr}
+#| setup: true
+#| exercise: ex_desc
+library(dplyr)
+library(readr)
+kohorte <- read_csv("data/ckd_kohorte.csv", show_col_types = FALSE)
+```
+
+```{webr}
+#| exercise: ex_desc
+kohorte |>
+  summarise(
+    mittelwert = mean(egfr),
+    sd         = ______,
+    median     = median(egfr),
+    q1         = quantile(egfr, 0.25),
+    q3         = quantile(egfr, 0.75)
+  )
+```
+
+::: {.hint exercise="ex_desc"}
+::: {.callout-note collapse="false"}
+## Hinweis
+Die Funktion für die Standardabweichung heißt wie ihre Abkürzung: `sd()`. Sie bekommt wie `mean()` die Spalte als Argument.
+:::
+:::
+
+::: {.solution exercise="ex_desc"}
+::: {.callout-tip collapse="false"}
+## Lösung
+```r
+kohorte |>
+  summarise(
+    mittelwert = mean(egfr),
+    sd         = sd(egfr),
+    median     = median(egfr),
+    q1         = quantile(egfr, 0.25),
+    q3         = quantile(egfr, 0.75)
+  )
+```
+Mittelwert 81,4, SD 15,5, Median 81,8, Quartile 70,5 und 92,1 – die Zahlen aus Abbildung 1. Tauschen Sie `egfr` gegen `uacr`: Mittelwert 14,5 und Median 8,5 zeigen die Schiefe sofort.
+:::
+:::
+
+```{webr}
+#| exercise: ex_desc
+#| check: true
+erw <- sd(kohorte$egfr)
+werte <- tryCatch({
+  if (is.data.frame(.result)) unlist(Filter(is.numeric, .result)) else as.numeric(.result)
+}, error = function(e) numeric(0))
+hat <- function(x) any(abs(werte - x) < 1e-6, na.rm = TRUE)
+if (length(werte) > 0 && hat(erw)) {
+  list(correct = TRUE, type = "success",
+       message = sprintf("Richtig. SD der eGFR = %s. Etwa 68 %% der Personen liegen zwischen %s und %s.", formatC(erw, format = "f", digits = 1, decimal.mark = ","), formatC(mean(kohorte$egfr) - erw, format = "f", digits = 1, decimal.mark = ","), formatC(mean(kohorte$egfr) + erw, format = "f", digits = 1, decimal.mark = ",")))
+} else if (length(werte) > 0 && hat(var(kohorte$egfr))) {
+  list(correct = FALSE, type = "warning", message = "Das ist die Varianz (SD zum Quadrat, var()). Gefragt war die Standardabweichung: sd(egfr).")
+} else if (length(werte) > 0 && hat(sd(kohorte$egfr) / sqrt(nrow(kohorte)))) {
+  list(correct = FALSE, type = "warning", message = "Das ist der Standardfehler des Mittelwerts (SD/√n). Gefragt war die Standardabweichung der Personen: sd(egfr).")
+} else {
+  list(correct = FALSE, type = "info", message = "Noch nicht ganz. Die Lücke soll sd(egfr) enthalten.")
+}
+```
+
+### Übung R2: Histogramm und Log-Skala
+
+`geom_histogram()` zeichnet ein Histogramm; `bins` legt die Zahl der Klassen fest. Führen Sie den Block zuerst so aus (lineare Achse). Ersetzen Sie dann die Lücke durch `scale_x_log10()` – eine zusätzliche Schicht, die die x-Achse logarithmisch macht – und vergleichen Sie.
+
+```{webr}
+#| setup: true
+#| exercise: ex_hist
+library(dplyr)
+library(readr)
+library(ggplot2)
+kohorte <- read_csv("data/ckd_kohorte.csv", show_col_types = FALSE)
+```
+
+```{webr}
+#| exercise: ex_hist
+ggplot(kohorte, aes(x = uacr)) +
+  geom_histogram(bins = 40, fill = "#0b6e6e", colour = "white") +
+  geom_vline(xintercept = 30, linetype = "dotted") +
+  labs(x = "UACR (mg/g)", y = "Anzahl Personen") +
+  theme_minimal(base_size = 14) +
+  ______
+```
+
+::: {.hint exercise="ex_hist"}
+::: {.callout-note collapse="false"}
+## Hinweis
+Jede Schicht wird mit `+` angehängt. Die gesuchte Schicht heißt `scale_x_log10()` und braucht keine Argumente. Zum ersten Ausführen ohne Log-Skala können Sie die Lücke durch `NULL` ersetzen.
+:::
+:::
+
+::: {.solution exercise="ex_hist"}
+::: {.callout-tip collapse="false"}
+## Lösung
+```r
+ggplot(kohorte, aes(x = uacr)) +
+  geom_histogram(bins = 40, fill = "#0b6e6e", colour = "white") +
+  geom_vline(xintercept = 30, linetype = "dotted") +
+  labs(x = "UACR (mg/g)", y = "Anzahl Personen") +
+  theme_minimal(base_size = 14) +
+  scale_x_log10()
+```
+Auf der Log-Achse wird aus dem schiefen Berg eine Glocke – die UACR ist lognormalverteilt. Die gepunktete Linie (30 mg/g) teilt die Verteilung an derselben Stelle, sieht aber auf beiden Achsen ganz anders platziert aus.
+:::
+:::
+
+```{webr}
+#| exercise: ex_hist
+#| check: true
+ist_plot <- inherits(.result, "ggplot")
+hat_log <- FALSE
+if (ist_plot) {
+  sc <- tryCatch(.result$scales$get_scales("x"), error = function(e) NULL)
+  tr <- if (!is.null(sc)) { if (!is.null(sc$transformation)) sc$transformation else sc$trans } else NULL
+  hat_log <- !is.null(tr) && grepl("log", tr$name, fixed = TRUE)
+}
+if (ist_plot && hat_log) {
+  list(correct = TRUE, type = "success", message = "Richtig. Mit scale_x_log10() wird die UACR-Verteilung symmetrisch: gleiche Abstände auf der Achse sind gleiche Faktoren (1, 10, 100).")
+} else if (ist_plot) {
+  list(correct = FALSE, type = "info", message = "Das Histogramm auf linearer Achse – gut zum Vergleich. Ergänzen Sie jetzt + scale_x_log10() als letzte Schicht.")
+} else {
+  list(correct = FALSE, type = "info", message = "Das Ergebnis ist keine Grafik. Prüfen Sie, ob jede Zeile außer der letzten mit + endet.")
+}
+```
+
+### Übung R3: Dieselbe Studie 1000-mal
+
+Diese Simulation hat Abbildung 5 erzeugt. Drei neue Bausteine: `set.seed()` macht Zufallszahlen reproduzierbar (gleiche Zahl → gleiche „Zufalls“-Ergebnisse); `sample(x, n, replace = TRUE)` zieht n Werte aus `x` (mit Zurücklegen, als wäre die Kohorte eine unerschöpfliche Bevölkerung); `replicate(1000, ...)` wiederholt eine Rechnung 1000-mal und sammelt die Ergebnisse. Ergänzen Sie nur die letzte Zeile: die Standardabweichung der 1000 Schätzungen.
+
+```{webr}
+#| setup: true
+#| exercise: ex_sim
+library(dplyr)
+library(readr)
+kohorte <- read_csv("data/ckd_kohorte.csv", show_col_types = FALSE)
+```
+
+```{webr}
+#| exercise: ex_sim
+set.seed(20261026)
+n_pro_studie <- 100
+
+schaetzungen <- replicate(1000, {
+  stichprobe <- sample(kohorte$ckd_baseline, n_pro_studie, replace = TRUE)
+  mean(stichprobe)                       # Prävalenz in dieser einen Studie
+})
+
+head(schaetzungen)                       # die ersten sechs "Studien"
+sd(______)                               # Streuung über alle Studien = Standardfehler
+```
+
+::: {.hint exercise="ex_sim"}
+::: {.callout-note collapse="false"}
+## Hinweis
+Die 1000 Prävalenzschätzungen stecken im Objekt `schaetzungen`. Dessen Standardabweichung ist gesucht.
+:::
+:::
+
+::: {.solution exercise="ex_sim"}
+::: {.callout-tip collapse="false"}
+## Lösung
+```r
+sd(schaetzungen)     # ≈ 0.038, also 3,8 Prozentpunkte
+```
+Die ersten Studien liefern 0,19, 0,15, 0,21, 0,20, 0,18, 0,14 – jede eine andere Prävalenz. Die SD dieser Schätzungen (≈ 0,038) ist der Standardfehler bei n = 100; die Formel √(0,181 × 0,819 / 100) ergibt 0,0385. Mit `hist(schaetzungen)` sehen Sie die Verteilung aus Abbildung 5.
+:::
+:::
+
+```{webr}
+#| exercise: ex_sim
+#| check: true
+wert <- tryCatch(as.numeric(.result), error = function(e) NA_real_)
+if (length(wert) == 1 && !is.na(wert) && wert > 0.030 && wert < 0.048) {
+  list(correct = TRUE, type = "success", message = sprintf("Richtig. Standardfehler bei n = 100: %s (= %s Prozentpunkte). Übung 4 zeigt, was bei n = 400 passiert.", formatC(wert, format = "f", digits = 4, decimal.mark = ","), formatC(100 * wert, format = "f", digits = 1, decimal.mark = ",")))
+} else if (length(wert) == 1 && !is.na(wert) && abs(wert - sd(kohorte$ckd_baseline)) < 0.01) {
+  list(correct = FALSE, type = "warning", message = "Das ist die SD der 0/1-Werte aller Personen (≈ 0,385), nicht die SD der 1000 Studienergebnisse. Gesucht: sd(schaetzungen).")
+} else {
+  list(correct = FALSE, type = "info", message = "Noch nicht ganz. Die letzte Zeile soll sd(schaetzungen) sein.")
+}
+```
+
+### Übung R4: Wurzel-n-Regel prüfen
+
+Derselbe Code, eine Änderung: Setzen Sie `n_pro_studie` auf **400** (das Vierfache) und führen Sie den Block aus. Was passiert mit der Standardabweichung der Schätzungen?
+
+```{webr}
+#| setup: true
+#| exercise: ex_sim_n
+library(dplyr)
+library(readr)
+kohorte <- read_csv("data/ckd_kohorte.csv", show_col_types = FALSE)
+```
+
+```{webr}
+#| exercise: ex_sim_n
+set.seed(20261026)
+n_pro_studie <- 100                      # <- hier ändern
+
+schaetzungen <- replicate(1000, {
+  stichprobe <- sample(kohorte$ckd_baseline, n_pro_studie, replace = TRUE)
+  mean(stichprobe)
+})
+
+sd(schaetzungen)
+```
+
+::: {.hint exercise="ex_sim_n"}
+::: {.callout-note collapse="false"}
+## Hinweis
+Nur die Zahl in Zeile 2 ändern. Erwartung nach der Wurzel-n-Regel: etwa die Hälfte von 0,038.
+:::
+:::
+
+::: {.solution exercise="ex_sim_n"}
+::: {.callout-tip collapse="false"}
+## Lösung
+```r
+n_pro_studie <- 400
+# ... Rest unverändert
+sd(schaetzungen)     # ≈ 0.019
+```
+Vierfache Stichprobe, halber Standardfehler (0,038 → 0,019). Für ein Viertel bräuchte man n = 1600 – Präzision ist teuer.
+:::
+:::
+
+```{webr}
+#| exercise: ex_sim_n
+#| check: true
+wert <- tryCatch(as.numeric(.result), error = function(e) NA_real_)
+if (length(wert) == 1 && !is.na(wert) && wert > 0.014 && wert < 0.025) {
+  list(correct = TRUE, type = "success", message = sprintf("Richtig. Bei n = 400 streuen die Schätzungen nur noch mit %s – etwa die Hälfte von 0,038. Vervierfachen halbiert.", formatC(wert, format = "f", digits = 4, decimal.mark = ",")))
+} else if (length(wert) == 1 && !is.na(wert) && wert > 0.030 && wert < 0.048) {
+  list(correct = FALSE, type = "info", message = "Das ist noch das Ergebnis für n = 100. Ändern Sie n_pro_studie in Zeile 2 auf 400.")
+} else if (length(wert) == 1 && !is.na(wert) && wert < 0.014) {
+  list(correct = FALSE, type = "info", message = "Noch kleiner als erwartet – Sie haben n vermutlich stärker als vervierfacht. Für den Vergleich mit der Regel: n_pro_studie <- 400.")
+} else {
+  list(correct = FALSE, type = "info", message = "Noch nicht ganz. Nur n_pro_studie ändern; die letzte Zeile bleibt sd(schaetzungen).")
+}
+```
+
+### Bonus: Wie sähe eine exakt normalverteilte eGFR aus?
+
+`rnorm(n, mean, sd)` erzeugt n Zufallszahlen aus einer Normalverteilung mit vorgegebenem Mittelwert und SD. Links die echte eGFR der Kohorte, rechts 2000 Werte aus dem Modell mit denselben Parametern – so sieht „das Modell passt gut“ aus. Der Block ist eigenständig lauffähig.
+
+```{webr}
+library(dplyr)
+library(readr)
+library(ggplot2)
+kohorte <- read_csv("data/ckd_kohorte.csv", show_col_types = FALSE)
+
+set.seed(20261026)
+vergleich <- bind_rows(
+  tibble(quelle = "Kohorte (beobachtet)", egfr = kohorte$egfr),
+  tibble(quelle = "Normalverteilung (Modell)", egfr = rnorm(2000, mean = mean(kohorte$egfr), sd = sd(kohorte$egfr)))
+)
+
+ggplot(vergleich, aes(x = egfr)) +
+  geom_histogram(binwidth = 5, boundary = 0, fill = "#0b6e6e", colour = "white") +
+  facet_wrap(~quelle) +
+  labs(x = "eGFR (mL/min/1,73 m²)", y = "Anzahl Personen") +
+  theme_minimal(base_size = 14)
+```
+
+::: {.callout-note collapse="true"}
+## Was Sie in R mitnehmen
+- `mean()`, `sd()`, `median()`, `quantile(x, 0.25)` beschreiben eine Spalte; in `summarise()` kombiniert ergeben sie eine Beschreibungstabelle.
+- `geom_histogram(bins = …)` für Verteilungen; `scale_x_log10()` macht eine Achse logarithmisch, ohne die Daten zu verändern.
+- `set.seed()` vor jeder Simulation – sonst sind Ergebnisse nicht reproduzierbar.
+- `sample()` zieht Stichproben, `replicate()` wiederholt; `rnorm()` erzeugt normalverteilte Zufallszahlen für Modellvergleiche.
+:::
+
+## Quellen und weiterführende Literatur
+
+- Altman DG, Bland JM. Statistics notes: The normal distribution. *BMJ* 1995;310:298. <https://doi.org/10.1136/bmj.310.6975.298> – Normalverteilung als Modell, 68 %/95 %-Regel, Verteilung von Stichprobenmittelwerten.
+- Altman DG, Bland JM. Statistics notes: Detecting skewness from summary information. *BMJ* 1996;313:1200. <https://doi.org/10.1136/bmj.313.7066.1200> – Faustregel „Mittelwert < 2 SD bei positiven Messgrößen → schief“.
+- Altman DG, Bland JM. Standard deviations and standard errors. *BMJ* 2005;331:903. <https://doi.org/10.1136/bmj.331.7521.903> – SD beschreibt die Daten, SE die Schätzung; SE = SD/√n.
+- Limpert E, Stahel WA, Abbt M. Log-normal distributions across the sciences: keys and clues. *BioScience* 2001;51:341–352. <https://doi.org/10.1641/0006-3568(2001)051[0341:LNDATS]2.0.CO;2> – Lognormalverteilung biomedizinischer Messgrößen.
+- Kidney Disease: Improving Global Outcomes (KDIGO) CKD Work Group. KDIGO 2024 Clinical Practice Guideline for the Evaluation and Management of Chronic Kidney Disease. *Kidney Int.* 2024;105(4S):S117–S314. <https://doi.org/10.1016/j.kint.2023.10.018> – Albuminurie-Kategorien (UACR ≥ 30 mg/g), eGFR-Stadien.
+- Wickham H, Çetinkaya-Rundel M, Grolemund G. *R for Data Science*. 2. Aufl. O'Reilly; 2023. Kapitel „Layers“ und „Exploratory data analysis“: <https://r4ds.hadley.nz/layers>, <https://r4ds.hadley.nz/eda>
+- ggplot2-Dokumentation: `geom_histogram()`, `geom_boxplot()`, `scale_x_log10()`: <https://ggplot2.tidyverse.org>
+- R-Dokumentation: `?set.seed`, `?sample`, `?replicate`, `?rnorm` (Base R / `stats`).
+
+*Datensatz:* `data/ckd_kohorte.csv`, simuliert mit `data/simulate_ckd_cohort.R` (Seed 20261026), Lizenz CC BY 4.0. Keine echten Patientendaten. Die Simulation wiederholter Studien behandelt die Kohorte vereinfacht als Bevölkerung und zieht mit Zurücklegen; exakt wäre auch die Kohorte selbst nur eine Stichprobe.

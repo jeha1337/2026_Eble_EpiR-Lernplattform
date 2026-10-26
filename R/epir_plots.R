@@ -469,3 +469,182 @@ plot_dx_ppv_curve <- function(sens, spez, mark = NULL, max_prev = 0.6, nudge = N
   }
   p
 }
+
+# ============================================================================
+# Module 4: distributions, random variation, sample size
+# Colour semantics: petrol = data / persons, orange = study estimates or
+# marked value, blue = reference line (true value, cut-off), grey = model curve.
+# ============================================================================
+
+fmt_de <- function(x, digits = 1) formatC(x, format = "f", digits = digits, decimal.mark = ",", big.mark = "\u202f")
+
+# --- Histogram with mean, median and +-1 / +-2 SD bands ---------------------
+plot_hist_sd <- function(x, xlab, binwidth = 5, show_median = TRUE) {
+  m <- mean(x); s <- sd(x); md <- median(x)
+  bands <- data.frame(xmin = c(m - 2 * s, m - s), xmax = c(m + 2 * s, m + s),
+                      band = factor(c("Mittelwert \u00b1 2 SD", "Mittelwert \u00b1 1 SD"),
+                                    levels = c("Mittelwert \u00b1 1 SD", "Mittelwert \u00b1 2 SD")))
+  p <- ggplot() +
+    geom_rect(data = bands, aes(xmin = xmin, xmax = xmax, ymin = -Inf, ymax = Inf, fill = band), alpha = 0.35) +
+    scale_fill_manual(values = c("Mittelwert \u00b1 1 SD" = "#b7d8d8", "Mittelwert \u00b1 2 SD" = "#e3eeee")) +
+    geom_histogram(data = data.frame(x = x), aes(x = x), binwidth = binwidth, boundary = 0,
+                   fill = epir_cols[["primary"]], colour = "white", linewidth = 0.3) +
+    geom_vline(xintercept = m, colour = epir_cols[["accent"]], linewidth = 1.1) +
+    annotate("label", x = m, y = Inf, vjust = 1.3, hjust = 1.03, label = sprintf("Mittelwert %s", fmt_de(m)),
+             colour = epir_cols[["accent"]], fill = "white", size = 3.6, linewidth = 0) +
+    labs(x = xlab, y = "Anzahl Personen") +
+    epir_theme()
+  if (show_median) {
+    p <- p + geom_vline(xintercept = md, colour = epir_cols[["blue"]], linetype = "dashed", linewidth = 0.9) +
+      annotate("label", x = md, y = Inf, vjust = 1.3, hjust = -0.03, label = sprintf("Median %s", fmt_de(md)),
+               colour = epir_cols[["blue"]], fill = "white", size = 3.6, linewidth = 0)
+  }
+  p
+}
+
+# --- Histogram (density scale) with fitted normal curve and 68/95 shading ----
+plot_hist_normal <- function(x, xlab, binwidth = 5) {
+  m <- mean(x); s <- sd(x)
+  grid <- data.frame(x = seq(min(x) - 5, max(x) + 5, length.out = 400))
+  grid$d <- dnorm(grid$x, m, s)
+  shade <- function(a, b, lab) { g <- grid[grid$x >= a & grid$x <= b, ]; g$zone <- lab; g }
+  zones <- rbind(shade(m - 2 * s, m + 2 * s, "\u2248 95 % innerhalb \u00b1 2 SD"),
+                 shade(m - s, m + s, "\u2248 68 % innerhalb \u00b1 1 SD"))
+  zones$zone <- factor(zones$zone, levels = c("\u2248 68 % innerhalb \u00b1 1 SD", "\u2248 95 % innerhalb \u00b1 2 SD"))
+  ggplot() +
+    geom_histogram(data = data.frame(x = x), aes(x = x, y = after_stat(density)), binwidth = binwidth, boundary = 0,
+                   fill = epir_cols[["light"]], colour = "white", linewidth = 0.3) +
+    geom_area(data = zones, aes(x = x, y = d, fill = zone), alpha = 0.55, position = "identity") +
+    scale_fill_manual(values = setNames(c(epir_cols[["primary"]], "#9fd0d0"), levels(zones$zone))) +
+    geom_line(data = grid, aes(x = x, y = d), colour = epir_cols[["dark"]], linewidth = 1) +
+    geom_vline(xintercept = m, colour = epir_cols[["accent"]], linewidth = 1) +
+    annotate("text", x = m, y = max(grid$d) * 1.08, label = "\u03bc", colour = epir_cols[["accent"]], size = 5) +
+    annotate("segment", x = m, xend = m + s, y = max(grid$d) * 0.62, yend = max(grid$d) * 0.62,
+             arrow = arrow(ends = "both", length = unit(0.12, "cm")), colour = epir_cols[["dark"]]) +
+    annotate("text", x = m + s / 2, y = max(grid$d) * 0.68, label = "\u03c3", size = 5, colour = epir_cols[["dark"]]) +
+    scale_y_continuous(breaks = NULL) +
+    labs(x = xlab, y = NULL, caption = "Graue Balken: Histogramm der Kohorte. Kurve: Normalverteilung mit demselben Mittelwert \u03bc und derselben Standardabweichung \u03c3.") +
+    epir_theme()
+}
+
+# --- Right-skewed variable on a linear and on a log10 axis (two panels) -----
+plot_hist_log <- function(x, xlab, cutoff = NULL, cutoff_label = NULL) {
+  m <- mean(x); md <- median(x)
+  dat <- data.frame(x = x)
+  mk <- function(p, trans) {
+    p <- p + geom_vline(xintercept = m, colour = epir_cols[["accent"]], linewidth = 1) +
+      geom_vline(xintercept = md, colour = epir_cols[["blue"]], linetype = "dashed", linewidth = 0.9)
+    if (!is.null(cutoff)) p <- p + geom_vline(xintercept = cutoff, colour = epir_cols[["dark"]], linetype = "dotted", linewidth = 0.8)
+    p + labs(y = "Anzahl Personen") + epir_theme()
+  }
+  lin <- mk(ggplot(dat, aes(x = x)) +
+              geom_histogram(binwidth = 5, boundary = 0, fill = epir_cols[["primary"]], colour = "white", linewidth = 0.3) +
+              labs(x = sprintf("%s – lineare Achse", xlab)) +
+              annotate("label", x = m, y = Inf, vjust = 1.3, hjust = -0.05, label = sprintf("Mittelwert %s", fmt_de(m)), colour = epir_cols[["accent"]], fill = "white", size = 3.4, linewidth = 0) +
+              annotate("label", x = md, y = Inf, vjust = 3.0, hjust = -0.05, label = sprintf("Median %s", fmt_de(md)), colour = epir_cols[["blue"]], fill = "white", size = 3.4, linewidth = 0))
+  lg <- mk(ggplot(dat, aes(x = x)) +
+             geom_histogram(bins = 40, fill = epir_cols[["primary"]], colour = "white", linewidth = 0.3) +
+             scale_x_log10(breaks = c(1, 3, 10, 30, 100, 300), labels = function(b) fmt_de(b, 0)) +
+             labs(x = sprintf("%s – log\u2081\u2080-Achse (gleiche Abst\u00e4nde = gleiche Faktoren)", xlab)) +
+             annotate("label", x = m, y = Inf, vjust = 1.3, hjust = -0.05, label = "Mittelwert", colour = epir_cols[["accent"]], fill = "white", size = 3.4, linewidth = 0) +
+             annotate("label", x = md, y = Inf, vjust = 1.3, hjust = 1.05, label = "Median", colour = epir_cols[["blue"]], fill = "white", size = 3.4, linewidth = 0))
+  if (!is.null(cutoff_label)) lg <- lg + annotate("label", x = cutoff, y = Inf, vjust = 3.0, hjust = -0.05, label = cutoff_label, colour = epir_cols[["dark"]], fill = "white", size = 3.2, linewidth = 0)
+  patchwork_free_stack(lin, lg)
+}
+
+# Stack two ggplots vertically without extra dependencies (gridExtra/patchwork
+# are not required): uses grid viewports.
+patchwork_free_stack <- function(top, bottom) {
+  grid::grid.newpage()
+  grid::pushViewport(grid::viewport(layout = grid::grid.layout(2, 1)))
+  print(top, vp = grid::viewport(layout.pos.row = 1, layout.pos.col = 1))
+  print(bottom, vp = grid::viewport(layout.pos.row = 2, layout.pos.col = 1))
+  invisible(NULL)
+}
+
+# --- Boxplots by group (two variables side by side) -------------------------
+plot_box_by_group <- function(kohorte) {
+  dat <- kohorte |>
+    transmute(gruppe = if_else(diabetes == 1, "mit Diabetes", "ohne Diabetes"),
+              egfr = egfr, uacr = uacr) |>
+    tidyr::pivot_longer(-gruppe, names_to = "variable", values_to = "wert")
+  dat$gruppe <- factor(dat$gruppe, levels = c("ohne Diabetes", "mit Diabetes"))
+  p1 <- ggplot(dplyr::filter(dat, variable == "egfr"), aes(x = gruppe, y = wert, fill = gruppe)) +
+    geom_boxplot(width = 0.5, outlier.size = 0.9, outlier.alpha = 0.5) +
+    scale_fill_manual(values = c("ohne Diabetes" = "#9fd0d0", "mit Diabetes" = "#f3cfa6"), guide = "none") +
+    labs(x = NULL, y = "eGFR (mL/min/1,73 m\u00b2)") + epir_theme()
+  p2 <- ggplot(dplyr::filter(dat, variable == "uacr"), aes(x = gruppe, y = wert, fill = gruppe)) +
+    geom_boxplot(width = 0.5, outlier.size = 0.9, outlier.alpha = 0.5) +
+    geom_hline(yintercept = 30, linetype = "dotted", colour = epir_cols[["dark"]]) +
+    scale_y_log10(breaks = c(1, 3, 10, 30, 100, 300), labels = function(b) fmt_de(b, 0)) +
+    scale_fill_manual(values = c("ohne Diabetes" = "#9fd0d0", "mit Diabetes" = "#f3cfa6"), guide = "none") +
+    labs(x = NULL, y = "UACR (mg/g), log\u2081\u2080-Achse") + epir_theme()
+  grid::grid.newpage()
+  grid::pushViewport(grid::viewport(layout = grid::grid.layout(1, 2)))
+  print(p1, vp = grid::viewport(layout.pos.row = 1, layout.pos.col = 1))
+  print(p2, vp = grid::viewport(layout.pos.row = 1, layout.pos.col = 2))
+  invisible(NULL)
+}
+
+# --- Sampling distribution of a prevalence estimate for several n -----------
+# est: named list of numeric vectors (estimates as proportions), names = "n = 50" etc.
+plot_sampling_dist <- function(est, true_p) {
+  dat <- bind_rows(lapply(names(est), function(nm) data.frame(n = nm, p = 100 * est[[nm]])))
+  dat$n <- factor(dat$n, levels = names(est))
+  sds <- dat |> group_by(n) |> summarise(sd = sd(p), .groups = "drop") |>
+    mutate(lab = sprintf("%s: Streuung (SD) %s Prozentpunkte", n, fmt_de(sd)))
+  dat$n <- factor(dat$n, levels = names(est), labels = sds$lab)
+  ggplot(dat, aes(x = p)) +
+    geom_histogram(binwidth = 1, boundary = 0, fill = epir_cols[["accent"]], colour = "white", linewidth = 0.3) +
+    geom_vline(xintercept = 100 * true_p, colour = epir_cols[["blue"]], linewidth = 1) +
+    facet_wrap(~n, ncol = 1, scales = "free_y") +
+    scale_y_continuous(breaks = NULL) +
+    labs(x = "Gesch\u00e4tzte Pr\u00e4valenz in der einzelnen Studie (%)", y = "Anzahl Studien",
+         caption = sprintf("Blaue Linie: wahre Pr\u00e4valenz %s %%. Je Reihe 1000 simulierte Studien.", fmt_de(100 * true_p))) +
+    epir_theme() + theme(strip.text = element_text(hjust = 0))
+}
+
+# --- SD (persons) versus SE (study means) on the same axis ------------------
+plot_sd_vs_se <- function(x, means, xlab) {
+  dat <- bind_rows(
+    data.frame(wert = x, was = "Einzelwerte der Personen (Streuung = SD)"),
+    data.frame(wert = means, was = sprintf("Mittelwerte von %d Studien \u00e0 n = 100 (Streuung = Standardfehler)", length(means)))
+  )
+  dat$was <- factor(dat$was, levels = unique(dat$was))
+  ggplot(dat, aes(x = wert, fill = was)) +
+    geom_histogram(binwidth = 1, boundary = 0, colour = "white", linewidth = 0.2) +
+    facet_wrap(~was, ncol = 1, scales = "free_y") +
+    scale_fill_manual(values = c(epir_cols[["primary"]], epir_cols[["accent"]]), guide = "none") +
+    geom_vline(xintercept = mean(x), colour = epir_cols[["blue"]], linewidth = 0.9) +
+    scale_y_continuous(breaks = NULL) +
+    labs(x = xlab, y = NULL) +
+    epir_theme() + theme(strip.text = element_text(hjust = 0))
+}
+
+# --- Schematic: random error versus systematic error (four targets) ---------
+plot_target_schema <- function(seed = 4) {
+  set.seed(seed)
+  panels <- data.frame(
+    panel = c("pr\u00e4zise und richtig", "pr\u00e4zise, aber verzerrt", "unpr\u00e4zise, aber richtig", "unpr\u00e4zise und verzerrt"),
+    spread = c(0.12, 0.12, 0.45, 0.45), dx = c(0, 0.9, 0, 0.9), dy = c(0, 0.5, 0, 0.5)
+  )
+  panels$panel <- factor(panels$panel, levels = panels$panel)
+  shots <- bind_rows(lapply(seq_len(nrow(panels)), function(i) {
+    data.frame(panel = panels$panel[i],
+               x = panels$dx[i] + rnorm(12, 0, panels$spread[i]),
+               y = panels$dy[i] + rnorm(12, 0, panels$spread[i]))
+  }))
+  rings <- bind_rows(lapply(c(1.6, 1.2, 0.8, 0.4), function(r) {
+    t <- seq(0, 2 * pi, length.out = 120)
+    bind_rows(lapply(levels(panels$panel), function(p) data.frame(panel = factor(p, levels(panels$panel)), x = r * cos(t), y = r * sin(t), r = r)))
+  }))
+  ggplot() +
+    geom_path(data = rings, aes(x = x, y = y, group = r), colour = epir_cols[["grey"]], linewidth = 0.5) +
+    geom_point(data = data.frame(x = 0, y = 0), aes(x, y), colour = epir_cols[["blue"]], size = 3.5, shape = 3, stroke = 1.2) +
+    geom_point(data = shots, aes(x = x, y = y), colour = epir_cols[["accent"]], size = 2.4, alpha = 0.9) +
+    facet_wrap(~panel, nrow = 1) +
+    coord_equal(xlim = c(-1.7, 1.7), ylim = c(-1.7, 1.7)) +
+    labs(caption = "Blaues Kreuz: wahrer Wert. Orange Punkte: Ergebnisse einzelner Studien.") +
+    epir_theme() +
+    theme(axis.text = element_blank(), axis.title = element_blank(), panel.grid = element_blank())
+}

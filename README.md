@@ -58,15 +58,15 @@ webR exercises work in both cases.
 
 ## Deployment (GitHub Pages)
 
-1. Create a GitHub repository and push the contents of this folder as the repository root.
-2. Repository → Settings → Pages → Source: **GitHub Actions**.
-3. Adjust the two `TODO` entries in `_quarto.yml` (`site-url`, GitHub link in the navbar).
-4. Every push to `main` runs `.github/workflows/publish.yml` (render + deploy).
-   First run takes ~5 min (R package installation); the site is then available at
-   `https://<org>.github.io/<repo>/`.
+Repository: <https://github.com/jeha1337/2026_Eble_EpiR-Lernplattform> (currently private).
 
-The Shinylive runtime (~66 MB) is copied into `_site/site_libs` at render time and is
-served as static files. Nothing is executed on the server.
+1. GitHub Pages is only available for **public** repositories on the free plan (or any repository
+   with GitHub Pro/Team). Once the repository is public: Settings → Pages → Source: **GitHub Actions**.
+2. Every push to `main` runs `.github/workflows/publish.yml` (render + deploy). While Pages is not
+   enabled, the `build` job still renders the site as a CI check and uploads `_site` as an artifact;
+   only the `deploy` job fails.
+3. The site will then be available at <https://jeha1337.github.io/2026_Eble_EpiR-Lernplattform/>
+   (configured as `site-url` in `_quarto.yml`).
 
 ## Authoring conventions
 

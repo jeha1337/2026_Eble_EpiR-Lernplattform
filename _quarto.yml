@@ -11,7 +11,7 @@ project:
 website:
   title: "EpiR – Epidemiologie & R"
   description: "Interaktive Lernplattform für Epidemiologie, R und medizinische Computational Science (Prototyp)"
-  site-url: "https://example.github.io/lernplattform/"   # TODO: nach Anlegen des GitHub-Repos anpassen
+  site-url: "https://jeha1337.github.io/2026_Eble_EpiR-Lernplattform/"   # GitHub Pages (requires public repo or GitHub Pro)
   navbar:
     left:
       - href: index.qmd
@@ -26,7 +26,7 @@ website:
         text: Technik-Check
     right:
       - icon: github
-        href: https://github.com/   # TODO: Repo-URL
+        href: https://github.com/jeha1337/2026_Eble_EpiR-Lernplattform
         aria-label: GitHub
   sidebar:
     style: docked

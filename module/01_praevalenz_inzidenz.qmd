@@ -378,14 +378,15 @@ kohorte_test <- data.frame(alter = c(45, 62, 71))
 mean(kohorte_tset$alter)
 ```
 
-### Die Daten einlesen und ansehen
+### R0 · Die Daten einlesen und ansehen
 
 ```{webr}
 library(dplyr)
 library(readr)
 
 kohorte <- read_csv("data/ckd_kohorte.csv", show_col_types = FALSE)
-glimpse(kohorte)
+glimpse(kohorte)        # one line per column: name, type, first values
+head(kohorte, n = 5)    # the first five rows as a table
 ```
 
 ::: {.callout-note collapse="true"}
@@ -393,6 +394,7 @@ glimpse(kohorte)
 - `library(dplyr)` und `library(readr)` laden **Pakete** – Sammlungen zusätzlicher Funktionen. `readr` liest Dateien, `dplyr` bearbeitet Tabellen.
 - `read_csv()` liest die Tabelle aus der Datei; das Ergebnis speichern wir als Objekt `kohorte`.
 - `glimpse()` zeigt jede Spalte mit Datentyp (`dbl` = Zahl, `chr` = Text) und den ersten Werten. 2000 Zeilen = 2000 Personen.
+- `head(kohorte, n = 5)` zeigt die ersten fünf Zeilen so, wie die Tabelle wirklich aussieht: eine Zeile pro Person, eine Spalte pro Merkmal. Passen nicht alle Spalten nebeneinander, nennt R die übrigen darunter. `NA` (in der `glimpse()`-Ausgabe bei `followup_jahre` und `ckd_inzident`) heißt „kein Wert“ – hier, weil Beobachtungszeit und neue CKD nur für Personen ohne CKD zu Beginn definiert sind.
 
 Die wichtigsten Spalten: `ckd_baseline` (CKD zu Beginn: 1 = ja, 0 = nein), `diabetes` (1/0), `followup_jahre` (Beobachtungszeit, nur für Personen ohne CKD zu Beginn), `ckd_inzident` (neue CKD: 1/0, nur für Personen ohne CKD zu Beginn). Vollständiges [Codebook](../data/codebook.md).
 :::
@@ -722,7 +724,7 @@ kohorte |>
 
 ::: {.callout-note collapse="true"}
 ## Was Sie in R mitnehmen
-- `read_csv()` liest Daten, `glimpse()` zeigt die Struktur.
+- `read_csv()` liest Daten, `glimpse()` zeigt die Struktur, `head()` die ersten Zeilen – immer zuerst die Tabelle ansehen, dann rechnen.
 - `filter()` wählt Zeilen, `summarise()` fasst zusammen, `group_by()` rechnet pro Gruppe, `|>` verbindet die Schritte.
 - Prävalenz = `mean()` einer 0/1-Spalte; Inzidenzrate = `sum(faelle) / sum(zeit)`.
 - Fehlermeldungen lesen: `object ... not found` ist fast immer ein Tippfehler.

@@ -416,7 +416,29 @@ Die Fragen entsprechen im Format den Klausurfragen (eine richtige Antwort; Reche
 ## Dasselbe in R {#dasselbe-in-r}
 
 ::: {.r-pfad}
-<span class="epir-badge epir-badge-r">Vertiefung R</span> Baut auf den R-Teilen der Module 1–3 auf (`read_csv()`, `filter()`, `group_by()`, `summarise()`, `mutate()`, Pipe `|>`, `ggplot()` mit `geom_col()`). Neu hier: `sd()`, `median()`, `quantile()`, `geom_histogram()`, `scale_x_log10()`, `set.seed()`, `sample()`, `replicate()` und `rnorm()`. Die Übungen 3 und 4 sind vollständig vorgegeben – Sie ändern jeweils nur eine Stelle. Code-Blöcke laufen direkt im Browser („Run Code“); der erste Start dauert bis zu einer Minute.
+<span class="epir-badge epir-badge-r">Vertiefung R</span> Baut auf den R-Teilen der Module 1–3 auf (`read_csv()`, `glimpse()`, `filter()`, `group_by()`, `summarise()`, `mutate()`, Pipe `|>`, `ggplot()` mit `geom_col()`). Neu hier: `sd()`, `median()`, `quantile()`, `geom_histogram()`, `scale_x_log10()`, `set.seed()`, `sample()`, `replicate()` und `rnorm()`. Die Übungen 3 und 4 sind vollständig vorgegeben – Sie ändern jeweils nur eine Stelle. Code-Blöcke laufen direkt im Browser („Run Code“); der erste Start dauert bis zu einer Minute.
+:::
+
+### R0 · Daten ansehen
+
+Bevor wir rechnen, sehen wir uns die Tabelle an. Führen Sie den Block aus („Run Code“); hier gibt es nichts zu lösen.
+
+```{webr}
+library(dplyr)
+library(readr)
+
+kohorte <- read_csv("data/ckd_kohorte.csv", show_col_types = FALSE)
+
+glimpse(kohorte)        # one line per column: name, type, first values
+head(kohorte, n = 5)    # the first five rows as a table
+```
+
+::: {.callout-note collapse="true"}
+## Lesehilfe
+- Eine **Zeile** ist eine Person, eine **Spalte** ein Merkmal. `glimpse()` listet die Spalten untereinander mit Typ (`dbl` = Zahl, `chr` = Text) und den ersten Werten; `head(kohorte, n = 5)` zeigt die ersten fünf Zeilen als Tabelle. Passen nicht alle Spalten nebeneinander, nennt R die übrigen darunter.
+- `NA` (in der `glimpse()`-Ausgabe bei `followup_jahre` und `ckd_inzident`) heißt „kein Wert“: Beide Spalten sind nur für Personen ohne CKD zu Beginn definiert (Modul 1).
+- Für dieses Modul brauchen Sie zwei Messwerte: `egfr` (mL/min/1,73 m², annähernd symmetrisch verteilt) und `uacr` (mg/g, rechtsschief). Schon in den ersten fünf Zeilen sehen Sie den Unterschied: Die eGFR-Werte liegen in einem engen Bereich, die UACR-Werte gehen um ein Vielfaches auseinander. Alle Spalten: [Codebook](../data/codebook.md).
+- Das Einlesen läuft vor jeder Übung unsichtbar noch einmal – jede Übung funktioniert deshalb auch für sich allein.
 :::
 
 ### Übung R1: Lage und Streuung

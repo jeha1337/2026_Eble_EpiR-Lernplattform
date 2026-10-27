@@ -338,12 +338,35 @@ Die Fragen entsprechen dem Format der Klausurfragen (eine richtige Antwort; Rech
 ## Dasselbe in R {#dasselbe-in-r}
 
 ::: {.r-pfad}
-<span class="epir-badge epir-badge-r">Vertiefung R</span> Baut auf dem R-Teil von Modul 1 auf (`read_csv()`, `filter()`, `summarise()`, Pipe `|>`). Neu hier: `count()` zum Zählen von Kombinationen, `mutate()` für neue Spalten, `case_when()` für mehrere Bedingungen und `summarise()` mit mehreren Kennzahlen. Code-Blöcke laufen direkt im Browser („Run Code“); der erste Start dauert bis zu einer Minute.
+<span class="epir-badge epir-badge-r">Vertiefung R</span> Baut auf dem R-Teil von Modul 1 auf (`read_csv()`, `glimpse()`, `filter()`, `summarise()`, Pipe `|>`). Neu hier: `count()` zum Zählen von Kombinationen, `mutate()` für neue Spalten, `case_when()` für mehrere Bedingungen und `summarise()` mit mehreren Kennzahlen. Code-Blöcke laufen direkt im Browser („Run Code“); der erste Start dauert bis zu einer Minute.
+:::
+
+### R0 · Daten ansehen
+
+Bevor wir rechnen, sehen wir uns die Tabelle an. Führen Sie den Block aus („Run Code“); hier gibt es nichts zu lösen. Neu ist nur die letzte Spalte: `mutate()` legt `albuminurie` an (1, wenn UACR ≥ 30 mg/g) – das ist der Referenzstandard aus dem Konzeptteil. Mehr zu `mutate()` in Übung R2.
+
+```{webr}
+library(dplyr)
+library(readr)
+
+kohorte <- read_csv("data/ckd_kohorte.csv", show_col_types = FALSE) |>
+  mutate(albuminurie = as.integer(uacr >= 30))
+
+glimpse(kohorte)        # one line per column: name, type, first values
+head(kohorte, n = 5)    # the first five rows as a table
+```
+
+::: {.callout-note collapse="true"}
+## Lesehilfe
+- Eine **Zeile** ist eine Person, eine **Spalte** ein Merkmal. `glimpse()` listet die Spalten untereinander mit Typ (`dbl` = Zahl, `chr` = Text, `int` = ganze Zahl) und den ersten Werten; `head(kohorte, n = 5)` zeigt die ersten fünf Zeilen als Tabelle. Passen nicht alle Spalten nebeneinander, nennt R die übrigen darunter.
+- `NA` (in der `glimpse()`-Ausgabe bei `followup_jahre` und `ckd_inzident`) heißt „kein Wert“: Beide Spalten sind nur für Personen ohne CKD zu Beginn definiert (Modul 1).
+- Für dieses Modul brauchen Sie: `teststreifen_pos` (Screening-Test: 1 = positiv, 0 = negativ), `uacr` (Albumin-Kreatinin-Quotient in mg/g, Referenzstandard), `albuminurie` (daraus abgeleitet: 1, wenn UACR ≥ 30) und `diabetes` (1/0). Alle Spalten: [Codebook](../data/codebook.md).
+- Die Zeilen von R0 (Einlesen, `albuminurie` anlegen) laufen vor jeder Übung unsichtbar noch einmal – jede Übung funktioniert deshalb auch für sich allein.
 :::
 
 ### Übung R1: Vierfeldertafel zählen
 
-Der Datensatz enthält `uacr` (mg/g) und `teststreifen_pos` (1 = positiv). Die Spalte `albuminurie` (1, wenn UACR ≥ 30) ist vorbereitet. Ersetzen Sie die Lücke so, dass `count()` alle vier Kombinationen zählt.
+Der Datensatz enthält `uacr` (mg/g) und `teststreifen_pos` (1 = positiv); die Spalte `albuminurie` (1, wenn UACR ≥ 30) haben Sie in R0 angelegt. Ersetzen Sie die Lücke so, dass `count()` alle vier Kombinationen zählt.
 
 ```{webr}
 #| setup: true

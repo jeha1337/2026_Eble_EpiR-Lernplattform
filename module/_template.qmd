@@ -32,6 +32,11 @@ Checklist before submitting a module (QS, project instructions section 5):
   [ ] same block classes as module 1: .leitfrage, .lernziele, .epir-cards, .takehome, .r-pfad + epir-badge-r
   [ ] textbook rules that are idealisations (e.g. Sens/Spez independent of prevalence, OR ~ RR below 10 %)
       marked "vereinfacht ... exakt ..." with a source
+  Convention "R0 · Daten ansehen" (decided 2026-10-27, Langfassung 7.1):
+  [ ] the R path starts with a non-graded block R0 that reads the data and shows it (glimpse() + head(n = 5)),
+      followed by a short reading aid (row = person, column = variable, dbl/chr) and the codebook link
+  [ ] derived objects used by the exercises (e.g. unter_risiko, albuminurie) are created visibly in R0;
+      the hidden setup chunks of the exercises repeat the same code so every exercise runs on its own
 
 Figure colour semantics (R/epir_plots.R, epir_cols): accent/orange = case/event, primary/petrol = healthy /
 reference, blue = censored / unknown, grey = not at risk / not applicable. Keep this across modules.
@@ -190,6 +195,30 @@ Die Fragen entsprechen im Format den Klausurfragen (eine richtige Antwort; Reche
 
 <!-- Only the R skills listed for this module in the module plan (Langfassung 7.2). Reuse functions
      from earlier modules without re-explaining them; explain each new function once. -->
+
+### R0 · Daten ansehen
+
+Bevor wir rechnen, sehen wir uns die Tabelle an. Führen Sie den Block aus („Run Code“); hier gibt es nichts zu lösen.
+
+<!-- R0 is a plain (non-exercise) block: no grader, no setup chunk. Create every derived object that
+     the exercises rely on here, visibly, and repeat the same lines in the exercises' setup chunks. -->
+```{webr}
+library(dplyr)
+library(readr)
+
+kohorte <- read_csv("data/ckd_kohorte.csv", show_col_types = FALSE)
+# TODO derived objects, e.g.: unter_risiko <- kohorte |> filter(ckd_baseline == 0)
+
+glimpse(kohorte)        # one line per column: name, type, first values
+head(kohorte, n = 5)    # the first five rows as a table
+```
+
+::: {.callout-note collapse="true"}
+## Lesehilfe
+- Eine **Zeile** ist eine Person, eine **Spalte** ein Merkmal. `glimpse()` listet die Spalten untereinander mit Typ (`dbl` = Zahl, `chr` = Text) und den ersten Werten; `head(kohorte, n = 5)` zeigt die ersten fünf Zeilen als Tabelle. Passen nicht alle Spalten nebeneinander, nennt R die übrigen darunter.
+- `NA` (in der `glimpse()`-Ausgabe bei `followup_jahre` und `ckd_inzident`) heißt „kein Wert“: Beide Spalten sind nur für Personen ohne CKD zu Beginn definiert (Modul 1).
+- Für dieses Modul brauchen Sie: TODO `spalte_a` (…), `spalte_b` (…). Alle Spalten: [Codebook](../data/codebook.md).
+:::
 
 ### Übung R1: TODO
 

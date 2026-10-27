@@ -360,12 +360,35 @@ Die Fragen entsprechen im Format den Klausurfragen (eine richtige Antwort; Reche
 ## Dasselbe in R {#dasselbe-in-r}
 
 ::: {.r-pfad}
-<span class="epir-badge epir-badge-r">Vertiefung R</span> Baut auf dem R-Teil von Modul 1 auf (`read_csv()`, `filter()`, `group_by()`, `summarise()`, Pipe `|>`). Neu hier: `pull()` und eine eigene Funktion. Code-Blöcke laufen direkt im Browser („Run Code“); der erste Start dauert bis zu einer Minute.
+<span class="epir-badge epir-badge-r">Vertiefung R</span> Baut auf dem R-Teil von Modul 1 auf (`read_csv()`, `glimpse()`, `filter()`, `group_by()`, `summarise()`, Pipe `|>`). Neu hier: `pull()` und eine eigene Funktion. Code-Blöcke laufen direkt im Browser („Run Code“); der erste Start dauert bis zu einer Minute.
+:::
+
+### R0 · Daten ansehen
+
+Bevor wir rechnen, sehen wir uns die Tabelle an. Führen Sie den Block aus („Run Code“); hier gibt es nichts zu lösen. Zusätzlich entsteht hier das Objekt `unter_risiko`: mit `filter()` (Modul 1) behalten wir nur Personen ohne CKD zu Beginn – nur sie können eine *neue* CKD entwickeln.
+
+```{webr}
+library(dplyr)
+library(readr)
+
+kohorte <- read_csv("data/ckd_kohorte.csv", show_col_types = FALSE)
+unter_risiko <- kohorte |> filter(ckd_baseline == 0)
+
+glimpse(unter_risiko)        # one line per column: name, type, first values
+head(unter_risiko, n = 5)    # the first five rows as a table
+```
+
+::: {.callout-note collapse="true"}
+## Lesehilfe
+- Eine **Zeile** ist eine Person, eine **Spalte** ein Merkmal. `glimpse()` listet die Spalten untereinander mit Typ (`dbl` = Zahl, `chr` = Text) und den ersten Werten; `head(unter_risiko, n = 5)` zeigt die ersten fünf Zeilen als Tabelle. Passen nicht alle Spalten nebeneinander, nennt R die übrigen darunter.
+- `unter_risiko` hat 1638 Zeilen statt 2000 – die 362 Personen mit CKD zu Beginn fehlen (erste Zeile der `glimpse()`-Ausgabe: `Rows: 1638`). Tauschen Sie testweise `unter_risiko` gegen `kohorte`, um den Unterschied zu sehen.
+- Für dieses Modul brauchen Sie: `diabetes` und `hypertonie` (Exposition: 1 = ja, 0 = nein) sowie `ckd_inzident` (Outcome: neue CKD in der Nachbeobachtung, 1 = ja, 0 = nein). Alle Spalten: [Codebook](../data/codebook.md).
+- Die Zeilen von R0 (Einlesen, `unter_risiko` anlegen) laufen vor jeder Übung unsichtbar noch einmal – jede Übung funktioniert deshalb auch für sich allein.
 :::
 
 ### Übung R1: Risiko je Gruppe
 
-Die Personen unter Risiko sind vorbereitet (`unter_risiko`, 1638 Zeilen). Ersetzen Sie die Lücke so, dass das Risiko je Diabetes-Gruppe berechnet wird.
+Die Personen unter Risiko haben Sie in R0 angelegt (`unter_risiko`, 1638 Zeilen). Ersetzen Sie die Lücke so, dass das Risiko je Diabetes-Gruppe berechnet wird.
 
 ```{webr}
 #| setup: true

@@ -21,6 +21,8 @@ Checklist before submitting a module (QS, project instructions section 5):
   [ ] concept part readable without R; R part under "Dasselbe in R" only
   [ ] every webR exercise run in the browser; grader tested with correct AND typical wrong answers
   [ ] quiz: one correct answer per MC item; feedback for every distractor; "near" feedback for typical miscalculations
+  [ ] quiz feedback texts do NOT start with "Richtig"/"Falsch" etc.: the widget already prefixes
+      "Richtig." or "Nicht die gesuchte Antwort." (otherwise "Richtig. Richtig: ..." on screen; fixed 2026-10-27)
   [ ] German text, English code/comments; gender-neutral language; no stigmatising cases
   [ ] abbreviations (CKD, eGFR, UACR, RR, OR, NNT, PPV, SD, KI, ...) are spelled out AND explained in one
       half-sentence at their FIRST mention in EVERY module, even if an earlier module introduced them

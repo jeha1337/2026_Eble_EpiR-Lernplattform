@@ -441,7 +441,7 @@ head(unter_risiko, n = 5)    # the first five rows as a table
       "question": "Was gibt dieser Code aus?",
       "code": "unter_risiko |>\n  count(diabetes, ckd_inzident)",
       "options": [
-        { "text": "<strong>Vier Zeilen</strong> – je eine Kombination aus <code>diabetes</code> (0/1) und <code>ckd_inzident</code> (0/1) mit ihrer Anzahl <code>n</code>: die Vierfeldertafel in Langform.", "correct": true, "feedback": "Richtig: 0/0 → 1371, 0/1 → 102, 1/0 → 136, 1/1 → 29. Das sind d, c, b und a aus dem Konzeptteil – nur untereinander statt im Quadrat." },
+        { "text": "<strong>Vier Zeilen</strong> – je eine Kombination aus <code>diabetes</code> (0/1) und <code>ckd_inzident</code> (0/1) mit ihrer Anzahl <code>n</code>: die Vierfeldertafel in Langform.", "correct": true, "feedback": "0/0 → 1371, 0/1 → 102, 1/0 → 136, 1/1 → 29. Das sind d, c, b und a aus dem Konzeptteil – nur untereinander statt im Quadrat." },
         { "text": "Zwei Zeilen: Personen mit und ohne Diabetes.", "correct": false, "feedback": "Das ergäbe <code>count(diabetes)</code>. Mit zwei Spalten zählt <code>count()</code> jede Kombination – 2 × 2 = 4 Zeilen." },
         { "text": "Die Zahl 1638 (alle Personen unter Risiko).", "correct": false, "feedback": "Die Gesamtzahl liefert <code>nrow(unter_risiko)</code>. <code>count()</code> schlüsselt auf." },
         { "text": "Eine Fehlermeldung, weil <code>count()</code> nur eine Spalte annimmt.", "correct": false, "feedback": "<code>count()</code> nimmt beliebig viele Spalten und zählt die Kombinationen." }

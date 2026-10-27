@@ -300,7 +300,7 @@ Die Fragen entsprechen im Format den Klausurfragen (eine richtige Antwort; Reche
       "question": "Ein Krebsregister meldet für eine Stadt mit 350 000 Einwohnenden 420 neu diagnostizierte Fälle einer Tumorerkrankung in einem Kalenderjahr. Welche Angabe beschreibt diese Information korrekt?",
       "options": [
         { "text": "Die Prävalenz beträgt 0,12 %.", "correct": false, "feedback": "Nicht richtig: Gemeldet wurden <em>neue</em> Fälle in einem Zeitraum – das ist eine Inzidenz, kein Bestand. Die Prävalenz würde alle lebenden Erkrankten umfassen, auch die aus früheren Jahren." },
-        { "text": "Die Inzidenz beträgt 120 pro 100 000 Einwohnende pro Jahr.", "correct": true, "feedback": "Richtig: 420 / 350 000 = 0,0012 = 120 pro 100 000 pro Jahr. Die Bevölkerungszahl des Jahres dient hier als Näherung für die Personenjahre (jede Person trägt etwa ein Jahr bei)." },
+        { "text": "Die Inzidenz beträgt 120 pro 100 000 Einwohnende pro Jahr.", "correct": true, "feedback": "420 / 350 000 = 0,0012 = 120 pro 100 000 pro Jahr. Die Bevölkerungszahl des Jahres dient hier als Näherung für die Personenjahre (jede Person trägt etwa ein Jahr bei)." },
         { "text": "Die Inzidenzrate beträgt 12 %.", "correct": false, "feedback": "Nicht richtig: 420 / 350 000 sind 0,12 %, nicht 12 %. Außerdem ist eine Rate kein Prozentwert, weil ihr Nenner Zeit ist (hier: Einwohnende × Jahr)." },
         { "text": "Die kumulative 5-Jahres-Inzidenz beträgt 0,6 %.", "correct": false, "feedback": "Nicht richtig: Aus den Daten eines einzigen Jahres lässt sich ein 5-Jahres-Risiko nicht einfach durch Multiplikation mit 5 ableiten; außerdem fehlt die Information, wer zu Beginn der fünf Jahre unter Risiko stand." }
       ]

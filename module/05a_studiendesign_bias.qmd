@@ -445,7 +445,7 @@ Die Fragen entsprechen im Format den Klausurfragen (eine richtige Antwort; Reche
       "type": "mc",
       "question": "<em>Fiktive Studie:</em> 200 Personen mit neu festgestellter CKD und 400 Personen ohne CKD aus denselben Hausarztpraxen werden gefragt, wie häufig sie in den vergangenen zehn Jahren rezeptfreie Schmerzmittel eingenommen haben. Welches Design ist das?",
       "options": [
-        { "text": "Fall-Kontroll-Studie", "correct": true, "feedback": "Richtig: Ausgewählt wird nach der Erkrankung (200 Fälle, 400 Kontrollen), die Exposition wird rückblickend erfragt." },
+        { "text": "Fall-Kontroll-Studie", "correct": true, "feedback": "Ausgewählt wird nach der Erkrankung (200 Fälle, 400 Kontrollen), die Exposition wird rückblickend erfragt." },
         { "text": "Retrospektive Kohortenstudie", "correct": false, "feedback": "Eine Kohortenstudie bildet die Gruppen nach der <em>Exposition</em> (Schmerzmittel ja/nein) und blickt nach vorn. Hier sind die Gruppen nach der <em>Erkrankung</em> gebildet." },
         { "text": "Querschnittsstudie", "correct": false, "feedback": "Im Querschnitt werden Exposition und Erkrankung gleichzeitig gemessen und niemand wird gezielt nach Erkrankung ausgewählt. Hier wurden 200 Erkrankte und 400 Nicht-Erkrankte bewusst zusammengestellt." },
         { "text": "Prospektive Kohortenstudie", "correct": false, "feedback": "Prospektiv hieße: Exposition heute erfassen, Erkrankung in Zukunft abwarten. Hier ist die Erkrankung bereits eingetreten und die Exposition wird rückwärts erhoben." }
@@ -457,7 +457,7 @@ Die Fragen entsprechen im Format den Klausurfragen (eine richtige Antwort; Reche
       "options": [
         { "text": "Der Anteil Schmerzmittel-Einnehmender unter den Fällen", "correct": false, "feedback": "Doch: Innerhalb der 200 Fälle kann man zählen, wie viele exponiert waren – das ist die Grundlage des OR." },
         { "text": "Das Odds Ratio für Schmerzmittel und CKD", "correct": false, "feedback": "Doch: Das OR vergleicht die Odds der Exposition bei Fällen und Kontrollen und ist genau die Maßzahl der Fall-Kontroll-Studie." },
-        { "text": "Die Prävalenz der CKD in den Praxen", "correct": true, "feedback": "Richtig: 200 von 600 Teilnehmenden haben CKD, weil die Forschenden es so festgelegt haben. Der Fallanteil sagt nichts über die Häufigkeit in der Praxisbevölkerung." },
+        { "text": "Die Prävalenz der CKD in den Praxen", "correct": true, "feedback": "200 von 600 Teilnehmenden haben CKD, weil die Forschenden es so festgelegt haben. Der Fallanteil sagt nichts über die Häufigkeit in der Praxisbevölkerung." },
         { "text": "Der Anteil Schmerzmittel-Einnehmender unter den Kontrollen", "correct": false, "feedback": "Doch: Innerhalb der 400 Kontrollen ist der Expositionsanteil berechenbar – er bildet den Nenner des OR." }
       ]
     },
@@ -465,7 +465,7 @@ Die Fragen entsprechen im Format den Klausurfragen (eine richtige Antwort; Reche
       "type": "mc",
       "question": "In der Studie aus Frage 1 berichten Personen mit CKD ihre frühere Schmerzmitteleinnahme gründlicher, weil sie seit der Diagnose über mögliche Ursachen nachgedacht haben; Personen ohne CKD unterschätzen ihre Einnahme. Welcher Bias liegt vor und in welche Richtung verzerrt er das OR?",
       "options": [
-        { "text": "Informationsbias (Recall Bias); das OR wird überschätzt – weg von der Null", "correct": true, "feedback": "Richtig: Die <em>Messung</em> der Exposition hängt vom Erkrankungsstatus ab (differenzieller Fehler). Bei den Fällen wird mehr Exposition erfasst, bei den Kontrollen weniger – das OR fällt zu groß aus." },
+        { "text": "Informationsbias (Recall Bias); das OR wird überschätzt – weg von der Null", "correct": true, "feedback": "Die <em>Messung</em> der Exposition hängt vom Erkrankungsstatus ab (differenzieller Fehler). Bei den Fällen wird mehr Exposition erfasst, bei den Kontrollen weniger – das OR fällt zu groß aus." },
         { "text": "Selektionsbias; das OR wird überschätzt", "correct": false, "feedback": "Die Richtung stimmt, der Typ nicht: Selektionsbias betrifft, <em>wer</em> in die Studie kommt. Hier sind die Personen richtig ausgewählt, aber ihre Angaben sind verzerrt – ein Informationsbias." },
         { "text": "Informationsbias; das OR wird zur Null hin verzerrt", "correct": false, "feedback": "Zur Null verzerrt ein <em>nicht-differenzieller</em> Fehler (beide Gruppen gleich ungenau). Hier erinnern sich die Gruppen unterschiedlich gut – das treibt das OR weg von der Null." },
         { "text": "Kein Bias, weil beide Gruppen denselben Fragebogen erhalten", "correct": false, "feedback": "Derselbe Fragebogen schützt nicht, wenn die <em>Antworten</em> systematisch vom Erkrankungsstatus abhängen. Schutz bieten vor der Erkrankung dokumentierte Daten (z. B. Apothekenregister)." }
@@ -486,7 +486,7 @@ Die Fragen entsprechen im Format den Klausurfragen (eine richtige Antwort; Reche
       "question": "Welcher Bradford-Hill-Gesichtspunkt ist für eine kausale Beziehung <strong>logisch notwendig</strong>?",
       "options": [
         { "text": "Stärke der Assoziation", "correct": false, "feedback": "Große Effekte sind schwerer durch Bias zu erklären, aber auch schwache Assoziationen können kausal sein (z. B. Passivrauchen und Lungenkrebs)." },
-        { "text": "Zeitlichkeit: Die Exposition geht der Erkrankung voraus", "correct": true, "feedback": "Richtig: Eine Ursache muss vor ihrer Wirkung liegen – das gehört zur Bedeutung von „Ursache“. Hill selbst nannte keinen Punkt als zwingend; die Sonderrolle der Zeitlichkeit ist spätere Lehrbuchkonvention." },
+        { "text": "Zeitlichkeit: Die Exposition geht der Erkrankung voraus", "correct": true, "feedback": "Eine Ursache muss vor ihrer Wirkung liegen – das gehört zur Bedeutung von „Ursache“. Hill selbst nannte keinen Punkt als zwingend; die Sonderrolle der Zeitlichkeit ist spätere Lehrbuchkonvention." },
         { "text": "Dosis-Wirkungs-Beziehung", "correct": false, "feedback": "Ein Gradient stützt die Kausalität, aber Schwellenwert-Effekte (alles oder nichts) sind ebenfalls kausal möglich." },
         { "text": "Biologische Plausibilität", "correct": false, "feedback": "Plausibilität hängt vom Wissensstand ab – Semmelweis' Händedesinfektion wirkte, lange bevor der Mechanismus plausibel war." }
       ]
@@ -496,7 +496,7 @@ Die Fragen entsprechen im Format den Klausurfragen (eine richtige Antwort; Reche
       "question": "„Senkt Medikament X das 5-Jahres-Risiko für eine neue CKD bei Menschen mit Diabetes?“ Welches Design beantwortet diese Frage am verlässlichsten, wenn es ethisch und praktisch möglich ist?",
       "options": [
         { "text": "Eine große prospektive Kohortenstudie, in der Behandelte und Unbehandelte verglichen werden", "correct": false, "feedback": "Wer das Medikament bekommt, entscheiden Ärzt:innen – meist nach Schweregrad. Behandelte und Unbehandelte unterscheiden sich dann in vielen (auch unbekannten) Merkmalen (Confounding, Modul 5b)." },
-        { "text": "Eine randomisierte kontrollierte Studie (Medikament vs. Placebo per Los)", "correct": true, "feedback": "Richtig: Das Los macht die Gruppen im Mittel in allen Merkmalen gleich, auch in unbekannten. Der Unterschied im Risiko ist dann dem Medikament zuzuschreiben (plus Zufall, Modul 4/6)." },
+        { "text": "Eine randomisierte kontrollierte Studie (Medikament vs. Placebo per Los)", "correct": true, "feedback": "Das Los macht die Gruppen im Mittel in allen Merkmalen gleich, auch in unbekannten. Der Unterschied im Risiko ist dann dem Medikament zuzuschreiben (plus Zufall, Modul 4/6)." },
         { "text": "Eine Fall-Kontroll-Studie mit CKD-Fällen und Kontrollen, die nach früherer Einnahme von X gefragt werden", "correct": false, "feedback": "Liefert nur ein OR und ist anfällig für Recall Bias und für die Frage, warum jemand X bekam. Sinnvoll für seltene Nebenwirkungen, nicht als Wirksamkeitsnachweis." },
         { "text": "Eine Querschnittsstudie: Wer nimmt X, wer hat CKD?", "correct": false, "feedback": "Keine Zeitrichtung: Menschen mit CKD könnten X gerade <em>wegen</em> der Nierenerkrankung erhalten (oder abgesetzt haben)." }
       ]
@@ -523,7 +523,7 @@ Die Fragen entsprechen im Format den Klausurfragen (eine richtige Antwort; Reche
       "question": "Eine Querschnittsstudie zur CKD-Prävalenz rekrutiert ausschließlich in einer Diabetes-Sprechstunde. Die Forschenden vergrößern die Studie von 300 auf 3000 Personen, rekrutieren aber weiterhin nur dort. Was ändert sich?",
       "options": [
         { "text": "Zufallsfehler und Selektionsbias werden beide kleiner.", "correct": false, "feedback": "Der Zufallsfehler ja – der Selektionsbias nein. Die Prävalenz in der Sprechstunde (im Modul 46 %) bleibt systematisch über der in der Bevölkerung (18 %), egal wie viele Personen gezählt werden." },
-        { "text": "Der Zufallsfehler wird kleiner; der Selektionsbias bleibt unverändert.", "correct": true, "feedback": "Richtig: Der Standardfehler sinkt um den Faktor √10 ≈ 3,2 (Modul 4), aber die Studie schätzt weiterhin die Prävalenz der <em>Sprechstunden</em>-Population – präziser falsch für die Bevölkerung." },
+        { "text": "Der Zufallsfehler wird kleiner; der Selektionsbias bleibt unverändert.", "correct": true, "feedback": "Der Standardfehler sinkt um den Faktor √10 ≈ 3,2 (Modul 4), aber die Studie schätzt weiterhin die Prävalenz der <em>Sprechstunden</em>-Population – präziser falsch für die Bevölkerung." },
         { "text": "Der Selektionsbias wird kleiner, der Zufallsfehler bleibt gleich.", "correct": false, "feedback": "Umgekehrt: Die Stichprobengröße beeinflusst nur den Zufallsfehler. Bias wird durch die Art der Rekrutierung bestimmt, nicht durch die Zahl." },
         { "text": "Beides bleibt unverändert, weil nur die Population zählt.", "correct": false, "feedback": "Die Population bestimmt den Bias, die Größe den Zufallsfehler – und der wird mit 3000 statt 300 Personen deutlich kleiner." }
       ]
@@ -579,7 +579,7 @@ nrow(unter_risiko)        # how many persons were free of CKD at baseline?
       "question": "Was gibt dieser Code aus?",
       "code": "kohorte |>\n  count(ckd_baseline, hypertonie)",
       "options": [
-        { "text": "<strong>Vier Zeilen</strong> – die Vierfeldertafel der Querschnittsstudie zu Studienbeginn: CKD ja/nein × Hypertonie ja/nein mit Anzahl <code>n</code>.", "correct": true, "feedback": "Richtig: 0/0 → 1017, 0/1 → 621, 1/0 → 123, 1/1 → 239. Die Summe ist 2000, weil <code>kohorte</code> alle Personen enthält – nicht nur die unter Risiko." },
+        { "text": "<strong>Vier Zeilen</strong> – die Vierfeldertafel der Querschnittsstudie zu Studienbeginn: CKD ja/nein × Hypertonie ja/nein mit Anzahl <code>n</code>.", "correct": true, "feedback": "0/0 → 1017, 0/1 → 621, 1/0 → 123, 1/1 → 239. Die Summe ist 2000, weil <code>kohorte</code> alle Personen enthält – nicht nur die unter Risiko." },
         { "text": "Zwei Zeilen: Personen mit und ohne CKD zu Beginn.", "correct": false, "feedback": "Das ergäbe <code>count(ckd_baseline)</code>. Mit zwei Spalten zählt <code>count()</code> jede Kombination – 2 × 2 = 4 Zeilen." },
         { "text": "Vier Zeilen mit der Summe 1638.", "correct": false, "feedback": "1638 wäre die Summe für <code>unter_risiko</code>. Hier wird <code>kohorte</code> gezählt – alle 2000 Personen, denn im Querschnitt zählen auch die 362 mit CKD zu Beginn." },
         { "text": "Die Prävalenz der CKD je Hypertonie-Gruppe als Anteil.", "correct": false, "feedback": "<code>count()</code> liefert absolute Anzahlen. Anteile berechnet erst <code>summarise(mean(...))</code> – Übung R1." }

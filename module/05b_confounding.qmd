@@ -1,0 +1,913 @@
+---
+title: "Modul 5b · Confounding und Effektmodifikation"
+subtitle: "„Hypertoniker sind einfach älter“ – wie prüft man das, und was bleibt von der Assoziation übrig?"
+webr:
+  resources:
+    - ../data/ckd_kohorte.csv
+---
+
+{{< include ../_extensions/r-wasm/live/_knitr.qmd >}}
+
+::: {.callout-note appearance="simple"}
+**Entwurf zur Durchsicht (Oktober 2026).** Fachinhalte sind quellengeprüft; Formulierungen und Aufgaben werden nach dem Review durch die Lehrenden angepasst. Modul 5 besteht aus zwei Seiten: [**5a Studiendesign und Bias**](05a_studiendesign_bias.qmd) und **5b Confounding und Effektmodifikation** (diese Seite).
+:::
+
+```{r}
+#| include: false
+# Build-time figures and numbers (knitr). Uses the synthetic cohort; see R/epir_plots.R.
+source("../R/epir_plots.R", encoding = "UTF-8")
+kohorte <- readr::read_csv("../data/ckd_kohorte.csv", show_col_types = FALSE)
+unter_risiko <- dplyr::filter(kohorte, ckd_baseline == 0)
+de <- function(x, d = 1) formatC(x, format = "f", digits = d, decimal.mark = ",", big.mark = "\u202f")
+# crude: incident CKD by hypertension among persons at risk
+ko <- unter_risiko |> dplyr::group_by(hypertonie) |> dplyr::summarise(n = dplyr::n(), faelle = sum(ckd_inzident), risiko = mean(ckd_inzident))
+rr_roh <- ko$risiko[ko$hypertonie == 1] / ko$risiko[ko$hypertonie == 0]
+# two age strata (decision E14): under 65 / 65 and older
+ur <- unter_risiko |> dplyr::mutate(altersgruppe = dplyr::if_else(alter < 65, "unter 65", "65 und aelter"))
+# confounder conditions: age <-> exposure, age -> outcome
+ant65 <- ur |> dplyr::group_by(hypertonie) |> dplyr::summarise(p = mean(altersgruppe == "65 und aelter"))
+risk_ag <- ur |> dplyr::group_by(altersgruppe) |> dplyr::summarise(n = dplyr::n(), faelle = sum(ckd_inzident), p = mean(ckd_inzident))
+# stratified 2x2 tables and Mantel-Haenszel RR
+st <- ur |> dplyr::group_by(altersgruppe) |>
+  dplyr::summarise(a = sum(ckd_inzident[hypertonie == 1]), n1 = sum(hypertonie == 1),
+                   c = sum(ckd_inzident[hypertonie == 0]), n0 = sum(hypertonie == 0), N = dplyr::n()) |>
+  dplyr::mutate(r1 = a / n1, r0 = c / n0, rr = r1 / r0, zaehler = a * n0 / N, nenner = c * n1 / N) |>
+  dplyr::arrange(dplyr::desc(altersgruppe))   # "unter 65" first
+mh <- sum(st$zaehler) / sum(st$nenner)
+aenderung <- (rr_roh - mh) / rr_roh
+# warning example: three age groups
+ag3 <- unter_risiko |> dplyr::mutate(ag = cut(alter, c(-Inf, 54, 64, Inf), labels = c("unter 55", "55 bis 64", "65 und aelter"))) |>
+  dplyr::group_by(ag) |> dplyr::summarise(a = sum(ckd_inzident[hypertonie == 1]), n1 = sum(hypertonie == 1),
+                                           c = sum(ckd_inzident[hypertonie == 0]), n0 = sum(hypertonie == 0)) |>
+  dplyr::mutate(rr = (a / n1) / (c / n0))
+# bonus: Mantel-Haenszel common odds ratio (base R)
+mh_or <- unname(stats::mantelhaen.test(table(ur$hypertonie, ur$ckd_inzident, ur$altersgruppe))$estimate)
+# fictive scenarios (own numbers): a, n1, c, n0 per stratum
+mh_rr <- function(a, n1, c, n0) sum(a * n0 / (n1 + n0)) / sum(c * n1 / (n1 + n0))
+rr_of <- function(a, n1, c, n0) (sum(a) / sum(n1)) / (sum(c) / sum(n0))
+szA <- list(a = c(36, 360), n1 = c(1800, 3600), c = c(84, 40), n0 = c(4200, 400))
+szB <- list(a = c(10, 160), n1 = c(200, 800), c = c(80, 80), n0 = c(800, 200))
+szC <- list(a = c(60, 75), n1 = c(1000, 250), c = c(150, 75), n0 = c(3000, 750))
+# guards: the text below quotes these numbers
+stopifnot(nrow(kohorte) == 2000, nrow(unter_risiko) == 1638)
+stopifnot(ko$faelle == c(65, 66), ko$n == c(1017, 621), round(rr_roh, 2) == 1.66)
+stopifnot(round(100 * ant65$p, 1) == c(26.1, 36.6), round(100 * risk_ag$p, 1) == c(13.4, 5.7), risk_ag$n == c(492, 1146))
+stopifnot(st$altersgruppe == c("unter 65", "65 und aelter"), st$a == c(29, 37), st$n1 == c(394, 227), st$c == c(36, 29), st$n0 == c(752, 265))
+stopifnot(round(st$rr, 2) == c(1.54, 1.49), round(mh, 2) == 1.51, round(100 * aenderung) == 9)
+stopifnot(round(ag3$rr, 2) == c(0.80, 1.80, 1.49), ag3$a == c(5, 24, 37), ag3$n1 == c(162, 232, 227), ag3$c == c(15, 21, 29), ag3$n0 == c(387, 365, 265))
+stopifnot(round(mh_or, 2) == 1.58)
+stopifnot(round(do.call(rr_of, szA), 2) == 2.72, round(do.call(mh_rr, szA), 2) == 1.00)
+stopifnot(round(do.call(rr_of, szB), 2) == 1.06, round(do.call(mh_rr, szB), 2) == 0.50)
+stopifnot(round(do.call(rr_of, szC), 2) == 1.80, round(do.call(mh_rr, szC), 2) == 1.80)
+```
+
+::: {.leitfrage}
+Aus Modul 5a: „Personen mit Hypertonie (Bluthochdruck) entwickeln in der Beispielkohorte 1,7-mal so häufig eine neue chronische Nierenkrankheit (CKD) wie Personen ohne Hypertonie.“ Ein Kollege winkt ab: „Hypertoniker sind einfach älter – und ältere Nieren werden häufiger krank. Das Alter erklärt den Unterschied.“ **Wie prüft man diesen Einwand – und was bleibt von der Assoziation übrig, wenn man das Alter berücksichtigt?**
+:::
+
+```{=html}
+<div class="epir-estimate" data-id="m5b-mh" data-unit="" data-min="0" data-max="5" data-next="Abschnitt „Kerndatensatz: Hypertonie und CKD nach Alter“">
+<p>Roh ist das relative Risiko (RR) 1,66. <strong>Was bleibt davon Ihrer Einschätzung nach übrig, wenn man das Alter berücksichtigt – RR mit einer Nachkommastelle?</strong> (1,0 hieße: das Alter erklärt alles; 1,7 hieße: das Alter ändert nichts.)</p>
+</div>
+```
+
+::: {.lernziele}
+**Lernziele.** Nach diesem Modul können Sie …
+
+**Konzept (ohne R):**
+
+1. Confounding anhand der drei Bedingungen **definieren** und in einem Kausaldiagramm Exposition, Outcome und dritte Variable **zuordnen**; einen Confounder von einem Mediator und von Nicht-Confoundern **unterscheiden**.
+2. eine stratifizierte Analyse **durchführen** (rohes RR, Stratum-RRs, adjustiertes RR) und mit einem Entscheidungsschema **beurteilen**, ob Confounding, Effektmodifikation oder keines von beiden vorliegt.
+3. **erklären**, warum Randomisierung auch unbekanntes Confounding ausgleicht, Adjustierung aber nur bekanntes und gemessenes, und den Begriff Restconfounding korrekt **verwenden**.
+
+**Vertiefung mit R** (Abschnitt „Dasselbe in R“):
+
+4. Altersgruppen mit `case_when()` **bilden**, mit `group_by()` über zwei Variablen stratum-spezifische Risiken und RRs **berechnen** und das Ergebnis mit `facet_wrap()` **darstellen**.
+:::
+
+::: {.callout-tip appearance="simple" icon=false}
+**Zwei Lesepfade.** Bis zum Selbsttest brauchen Sie kein R. Der Abschnitt [Dasselbe in R](#dasselbe-in-r) am Ende ist Vertiefung, keine Voraussetzung.
+:::
+
+## Was ist ein Confounder?
+
+In Modul 5a hatten wir drei Alternativerklärungen für eine Assoziation: Zufall, Bias und Confounding. Ein **Confounder** (deutsch oft *Störgröße*, engl. *confounder*) ist eine dritte Variable, die die Assoziation zwischen Exposition und Outcome ganz oder teilweise erzeugt – oder verdeckt. Dafür muss sie **drei Bedingungen** gleichzeitig erfüllen:
+
+1. Sie ist **mit der Exposition assoziiert** (in der Expositionsgruppe häufiger oder seltener als in der Vergleichsgruppe).
+2. Sie ist ein **eigenständiger Risikofaktor für das Outcome** – auch bei Personen ohne die Exposition.
+3. Sie liegt **nicht auf dem Weg** von der Exposition zum Outcome (ist also kein Zwischenschritt).
+
+Eine Variable, die *durch* die Exposition entsteht und ihrerseits das Outcome verursacht, heißt **Mediator** (*Intermediärvariable*, engl. *mediator*). Sie ist Teil des Effekts, nicht seine Alternative – für einen Mediator adjustiert man nicht, wenn man den Gesamteffekt der Exposition wissen will. Die Beziehungen zeichnet man als **Kausaldiagramm** (engl. *causal diagram*, formal *directed acyclic graph*, DAG): Jeder Pfeil bedeutet „verursacht“. Wir benutzen die Diagramme hier nur als Pfeilbilder; die formalen Regeln stehen in „Mehr dazu“.
+
+```{r}
+#| label: fig-dag
+#| echo: false
+#| fig-height: 6.2
+#| fig-cap: "Vier Kausaldiagramme mit derselben Frage (gestrichelt: Hypertonie → neue CKD?). Nur in a) ist die dritte Variable ein Confounder: Das Alter beeinflusst Exposition und Outcome und liegt nicht dazwischen. In b) ist der Gefäßschaden ein Mediator (Zwischenschritt). In c) und d) fehlt je eine Bedingung – diese Variablen verzerren die Assoziation nicht. Beispiele c) und d) sind fiktiv."
+#| fig-alt: "Vier Pfeildiagramme mit je drei Knoten E (Exposition), O (Outcome) und Z (dritte Variable). a) Pfeile von Z zu E und von Z zu O, gestrichelter Pfeil E zu O: Confounder Alter. b) Pfeile E zu Z und Z zu O: Mediator Gefäßschaden. c) Pfeil nur von Z zu E: Kochsalzzufuhr, nur mit der Exposition assoziiert. d) Pfeil nur von Z zu O: familiäre Nierenerkrankung, nur mit dem Outcome assoziiert."
+plot_dag_panels()
+```
+
+Für die Leitfrage heißt das: Das Alter kommt als Confounder in Frage, wenn Personen mit Hypertonie älter sind (Bedingung 1), ältere Personen auch ohne Hypertonie häufiger eine CKD entwickeln (Bedingung 2) und Hypertonie nicht das Alter verursacht (Bedingung 3 – offensichtlich erfüllt). Ob 1 und 2 in der Beispielkohorte zutreffen, prüfen wir in Abschnitt „Kerndatensatz“ mit Zahlen.
+
+::: {.callout-note collapse="true"}
+## Mehr dazu: Kausaldiagramme formal
+Formal ist ein Kausaldiagramm ein *gerichteter azyklischer Graph* (DAG): Pfeile haben eine Richtung, und man kann keinen Pfeilen folgend zum Ausgangspunkt zurückkehren. Aus einem DAG lässt sich mit festen Regeln ablesen, für welche Variablen man adjustieren muss (und für welche nicht – Mediatoren und sogenannte **Kollider**, also gemeinsame *Folgen* von zwei Variablen; Adjustieren für einen Kollider *erzeugt* eine Verzerrung). Diese Regeln (*d-Separation*, *backdoor criterion*) gehen über dieses Modul hinaus; frei zugänglich erklärt sie das Lehrbuch von Hernán & Robins (Quellen). Die dreistufige Confounder-Definition oben ist eine **Vereinfachung**, die in den meisten Lehrbuchsituationen zum gleichen Ergebnis führt wie die DAG-Regeln.
+:::
+
+## Interaktiv: Kausaldiagramm zuordnen
+
+Ordnen Sie jedem Knoten seine Rolle zu. Die Pfeile sind vorgegeben; es gibt genau eine richtige Zuordnung je Szenario.
+
+```{=html}
+<div class="epir-dag">
+<script type="application/json">
+{
+  "scenarios": [
+    {
+      "title": "Beispielkohorte: Alter, Hypertonie und neue CKD. Ältere Personen haben häufiger Hypertonie, und ältere Nieren entwickeln häufiger eine CKD – unabhängig vom Blutdruck.",
+      "nodes": [
+        { "id": "hyp", "text": "Hypertonie", "role": "exposition", "why": "Hypertonie ist der Faktor, dessen Wirkung auf die CKD wir untersuchen – die Exposition. Von ihr geht der gestrichelt zu prüfende Pfeil aus." },
+        { "id": "ckd", "text": "neue CKD", "role": "outcome", "why": "Die neue CKD ist das Ereignis, das wir erklären wollen – das Outcome. Auf sie zeigen alle Pfeile." },
+        { "id": "alter", "text": "Alter", "role": "confounder", "why": "Alter kann kein Mediator sein: Hypertonie verursacht kein Alter. Das Alter beeinflusst Exposition (Pfeil zu Hypertonie) und Outcome (Pfeil zu CKD) und liegt nicht dazwischen – alle drei Confounder-Bedingungen sind erfüllt." }
+      ],
+      "edges": [["alter", "hyp"], ["alter", "ckd"], ["hyp", "ckd"]],
+      "explain": "Das Alter erfüllt alle drei Bedingungen: mit der Exposition assoziiert, eigenständiger Risikofaktor, kein Zwischenschritt. Für das Alter sollte man adjustieren – wie, zeigen die nächsten Abschnitte."
+    },
+    {
+      "title": "Vereinfachter Mechanismus (fiktiv zugespitzt): Hoher Blutdruck schädigt die kleinen Gefäße der Niere; der Gefäßschaden führt zur CKD.",
+      "nodes": [
+        { "id": "hyp", "text": "Hypertonie", "role": "exposition", "why": "Hypertonie ist auch hier die Exposition – der Ausgangspunkt der Kette." },
+        { "id": "ckd", "text": "neue CKD", "role": "outcome", "why": "Die neue CKD bleibt das Outcome am Ende der Kette." },
+        { "id": "gef", "text": "Gefäßschaden der Niere", "role": "mediator", "why": "Der Gefäßschaden wird von der Exposition verursacht (Pfeil von Hypertonie) und verursacht das Outcome: ein Zwischenschritt, also ein Mediator – kein Confounder (Bedingung 3 verletzt)." }
+      ],
+      "edges": [["hyp", "gef"], ["gef", "ckd"]],
+      "explain": "Der Gefäßschaden liegt <em>auf</em> dem Weg von Hypertonie zur CKD. Wer dafür adjustiert, rechnet den Effekt der Hypertonie heraus, den er eigentlich messen will – für Mediatoren adjustiert man nicht, wenn der Gesamteffekt interessiert."
+    }
+  ]
+}
+</script>
+</div>
+```
+
+## Durchgerechnet (fiktiv): Alter als Confounder {#worked-a}
+
+Ein konstruiertes Beispiel mit runden Zahlen, damit der Mechanismus sichtbar wird (fiktive Daten, keine reale Studie): 10 000 Personen, zehn Jahre Beobachtung, Exposition **Lesebrille**, Outcome **neue CKD**.
+
+**Schritt 1: rohe Vierfeldertafel.**
+
+| | neue CKD | Personen | Risiko in 10 Jahren |
+|---|---:|---:|---:|
+| **mit Lesebrille** | 396 | 5400 | 396 / 5400 = **7,3 %** |
+| **ohne Lesebrille** | 124 | 4600 | 124 / 4600 = **2,7 %** |
+
+Rohes RR = 0,073 / 0,027 = **2,72**. Lesebrillen verdreifachen das CKD-Risiko?
+
+**Schritt 2: nach Alter aufteilen (stratifizieren).**
+
+| unter 60 Jahre | neue CKD | Personen | Risiko | | 60 Jahre und älter | neue CKD | Personen | Risiko |
+|---|---:|---:|---:|---|---|---:|---:|---:|
+| **mit Lesebrille** | 36 | 1800 | 2,0 % | | **mit Lesebrille** | 360 | 3600 | 10,0 % |
+| **ohne Lesebrille** | 84 | 4200 | 2,0 % | | **ohne Lesebrille** | 40 | 400 | 10,0 % |
+| RR | | | **1,00** | | RR | | | **1,00** |
+
+**Schritt 3: vergleichen.** In beiden Altersgruppen ist das RR 1,00 – die Lesebrille macht keinen Unterschied. Die rohe Assoziation entsteht allein dadurch, dass das Alter beide Bedingungen erfüllt: Lesebrillen tragen 30 % der Jüngeren, aber 90 % der Älteren (Bedingung 1); das CKD-Risiko ist bei Älteren 10 % statt 2 % (Bedingung 2). Die rohe Tafel vergleicht deshalb vor allem Ältere (mit Brille) mit Jüngeren (ohne Brille). Addiert man die beiden Stratum-Tafeln Zelle für Zelle, erhält man wieder die rohe Tafel – stratifizieren verliert keine Person, es sortiert sie nur.
+
+## Stratifizieren als Methode
+
+Das Beispiel zeigt die Grundidee jeder Confounding-Kontrolle in der Auswertung: **Vergleiche nur innerhalb von Gruppen, in denen der Confounder gleich ist.** Diese Gruppen heißen **Strata** (Einzahl *Stratum*, „Schicht“), das Vorgehen **Stratifizierung** (engl. *stratification*). Drei Zahlen entstehen dabei:
+
+- das **rohe RR** (engl. *crude RR*) aus der Gesamttafel,
+- die **Stratum-RRs**, je eines pro Schicht,
+- das **adjustierte RR** (engl. *adjusted RR*): ein gewichtetes Mittel der Stratum-RRs, in dem große Strata mehr zählen. Der klassische Rechenweg heißt **Mantel-Haenszel-Schätzer** (Formel in „Mehr dazu“ im Abschnitt „Kerndatensatz“).
+
+Welche der drei Zahlen man berichtet, entscheidet ein kurzes Schema:
+
+```{r}
+#| label: fig-decision
+#| echo: false
+#| fig-height: 5.4
+#| fig-cap: "Entscheidungsschema der stratifizierten Analyse. Erst die Stratum-RRs untereinander vergleichen, dann das adjustierte mit dem rohen RR. Vereinfacht: „ungefähr gleich“ nach Augenmaß (im Stratifizierer unten als Konvention: Verhältnis der Stratum-RRs ≤ 1,25); exakt prüft das ein Heterogenitätstest, der nicht Teil dieses Moduls ist."
+#| fig-alt: "Flussdiagramm: Rohes RR berechnen und stratifizieren. Frage 1: Sind die Stratum-RRs ungefähr gleich? Nein: Effektmodifikation, Stratum-RRs getrennt berichten. Ja: Frage 2: Unterscheidet sich das adjustierte vom rohen RR? Ja: Confounding, adjustiertes RR berichten. Nein: kein relevantes Confounding, rohes RR genügt."
+plot_strat_decision()
+```
+
+Im Lesebrillen-Beispiel: Stratum-RRs 1,00 und 1,00 (gleich) → adjustiertes RR 1,00, rohes 2,72 (verschieden) → **Confounding**; berichtet wird das adjustierte RR. Den rechten Zweig des Schemas – ungleiche Stratum-RRs – sehen wir im Abschnitt „Effektmodifikation“.
+
+## Interaktiv: Stratifizierer
+
+Zwei Vierfeldertafeln (eine je Stratum), die rohe Tafel entsteht automatisch als Summe. Probieren Sie die vier Szenarien und verändern Sie dann einzelne Zahlen: Was passiert mit dem rohen RR, wenn die Exposition in beiden Strata gleich häufig ist? Was, wenn ein Stratum sehr klein wird?
+
+```{=html}
+<div class="epir-strat">
+<script type="application/json">
+{
+  "scenarios": [
+    { "key": "A", "label": "A · Lesebrille (fiktiv)", "question": "Lesebrille → neue CKD in 10 Jahren, Strata nach Alter",
+      "exposure": ["ohne Lesebrille", "mit Lesebrille"], "outcome": "neue CKD", "strata": ["unter 60 Jahre", "60 Jahre und älter"],
+      "tables": [[36, 1800, 84, 4200], [360, 3600, 40, 400]],
+      "lesson": "Beide Stratum-RRs sind 1,00, roh 2,72: Das Alter erzeugt die ganze Assoziation. Beachten Sie die Anteile „mit Lesebrille“ je Stratum (30 % vs. 90 %) und die Risiken je Stratum (2 % vs. 10 %) – beide Confounder-Bedingungen auf einen Blick." },
+    { "key": "B", "label": "B · Schulungsprogramm (fiktiv)", "question": "Teilnahme am Schulungsprogramm → CKD-Progression in 3 Jahren, Strata nach Diabetes",
+      "exposure": ["keine Teilnahme", "Teilnahme"], "outcome": "Progression", "strata": ["ohne Diabetes", "mit Diabetes"],
+      "tables": [[10, 200, 80, 800], [160, 800, 80, 200]],
+      "lesson": "Roh sieht das Programm wirkungslos aus (RR 1,06), in beiden Strata halbiert es das Risiko (RR 0,50). Erklärung im Abschnitt „Richtungsumkehr“." },
+    { "key": "C", "label": "C · NSAR (fiktiv)", "question": "Regelmäßige NSAR-Einnahme → neue CKD, Strata nach Diabetes",
+      "exposure": ["keine NSAR", "NSAR regelmäßig"], "outcome": "neue CKD", "strata": ["ohne Diabetes", "mit Diabetes"],
+      "tables": [[60, 1000, 150, 3000], [75, 250, 75, 750]],
+      "lesson": "Stratum-RRs 1,20 und 3,00 – das ist kein Confounding (adjustiert = roh = 1,80, NSAR-Anteil in beiden Strata 25 %), sondern Effektmodifikation. Erklärung im Abschnitt „Effektmodifikation“." },
+    { "key": "K", "label": "K · Beispielkohorte", "question": "Hypertonie → neue CKD in 5 Jahren, Strata nach Alter (Personen unter Risiko, n = 1638)",
+      "exposure": ["ohne Hypertonie", "mit Hypertonie"], "outcome": "neue CKD", "strata": ["unter 65 Jahre", "65 Jahre und älter"],
+      "tables": [[29, 394, 36, 752], [37, 227, 29, 265]],
+      "lesson": "Realistisches, mäßiges Confounding: Die Stratum-RRs (1,54 / 1,49) liegen beide unter dem rohen RR 1,66; das adjustierte RR 1,51 ist um 9 % kleiner – knapp unter der 10-%-Konvention, deshalb lautet die automatische Einordnung „kein relevantes Confounding“. Genau hier zeigt sich, dass die Schwelle eine Konvention ist: Aus Vorwissen ist das Alter ein Confounder, und man würde adjustieren. Mehr dazu im Abschnitt „Kerndatensatz“." }
+  ]
+}
+</script>
+</div>
+```
+
+## Durchgerechnet (fiktiv): Richtungsumkehr {#worked-b}
+
+Confounding kann eine Assoziation nicht nur erzeugen, sondern auch verdecken oder umkehren. Fiktives Beispiel: Ein **Schulungsprogramm** für Menschen mit eingeschränkter Nierenfunktion soll die **CKD-Progression** (Verschlechterung) in drei Jahren verhindern. 2000 Personen, davon nimmt die Hälfte teil.
+
+Roh: Progression bei 170 von 1000 Teilnehmenden (17,0 %) gegenüber 160 von 1000 Nicht-Teilnehmenden (16,0 %) – RR 1,06. Das Programm scheint nichts zu bringen. Nach Diabetes stratifiziert:
+
+| ohne Diabetes | Progression | Personen | Risiko | | mit Diabetes | Progression | Personen | Risiko |
+|---|---:|---:|---:|---|---|---:|---:|---:|
+| **Teilnahme** | 10 | 200 | 5,0 % | | **Teilnahme** | 160 | 800 | 20,0 % |
+| **keine Teilnahme** | 80 | 800 | 10,0 % | | **keine Teilnahme** | 80 | 200 | 40,0 % |
+| RR | | | **0,50** | | RR | | | **0,50** |
+
+```{r}
+#| label: fig-simpson
+#| echo: false
+#| fig-height: 5.2
+#| fig-cap: "Richtungsumkehr durch Confounding (fiktive Zahlen). Innerhalb jeder Diabetes-Gruppe halbiert das Programm das Risiko (durchgezogene Linien fallen). Die rohe Linie (gestrichelt) steigt leicht, weil Teilnehmende überwiegend Diabetes haben – die Hochrisikogruppe. Punktgröße: Personenzahl."
+#| fig-alt: "Liniendiagramm mit dem Risiko der Progression ohne und mit Teilnahme. Linie ohne Diabetes fällt von 10 auf 5 Prozent, Linie mit Diabetes von 40 auf 20 Prozent, beide RR 0,50. Gestrichelte rohe Linie steigt von 16 auf 17 Prozent, RR 1,06."
+plot_simpson(list("ohne Diabetes" = c(10, 200, 80, 800), "mit Diabetes" = c(160, 800, 80, 200)),
+             c("keine Teilnahme", "Teilnahme am\nSchulungsprogramm"), "CKD-Progression in 3 Jahren",
+             "Fiktives Beispiel, Zahlen frei gewählt.")
+```
+
+In beiden Strata **halbiert** das Programm das Risiko (RR 0,50, adjustiertes RR 0,50). Roh verschwindet der Nutzen, weil Ärztinnen und Ärzte vor allem Menschen mit Diabetes – der Hochrisikogruppe – in das Programm schicken (80 % Teilnahme bei Diabetes, 20 % ohne). Diese Form heißt **Confounding by indication**: Die Indikation für eine Behandlung ist zugleich ein Risikofaktor für das Outcome. Sie ist der Hauptgrund, warum Beobachtungsstudien zu Behandlungen so schwer zu interpretieren sind – und warum es RCTs gibt (Abschnitt „Confounding vermeiden“). Dass sich eine Assoziation beim Stratifizieren umkehrt, ist als **Simpson-Paradox** bekannt; paradox ist daran nichts, sobald man den Confounder kennt.
+
+## Kerndatensatz: Hypertonie und CKD nach Alter {#kerndatensatz}
+
+Zurück zur Leitfrage. Zuerst die Confounder-Bedingungen, mit Zahlen aus den `r de(nrow(unter_risiko), 0)` Personen unter Risiko:
+
+- **Bedingung 1 (Alter ↔ Exposition):** 65 Jahre oder älter sind `r de(100 * ant65$p[2])` % der Personen mit Hypertonie, aber nur `r de(100 * ant65$p[1])` % der Personen ohne.
+- **Bedingung 2 (Alter → Outcome):** Eine neue CKD entwickeln `r de(100 * risk_ag$p[1])` % der 65-Jährigen und Älteren (`r risk_ag$faelle[1]` von `r risk_ag$n[1]`), aber nur `r de(100 * risk_ag$p[2])` % der Jüngeren (`r risk_ag$faelle[2]` von `r de(risk_ag$n[2], 0)`).
+- **Bedingung 3:** Hypertonie verursacht kein Alter.
+
+Das Alter ist also ein Confounder-Kandidat. Stratifiziert in zwei Altersgruppen (unter 65 / 65 und älter):
+
+| unter 65 Jahre | neue CKD | Personen | Risiko | | 65 Jahre und älter | neue CKD | Personen | Risiko |
+|---|---:|---:|---:|---|---|---:|---:|---:|
+| **mit Hypertonie** | `r st$a[1]` | `r st$n1[1]` | `r de(100 * st$r1[1])` % | | **mit Hypertonie** | `r st$a[2]` | `r st$n1[2]` | `r de(100 * st$r1[2])` % |
+| **ohne Hypertonie** | `r st$c[1]` | `r st$n0[1]` | `r de(100 * st$r0[1])` % | | **ohne Hypertonie** | `r st$c[2]` | `r st$n0[2]` | `r de(100 * st$r0[2])` % |
+| RR | | | **`r de(st$rr[1], 2)`** | | RR | | | **`r de(st$rr[2], 2)`** |
+
+```{r}
+#| label: fig-bars
+#| echo: false
+#| fig-height: 4.8
+#| fig-cap: "Neue CKD in fünf Jahren nach Hypertonie: alle Personen unter Risiko (links) und getrennt nach Altersgruppe. In beiden Altersgruppen bleibt der Unterschied, aber kleiner als roh. Diese Abbildung entsteht in Übung R4 noch einmal in R."
+#| fig-alt: "Drei Balkenpaare. Alle: 6,4 Prozent ohne und 10,6 Prozent mit Hypertonie, RR 1,66. Unter 65: 4,8 und 7,4 Prozent, RR 1,54. 65 und älter: 10,9 und 16,3 Prozent, RR 1,49."
+plot_strat_bars(unter_risiko)
+```
+
+Die Stratum-RRs `r de(st$rr[1], 2)` und `r de(st$rr[2], 2)` sind ungefähr gleich → kein Hinweis auf Effektmodifikation. Das adjustierte RR (Mantel-Haenszel) beträgt **`r de(mh, 2)`**, das rohe `r de(rr_roh, 2)`: eine Änderung um `r round(100 * aenderung)` %. **Das Alter erklärt einen Teil der Assoziation, aber nicht alles.** Was von dem Rest ein echter Effekt der Hypertonie ist und was weitere, nicht berücksichtigte Confounder, lässt sich aus diesen Daten nicht entscheiden (Abschnitt „Confounding vermeiden“).
+
+```{=html}
+<div class="epir-estimate-reveal" data-ref="m5b-mh" data-answer="1.5" data-unit="" data-diff-unit="" data-tol="0.1" data-answer-text="RR 1,5 (Mantel-Haenszel-RR 1,51 gegenüber roh 1,66) – das Alter erklärt einen Teil der Assoziation, nicht alles"></div>
+```
+
+::: {.callout-note collapse="true"}
+## Mehr dazu: Der Mantel-Haenszel-Schätzer in drei Schritten
+Das adjustierte RR nach Mantel und Haenszel ist ein gewichtetes Mittel der Stratum-RRs, in dem große Strata mehr Gewicht erhalten. Mit a = exponierte Fälle, n~1~ = Exponierte, c = nicht exponierte Fälle, n~0~ = Nicht-Exponierte und N = Personen des Stratums:
+
+\[
+RR_{MH} = \frac{\sum_i a_i \, n_{0i} / N_i}{\sum_i c_i \, n_{1i} / N_i}
+\]
+
+| | unter 65 | 65 und älter | Summe |
+|---|---:|---:|---:|
+| Schritt 1: Zähler a · n~0~ / N | `r st$a[1]` · `r st$n0[1]` / `r de(st$N[1], 0)` = `r de(st$zaehler[1], 2)` | `r st$a[2]` · `r st$n0[2]` / `r st$N[2]` = `r de(st$zaehler[2], 2)` | `r de(sum(st$zaehler), 2)` |
+| Schritt 2: Nenner c · n~1~ / N | `r st$c[1]` · `r st$n1[1]` / `r de(st$N[1], 0)` = `r de(st$nenner[1], 2)` | `r st$c[2]` · `r st$n1[2]` / `r st$N[2]` = `r de(st$nenner[2], 2)` | `r de(sum(st$nenner), 2)` |
+| Schritt 3: Quotient der Summen | | | `r de(sum(st$zaehler), 2)` / `r de(sum(st$nenner), 2)` = **`r de(mh, 2)`** |
+
+Vereinfacht: ohne Konfidenzintervall; exakt gehört zu jedem adjustierten RR ein Konfidenzintervall (Modul 6). Dieselbe Rechnung als R-Code steht im Abschnitt „Dasselbe in R“ (Parsons-Aufgabe).
+:::
+
+::: {.callout-note collapse="true"}
+## Mehr dazu: Die 10-%-Faustregel – und warum sie nur eine Konvention ist
+Ab wann „unterscheidet sich“ das adjustierte vom rohen RR? Eine verbreitete Konvention: Ändert sich die Schätzung um mindestens 10 %, gilt die Variable als relevanter Confounder (*change-in-estimate*-Kriterium, auf Simulationsstudien gestützt: Maldonado & Greenland 1993). Die Regel ist **umstritten**: Die Schwelle ist willkürlich, hängt von der Maßzahl ab und ersetzt kein inhaltliches Wissen (Burstyn 2024). Die heute empfohlene Reihenfolge ist umgekehrt: Zuerst aus Vorwissen (Kausaldiagramm) festlegen, welche Variablen Confounder sind, dann adjustieren – nicht die Daten entscheiden lassen (VanderWeele 2019). In unserem Fall würde das Alter mit `r round(100 * aenderung)` % die Schwelle knapp verfehlen; dennoch würde jede Fachperson für das Alter adjustieren, weil es aus Vorwissen ein Confounder ist. Der Stratifizierer oben benutzt die 10-%-Regel nur, um die Einordnung automatisch anzuzeigen.
+:::
+
+::: {.callout-note collapse="true"}
+## Mehr dazu: Warum nur zwei Altersgruppen?
+Mit drei Altersgruppen erhält man RR `r de(ag3$rr[1], 2)` (unter 55; `r ag3$a[1]`/`r ag3$n1[1]` vs. `r ag3$c[1]`/`r ag3$n0[1]`), `r de(ag3$rr[2], 2)` (55 bis 64; `r ag3$a[2]`/`r ag3$n1[2]` vs. `r ag3$c[2]`/`r ag3$n0[2]`) und `r de(ag3$rr[3], 2)` (65 und älter). Das sieht nach Effektmodifikation aus – ist aber **Zufallsstreuung**: Im jüngsten Stratum beruht das RR auf nur `r ag3$a[1]` exponierten Fällen (Modul 4: kleine Stichproben streuen stark). Feinere Strata kontrollieren den Confounder besser, machen aber jedes Stratum kleiner und die RRs unruhiger. Zwei Strata sind hier ein Kompromiss für die Lesbarkeit; in der Praxis übernimmt die Regression diese Abwägung (Modul 7 und 9 erwähnen sie).
+:::
+
+## Effektmodifikation (fiktiv): Wenn Strata sich unterscheiden {#effektmodifikation}
+
+Jetzt der rechte Zweig des Schemas. Fiktives Beispiel: Regelmäßige Einnahme von **NSAR** (nichtsteroidale Antirheumatika, z. B. Ibuprofen) und **neue CKD**, stratifiziert nach Diabetes.
+
+| | NSAR: neue CKD / Personen | keine NSAR: neue CKD / Personen | RR |
+|---|---:|---:|---:|
+| ohne Diabetes | 60 / 1000 (6,0 %) | 150 / 3000 (5,0 %) | **1,20** |
+| mit Diabetes | 75 / 250 (30,0 %) | 75 / 750 (10,0 %) | **3,00** |
+| alle zusammen (roh) | 135 / 1250 (10,8 %) | 225 / 3750 (6,0 %) | **1,80** |
+
+```{r}
+#| label: fig-forest
+#| echo: false
+#| fig-height: 4.2
+#| fig-cap: "Effektmodifikation (fiktive Zahlen): Die Stratum-RRs 1,20 und 3,00 liegen weit auseinander; das rohe RR 1,80 (graue Linie) trifft keines der beiden. Adjustieren ändert hier nichts (adjustiertes RR ebenfalls 1,80, da der NSAR-Anteil in beiden Strata 25 % beträgt) – das Problem ist nicht Confounding, sondern dass ein einzelnes RR die Wirklichkeit nicht beschreibt."
+#| fig-alt: "Punktdiagramm auf logarithmischer RR-Achse: ohne Diabetes RR 1,20, mit Diabetes RR 3,00, roh RR 1,80 als Raute mit senkrechter grauer Linie, gestrichelte Linie bei RR 1."
+plot_strat_forest(c("ohne Diabetes (60/1000 vs. 150/3000)" = 1.2, "mit Diabetes (75/250 vs. 75/750)" = 3.0), 1.8,
+                  "roh, alle zusammen (135/1250 vs. 225/3750)", "Fiktives Beispiel, Zahlen frei gewählt.")
+```
+
+Die Stratum-RRs sind **verschieden**: Bei Diabetes verdreifachen NSAR das Risiko, ohne Diabetes erhöhen sie es kaum. Das heißt **Effektmodifikation** (engl. *effect modification*, genauer *effect-measure modification*): Die Stärke des Zusammenhangs hängt von einer dritten Variable ab. Diabetes ist hier kein Confounder (der NSAR-Anteil ist in beiden Strata 25 %, adjustiertes RR = rohes RR), sondern beschreibt, *für wen* die Exposition gefährlich ist. Die richtige Antwort ist deshalb nicht ein gemitteltes RR, sondern **beide Stratum-RRs getrennt berichten**. Ein gemeinsames adjustiertes RR würde eine Wirkung „1,80 für alle“ behaupten, die für niemanden stimmt.
+
+::: {.callout-note collapse="true"}
+## Mehr dazu: Effektmodifikation, Interaktion und die Skala
+In der Statistik heißt dasselbe Phänomen **Interaktion** (engl. *interaction*): In einem Regressionsmodell wird es als Produktterm der beiden Variablen geschätzt (Modul 9 streift das). Ob Effektmodifikation vorliegt, hängt von der **Skala** ab: Im NSAR-Beispiel sind die RRs verschieden (1,20 vs. 3,00) *und* die Risikodifferenzen (1 vs. 20 Prozentpunkte). Es gibt aber Fälle, in denen die RRs gleich sind und die Risikodifferenzen nicht – oder umgekehrt. „Effektmodifikation“ ohne Angabe der Maßzahl ist deshalb unvollständig; in diesem Modul meinen wir immer die relative Skala (RR).
+:::
+
+## Confounding vermeiden
+
+Zwei Ansatzpunkte: beim **Design** der Studie und bei der **Auswertung**.
+
+**Im Design**
+
+- **Randomisierung** (engl. *randomisation*): Die Forschenden teilen die Exposition per Los zu. Weil das Los nichts über die Person weiß, sind die Gruppen im Mittel in **allen** Merkmalen gleich – auch in solchen, die niemand gemessen hat oder kennt. Das ist der entscheidende Vorteil des RCT (Modul 5a) und der einzige Weg, auch *unbekanntes* Confounding auszuschalten. Ausgleich gilt im Erwartungswert: In einer einzelnen Studie bleiben Zufallsunterschiede möglich (Modul 4), bei kleinen Studien größere.
+- **Restriktion** (engl. *restriction*): Nur eine Stufe des Confounders einschließen (z. B. nur Personen unter 65). Einfach und wirksam, aber die Ergebnisse gelten dann nur für diese Gruppe.
+- **Matching** (engl. *matching*): Zu jeder exponierten Person wird eine nicht-exponierte mit gleichem Confounder-Wert gewählt (hier nur als Begriff).
+
+```{r}
+#| label: fig-random
+#| echo: false
+#| fig-height: 4.8
+#| fig-cap: "Randomisierung an der Beispielkohorte nachgestellt: Die 1638 Personen unter Risiko werden per Los in zwei Gruppen geteilt (Zufallszahlen-Startwert 5). Alter, Anteil 65+, Hypertonie und Diabetes sind in beiden Gruppen fast gleich – obwohl das Los keines dieser Merkmale kannte. Die kleinen Restunterschiede sind Zufall; bei kleineren Gruppen wären sie größer."
+#| fig-alt: "Zwei Histogramme der Altersverteilung für Gruppe A und Gruppe B mit eingeblendeten Kennzahlen: mittleres Alter 59,0 und 59,3 Jahre, Anteil 65+ 29 und 32 Prozent, Hypertonie 37 und 39 Prozent, Diabetes 10 und 10 Prozent."
+plot_randomisation(unter_risiko, seed = 5)
+```
+
+**In der Auswertung**
+
+- **Stratifizierung** – wie in diesem Modul.
+- **Adjustierung** mit Regressionsmodellen (engl. *adjustment*): dieselbe Idee für mehrere Confounder gleichzeitig, auch für stetige Variablen wie das Alter in Jahren (Modul 7 und 9 geben einen ersten Blick darauf).
+
+Beide Auswertungsmethoden können nur Confounder berücksichtigen, die **bekannt und gemessen** sind – und zwar so genau gemessen, wie es nötig wäre. Was übrig bleibt, heißt **Restconfounding** (engl. *residual confounding*): durch unbekannte Confounder, nicht gemessene oder grob gemessene (zwei Altersgruppen statt Alter in Jahren). In Beobachtungsstudien lässt sich Restconfounding nie ausschließen; „adjustiert“ bedeutet daher „um das Gemessene bereinigt“, nicht „kausal bewiesen“.
+
+## Typische Fehler
+
+| Fehler | Richtig |
+|---|---|
+| „Jede Variable, die mit dem Outcome zusammenhängt, ist ein Confounder“ | Ein Confounder muss zusätzlich mit der Exposition assoziiert sein und darf kein Zwischenschritt sein (drei Bedingungen) |
+| „Für den Gefäßschaden muss man adjustieren, er beeinflusst ja die CKD“ | Der Gefäßschaden ist ein Mediator. Adjustieren rechnet den Effekt der Hypertonie heraus, den man messen will |
+| „Die Strata sind verschieden – also adjustieren“ | Verschiedene Stratum-RRs sind Effektmodifikation; ein gemeinsames RR beschreibt dann niemanden. Getrennt berichten |
+| „Randomisiert, also sind die Gruppen gleich“ | Gleich im Erwartungswert. Eine einzelne Studie kann durch Zufall ungleiche Gruppen haben – deshalb zeigt jeder RCT eine Tabelle der Ausgangsmerkmale |
+| „Adjustiertes RR 1,51 – also verursacht Hypertonie CKD“ | Adjustiert heißt: um das Alter bereinigt. Restconfounding durch andere Faktoren bleibt möglich |
+| „RR 0,80 in der jüngsten Altersgruppe – da wirkt Hypertonie schützend“ | Kleine Strata streuen stark (fünf exponierte Fälle). Erst an Zufall denken (Modul 4), dann an Effektmodifikation |
+| „Mit 20 000 statt 2000 Personen wäre das Confounding weg“ | Confounding ist systematisch wie Bias (Modul 5a): Mehr Personen machen die verzerrte Schätzung nur präziser |
+
+::: {.takehome}
+**Take-Home-Messages**
+
+- **Confounder: drei Bedingungen.** Mit der Exposition assoziiert, eigenständiger Risikofaktor für das Outcome, kein Zwischenschritt. Mediatoren sind kein Confounder – für sie adjustiert man nicht.
+- **Stratifizieren und vergleichen.** Stratum-RRs gleich und ≠ roh → Confounding, adjustiertes RR berichten. Stratum-RRs ungleich → Effektmodifikation, getrennt berichten.
+- **Randomisierung gleicht auch Unbekanntes aus**, Adjustierung nur Gemessenes. In Beobachtungsstudien bleibt Restconfounding.
+- **Hypertonie → CKD in der Beispielkohorte:** roh 1,66, nach Alter 1,51 – das Alter erklärt einen Teil, nicht alles.
+:::
+
+::: {.callout-note collapse="true"}
+## Glossar: Confounding-Begriffe (deutsch / englisch)
+Alle Begriffe dieses Moduls – Confounder, Mediator, Stratifizierung, Mantel-Haenszel-Schätzer, Effektmodifikation, Restconfounding und weitere – stehen mit englischer Entsprechung und Kurzdefinition im seitenweiten [Glossar](../glossar.qmd#confounding) (Abschnitt „Confounding und Effektmodifikation“). Dort finden Sie auch die Begriffe aus Modul 5a und die klinischen Begriffe (CKD, eGFR, UACR) aus Modul 1.
+:::
+
+## Selbsttest
+
+Neun Fragen, davon zwei Wiederholungsfragen zu früheren Modulen. Alle Studien sind fiktiv, wenn nicht „Beispielkohorte“ dabeisteht.
+
+```{=html}
+<div class="epir-quiz">
+<script type="application/json">
+{
+  "items": [
+    {
+      "type": "mc",
+      "question": "Hoher Blutdruck schädigt die kleinen Gefäße der Niere; der Gefäßschaden führt zur CKD (vereinfachter Mechanismus). Welche Rolle hat der <strong>Gefäßschaden</strong> für die Frage „Verursacht Hypertonie CKD?“",
+      "options": [
+        { "text": "Mediator – für ihn adjustiert man nicht", "correct": true, "feedback": "Der Gefäßschaden liegt auf dem Weg von der Exposition zum Outcome. Adjustieren würde den Effekt der Hypertonie herausrechnen, den man messen will." },
+        { "text": "Confounder – für ihn muss man adjustieren", "correct": false, "feedback": "Ein Confounder darf kein Zwischenschritt sein (Bedingung 3). Der Gefäßschaden wird von der Exposition <em>verursacht</em> – das macht ihn zum Mediator." },
+        { "text": "Effektmodifikator – das RR je nach Gefäßschaden getrennt berichten", "correct": false, "feedback": "Effektmodifikation hieße: Die Wirkung der Hypertonie ist je nach Gefäßschaden verschieden stark. Hier ist der Gefäßschaden aber der Mechanismus selbst, nicht eine Bedingung, unter der er variiert." },
+        { "text": "Nur ein Marker ohne kausale Rolle", "correct": false, "feedback": "Im beschriebenen Mechanismus ist der Gefäßschaden gerade der Weg, über den Hypertonie wirkt – also kausal beteiligt, als Zwischenschritt." }
+      ]
+    },
+    {
+      "type": "num",
+      "question": "<em>Fiktive Kohortenstudie, Stratum 1 (ohne Risikofaktor):</em> 24 von 400 exponierten und 30 von 1000 nicht exponierten Personen erkranken. Wie groß ist das RR in diesem Stratum? (zwei Nachkommastellen)",
+      "label": "RR Stratum 1:",
+      "unit": "",
+      "answer": 2.00,
+      "tol": 0.02,
+      "feedback_correct": "Risiko exponiert 24/400 = 6,0 %, nicht exponiert 30/1000 = 3,0 %; RR = 0,06 / 0,03 = 2,00.",
+      "feedback_wrong": "RR = (24 / 400) ÷ (30 / 1000). Erst beide Risiken berechnen, dann teilen.",
+      "near": [
+        { "value": 2.06, "tol": 0.02, "feedback": "2,06 ist das Odds Ratio (24·970)/(376·30). Gefragt war das RR – Quotient der Risiken." },
+        { "value": 3.0, "tol": 0.1, "feedback": "3,0 Prozentpunkte ist die Risikodifferenz (6,0 − 3,0). Das RR ist der Quotient." },
+        { "value": 0.5, "tol": 0.02, "feedback": "Gruppen vertauscht: Das Risiko der Exponierten gehört in den Zähler." }
+      ]
+    },
+    {
+      "type": "num",
+      "question": "<em>Dieselbe Studie, Stratum 2 (mit Risikofaktor):</em> 120 von 1000 exponierten und 12 von 200 nicht exponierten Personen erkranken. RR in Stratum 2? (zwei Nachkommastellen)",
+      "label": "RR Stratum 2:",
+      "unit": "",
+      "answer": 2.00,
+      "tol": 0.02,
+      "feedback_correct": "Risiko exponiert 120/1000 = 12,0 %, nicht exponiert 12/200 = 6,0 %; RR = 2,00 – genau wie in Stratum 1.",
+      "feedback_wrong": "RR = (120 / 1000) ÷ (12 / 200).",
+      "near": [
+        { "value": 2.14, "tol": 0.02, "feedback": "2,14 ist das Odds Ratio (120·188)/(880·12). Gefragt war das RR." },
+        { "value": 6.0, "tol": 0.1, "feedback": "6,0 Prozentpunkte ist die Risikodifferenz (12,0 − 6,0), nicht das RR." },
+        { "value": 0.5, "tol": 0.02, "feedback": "Gruppen vertauscht: Das Risiko der Exponierten gehört in den Zähler." }
+      ]
+    },
+    {
+      "type": "mc",
+      "question": "<em>Dieselbe Studie, beide Strata zusammen:</em> 144 von 1400 Exponierten (10,3 %) und 42 von 1200 Nicht-Exponierten (3,5 %) erkranken, rohes RR 2,94. Die Stratum-RRs waren 2,00 und 2,00 (adjustiertes RR 2,00). Was liegt vor?",
+      "options": [
+        { "text": "Confounding: Der Risikofaktor ist bei den Exponierten häufiger, das rohe RR überschätzt", "correct": true, "feedback": "Stratum-RRs gleich, adjustiertes RR (2,00) deutlich kleiner als roh (2,94). Von den Exponierten sind 1000 von 1400 im Hochrisiko-Stratum, von den Nicht-Exponierten nur 200 von 1200 – der Risikofaktor erfüllt die Confounder-Bedingungen." },
+        { "text": "Effektmodifikation: Die Wirkung hängt vom Risikofaktor ab", "correct": false, "feedback": "Dafür müssten sich die Stratum-RRs unterscheiden. Sie sind identisch (2,00 und 2,00)." },
+        { "text": "Weder noch: Das rohe RR ist brauchbar", "correct": false, "feedback": "Rohes RR 2,94 und adjustiertes RR 2,00 unterscheiden sich um fast ein Drittel – das rohe RR ist verzerrt." },
+        { "text": "Zufall: Bei 186 Erkrankten streuen die Zahlen eben", "correct": false, "feedback": "Der Unterschied zwischen roh und adjustiert ist kein Streuen, sondern ein systematisches Muster: Exposition und Risikofaktor treten gemeinsam auf." }
+      ]
+    },
+    {
+      "type": "mc",
+      "question": "<em>Fiktive Studie:</em> Rohes RR 1,8; in den beiden Strata einer dritten Variable 1,2 und 3,0. Was sollte berichtet werden?",
+      "options": [
+        { "text": "Beide Stratum-RRs getrennt (Effektmodifikation)", "correct": true, "feedback": "Die Stratum-RRs unterscheiden sich deutlich; ein einzelnes RR beschreibt keine der beiden Gruppen zutreffend." },
+        { "text": "Das adjustierte RR", "correct": false, "feedback": "Ein adjustiertes RR mittelt 1,2 und 3,0 zu einer Zahl, die für niemanden gilt. Adjustieren ist die Antwort auf Confounding, nicht auf Effektmodifikation." },
+        { "text": "Das rohe RR", "correct": false, "feedback": "Das rohe RR 1,8 trifft weder die eine (1,2) noch die andere Gruppe (3,0)." },
+        { "text": "Nichts – die Studie muss wiederholt werden", "correct": false, "feedback": "Unterschiedliche Stratum-RRs sind ein Befund, kein Fehler: Die Exposition wirkt in den Gruppen verschieden stark." }
+      ]
+    },
+    {
+      "type": "mc",
+      "question": "Warum gleicht Randomisierung auch <strong>unbekanntes</strong> Confounding aus?",
+      "options": [
+        { "text": "Weil die Zuteilung per Los von allen Merkmalen unabhängig ist – bekannten wie unbekannten", "correct": true, "feedback": "Das Los kennt die Person nicht. Deshalb verteilen sich alle Merkmale im Mittel gleich auf die Gruppen, auch die, an die niemand gedacht hat." },
+        { "text": "Weil randomisierte Studien groß sind", "correct": false, "feedback": "Die Größe verkleinert Zufallsunterschiede, aber auch eine kleine randomisierte Studie hat im Erwartungswert gleiche Gruppen. Entscheidend ist das Los, nicht n." },
+        { "text": "Weil in RCTs alle Confounder gemessen werden", "correct": false, "feedback": "Gemessen werden kann nur, was man kennt. Die Stärke der Randomisierung ist gerade, dass sie ohne Messung auskommt." },
+        { "text": "Weil die Teilnehmenden verblindet sind", "correct": false, "feedback": "Verblindung schützt vor Informationsbias (Modul 5a: Wer die Gruppe kennt, misst oder berichtet anders), nicht vor Confounding." }
+      ]
+    },
+    {
+      "type": "mc",
+      "question": "Beispielkohorte: rohes RR 1,66, nach Alter adjustiert 1,51. Welche Aussage ist korrekt?",
+      "options": [
+        { "text": "Das Alter erklärt einen Teil der Assoziation; der Rest kann ein Effekt der Hypertonie oder Restconfounding sein", "correct": true, "feedback": "Adjustieren hat das RR verkleinert, aber nicht auf 1. Was bleibt, ist um das Alter bereinigt – weitere Confounder (z. B. nicht gemessene) sind nicht ausgeschlossen." },
+        { "text": "Das Alter erklärt die Assoziation vollständig", "correct": false, "feedback": "Dann wäre das adjustierte RR etwa 1,0. Es ist 1,51 – die Assoziation bleibt weitgehend bestehen." },
+        { "text": "Das Alter spielt keine Rolle", "correct": false, "feedback": "Das RR hat sich um 9 % geändert, und das Alter erfüllt alle drei Confounder-Bedingungen. Es spielt eine Rolle, nur keine alles erklärende." },
+        { "text": "Das adjustierte RR 1,51 beweist, dass Hypertonie CKD verursacht", "correct": false, "feedback": "Adjustiert heißt um das Gemessene bereinigt. Restconfounding ist in Beobachtungsstudien nie auszuschließen – ein RR beweist keine Kausalität." }
+      ]
+    },
+    {
+      "type": "mc",
+      "tag": "Wiederholung · Modul 3",
+      "question": "<em>Fiktiver RCT:</em> Von 500 behandelten Personen erkranken 40, von 500 mit Placebo 60. Wie groß ist die Number needed to treat (NNT)?",
+      "options": [
+        { "text": "25", "correct": true, "feedback": "Risiken 8 % und 12 %, Risikodifferenz 4 Prozentpunkte; NNT = 1 / 0,04 = 25 Personen müssen behandelt werden, um eine Erkrankung zu verhindern (im Studienzeitraum)." },
+        { "text": "2,5", "correct": false, "feedback": "Dezimalfehler: 1 / 4 wäre 0,25 – aber die Risikodifferenz ist 0,04 (4 Prozentpunkte), und 1 / 0,04 = 25." },
+        { "text": "0,67", "correct": false, "feedback": "0,67 ist das RR (8 % / 12 %). Die NNT ist der Kehrwert der Risiko<em>differenz</em>." },
+        { "text": "20", "correct": false, "feedback": "20 wäre 1 / 0,05 – aber die Differenz ist 12 % − 8 % = 4 Prozentpunkte, nicht 5." }
+      ]
+    },
+    {
+      "type": "mc",
+      "tag": "Wiederholung · Modul 1",
+      "question": "In einer Querschnittsstudie haben 12 % der Untersuchten eine CKD. Welche Maßzahl ist das?",
+      "options": [
+        { "text": "Prävalenz", "correct": true, "feedback": "Anteil der Erkrankten zu einem Zeitpunkt – genau das misst eine Querschnittsstudie." },
+        { "text": "Kumulative Inzidenz (Risiko)", "correct": false, "feedback": "Das Risiko zählt <em>Neuerkrankungen</em> über eine Zeitspanne bei anfangs Gesunden. Ein Querschnitt hat keine Zeitspanne." },
+        { "text": "Inzidenzrate", "correct": false, "feedback": "Eine Rate braucht Personenzeit im Nenner (Modul 1). Hier gibt es weder Nachbeobachtung noch Neuerkrankungen." },
+        { "text": "Relatives Risiko", "correct": false, "feedback": "Ein RR vergleicht zwei Gruppen. Hier wird nur ein Anteil in einer Gruppe angegeben." }
+      ]
+    }
+  ]
+}
+</script>
+</div>
+```
+
+## Dasselbe in R {#dasselbe-in-r}
+
+::: {.r-pfad}
+<span class="epir-badge epir-badge-r">Vertiefung R</span> Baut auf den R-Teilen der Module 1 bis 5a auf (`read_csv()`, `filter()`, `mutate()`, `case_when()`, `group_by()`, `summarise()`, `ggplot()` mit `geom_col()`, Pipe `|>`). Neu hier: `group_by()` mit **zwei** Variablen, logische Indexierung innerhalb von `summarise()` (`risiko[hypertonie == 1]`) und `facet_wrap()` (eine Grafik je Stratum).
+:::
+
+Die Idee dieses R-Teils: Die stratifizierte Analyse des Konzeptteils Schritt für Schritt nachbauen – Altersgruppen bilden, Risiken je Stratum und Exposition, Stratum-RRs, Abbildung, zum Schluss der Mantel-Haenszel-Schätzer.
+
+### R0 · Daten ansehen
+
+Führen Sie den Block aus („Run Code“); hier gibt es nichts zu lösen. Es entsteht `unter_risiko` (1638 Personen ohne CKD zu Beginn), die Tabelle für alle Übungen.
+
+```{webr}
+library(dplyr)
+library(readr)
+
+kohorte <- read_csv("data/ckd_kohorte.csv", show_col_types = FALSE)
+unter_risiko <- kohorte |> filter(ckd_baseline == 0)
+
+glimpse(unter_risiko)         # one line per column: name, type, first values
+unter_risiko |> count(hypertonie)   # how many exposed / unexposed?
+```
+
+::: {.callout-note collapse="true"}
+## Lesehilfe
+- Für dieses Modul brauchen Sie: `alter` (Jahre, der Confounder), `hypertonie` (Exposition, 1 = ja) und `ckd_inzident` (neue CKD in der Nachbeobachtung, 1 = ja). Alle Spalten: [Codebook](../data/codebook.md).
+- `count(hypertonie)` liefert 1017 Personen ohne und 621 mit Hypertonie – die Zeilensummen der rohen Vierfeldertafel.
+- Die Zeilen von R0 laufen vor jeder Übung unsichtbar noch einmal – jede Übung funktioniert deshalb auch für sich allein.
+:::
+
+### Code lesen: Was kommt heraus?
+
+Sagen Sie voraus, was dieser Code ausgibt – erst danach weiterlesen.
+
+```{=html}
+<div class="epir-quiz">
+<script type="application/json">
+{
+  "items": [
+    {
+      "type": "mc",
+      "tag": "Code lesen",
+      "question": "Wie viele Zeilen hat die Ausgabe?",
+      "code": "unter_risiko |>\n  mutate(altersgruppe = if_else(alter < 65, \"unter 65\", \"65 und aelter\")) |>\n  group_by(altersgruppe, hypertonie) |>\n  summarise(risiko = mean(ckd_inzident))",
+      "options": [
+        { "text": "<strong>4 Zeilen</strong> – je eine Kombination aus Altersgruppe (2) und Hypertonie (2)", "correct": true, "feedback": "<code>group_by()</code> mit zwei Variablen bildet alle vorkommenden Kombinationen: 2 × 2 = 4 Gruppen, <code>summarise()</code> gibt je Gruppe eine Zeile. Das sind die vier Risiken der beiden Stratum-Tafeln." },
+        { "text": "2 Zeilen – eine je Altersgruppe", "correct": false, "feedback": "Das wäre <code>group_by(altersgruppe)</code> allein. Mit <code>hypertonie</code> als zweiter Gruppierungsvariable wird jede Altersgruppe noch einmal geteilt." },
+        { "text": "1 Zeile – das Gesamtrisiko", "correct": false, "feedback": "Eine Zeile entsteht nur ohne <code>group_by()</code>. Hier wird nach zwei Variablen gruppiert." },
+        { "text": "1638 Zeilen – eine je Person", "correct": false, "feedback": "<code>summarise()</code> fasst jede Gruppe zu einer Zeile zusammen; <code>mutate()</code> hätte 1638 Zeilen behalten." }
+      ]
+    }
+  ]
+}
+</script>
+</div>
+```
+
+### Übung R1: Altersgruppen bilden
+
+Der Confounder Alter liegt in Jahren vor. Für die Stratifizierung brauchen wir zwei Gruppen. `case_when()` kennen Sie aus Modul 2: links die Bedingung, rechts nach `~` der Wert. Ergänzen Sie die Bedingung für „unter 65“.
+
+```{webr}
+#| setup: true
+#| exercise: ex_ag
+library(dplyr)
+library(readr)
+kohorte <- read_csv("data/ckd_kohorte.csv", show_col_types = FALSE)
+unter_risiko <- kohorte |> filter(ckd_baseline == 0)
+```
+
+```{webr}
+#| exercise: ex_ag
+unter_risiko <- unter_risiko |>
+  mutate(altersgruppe = case_when(
+    ______ ~ "unter 65",
+    TRUE   ~ "65 und aelter"
+  ))
+
+table(unter_risiko$altersgruppe)
+```
+
+::: {.hint exercise="ex_ag"}
+::: {.callout-note collapse="false"}
+## Hinweis
+Die Bedingung ist ein Vergleich der Spalte `alter` mit 65. `TRUE ~ ...` in der letzten Zeile fängt alle übrigen Personen auf. `table()` (Base R) zählt, wie oft jeder Wert vorkommt.
+:::
+:::
+
+::: {.solution exercise="ex_ag"}
+::: {.callout-tip collapse="false"}
+## Lösung
+```r
+unter_risiko <- unter_risiko |>
+  mutate(altersgruppe = case_when(
+    # Schritt 1: erste Bedingung – alle unter 65 Jahren
+    alter < 65 ~ "unter 65",
+    # Schritt 2: alle übrigen (also 65 und älter)
+    TRUE       ~ "65 und aelter"
+  ))
+
+# Schritt 3: prüfen, wie groß die Strata sind
+table(unter_risiko$altersgruppe)
+```
+1146 Personen unter 65, 492 Personen 65 und älter. Mit `<= 64` statt `< 65` kommt dasselbe heraus, weil das Alter in ganzen Jahren vorliegt.
+:::
+:::
+
+```{webr}
+#| exercise: ex_ag
+#| check: true
+werte <- tryCatch(as.numeric(.result), error = function(e) numeric(0))
+if (length(werte) == 2 && all(sort(werte) == c(492, 1146))) {
+  list(correct = TRUE, type = "success", message = "Richtig. 1146 Personen unter 65, 492 Personen 65 und älter – die beiden Strata für alle folgenden Übungen.")
+} else if (length(werte) == 2 && all(sort(werte) == c(439, 1199))) {
+  list(correct = FALSE, type = "warning", message = "Fast: Mit alter <= 65 zählen die 65-Jährigen zur jüngeren Gruppe (1199 / 439). Gemeint war unter 65, also alter < 65.")
+} else if (length(werte) == 1) {
+  list(correct = FALSE, type = "warning", message = "Nur eine Gruppe – die Bedingung trifft auf alle oder niemanden zu. Prüfen Sie den Vergleich (alter < 65).")
+} else {
+  list(correct = FALSE, type = "info", message = "Noch nicht ganz. Die Bedingung lautet alter < 65 (links vom ~).")
+}
+```
+
+### Übung R2: Risiko je Stratum und Exposition
+
+Jetzt die vier Risiken der beiden Stratum-Tafeln. `group_by()` nimmt beliebig viele Variablen; `summarise()` liefert dann eine Zeile je Kombination. Ergänzen Sie die zweite Gruppierungsvariable.
+
+```{webr}
+#| setup: true
+#| exercise: ex_risk
+library(dplyr)
+library(readr)
+kohorte <- read_csv("data/ckd_kohorte.csv", show_col_types = FALSE)
+unter_risiko <- kohorte |> filter(ckd_baseline == 0) |>
+  mutate(altersgruppe = if_else(alter < 65, "unter 65", "65 und aelter"))
+```
+
+```{webr}
+#| exercise: ex_risk
+risiken <- unter_risiko |>
+  group_by(altersgruppe, ______) |>
+  summarise(
+    n = n(),
+    faelle = sum(ckd_inzident),
+    risiko = faelle / n,
+    .groups = "drop"
+  )
+
+risiken
+```
+
+::: {.hint exercise="ex_risk"}
+::: {.callout-note collapse="false"}
+## Hinweis
+Innerhalb jeder Altersgruppe sollen Exponierte und Nicht-Exponierte getrennt werden – die zweite Variable ist die Exposition. `.groups = "drop"` hebt die Gruppierung danach auf (sonst gibt `summarise()` eine Meldung aus).
+:::
+:::
+
+::: {.solution exercise="ex_risk"}
+::: {.callout-tip collapse="false"}
+## Lösung
+```r
+risiken <- unter_risiko |>
+  # Schritt 1: nach Stratum UND Exposition gruppieren -> 2 x 2 = 4 Gruppen
+  group_by(altersgruppe, hypertonie) |>
+  summarise(
+    # Schritt 2: Nenner und Zähler je Gruppe
+    n = n(),
+    faelle = sum(ckd_inzident),
+    # Schritt 3: Risiko = Zähler / Nenner
+    risiko = faelle / n,
+    .groups = "drop"
+  )
+
+risiken
+```
+Vier Zeilen: 65 und älter ohne Hypertonie 29/265 = 0,109, mit Hypertonie 37/227 = 0,163; unter 65 ohne 36/752 = 0,048, mit 29/394 = 0,074. Das sind die vier Risiken aus den Stratum-Tafeln des Konzeptteils (die Reihenfolge der Zeilen ist alphabetisch: „65 und aelter“ vor „unter 65“).
+:::
+:::
+
+```{webr}
+#| exercise: ex_risk
+#| check: true
+erw <- unter_risiko |> group_by(altersgruppe, hypertonie) |> summarise(p = mean(ckd_inzident), .groups = "drop")
+werte <- tryCatch({
+  if (is.data.frame(.result)) unlist(Filter(is.numeric, .result)) else as.numeric(.result)
+}, error = function(e) numeric(0))
+hat <- function(x) any(abs(werte - x) < 1e-3, na.rm = TRUE)
+nur_ag <- unter_risiko |> group_by(altersgruppe) |> summarise(p = mean(ckd_inzident))
+if (is.data.frame(.result) && nrow(.result) == 4 && all(sapply(erw$p, hat))) {
+  list(correct = TRUE, type = "success", message = "Richtig. Vier Risiken: unter 65 4,8 % vs. 7,4 %, 65 und älter 10,9 % vs. 16,3 % – die Stratum-Tafeln des Konzeptteils.")
+} else if (is.data.frame(.result) && nrow(.result) == 2 && all(sapply(nur_ag$p, hat))) {
+  list(correct = FALSE, type = "warning", message = "Zwei Zeilen: Das sind die Risiken je Altersgruppe ohne Trennung nach Exposition. Fügen Sie hypertonie als zweite Variable in group_by() ein.")
+} else {
+  list(correct = FALSE, type = "info", message = "Noch nicht ganz. group_by(altersgruppe, hypertonie) liefert die vier Gruppen.")
+}
+```
+
+### Übung R3: Stratum-RRs
+
+Aus den vier Risiken werden zwei RRs. Der Trick ist die **logische Indexierung** innerhalb von `summarise()`: `risiko[hypertonie == 1]` greift innerhalb jeder Gruppe das Risiko der Exponierten heraus. Der Code ist fast fertig – nur der Nenner ist noch falsch: Er soll das Risiko der **Nicht**-Exponierten sein.
+
+```{webr}
+#| setup: true
+#| exercise: ex_rr
+library(dplyr)
+library(readr)
+kohorte <- read_csv("data/ckd_kohorte.csv", show_col_types = FALSE)
+unter_risiko <- kohorte |> filter(ckd_baseline == 0) |>
+  mutate(altersgruppe = if_else(alter < 65, "unter 65", "65 und aelter"))
+risiken <- unter_risiko |>
+  group_by(altersgruppe, hypertonie) |>
+  summarise(n = n(), faelle = sum(ckd_inzident), risiko = faelle / n, .groups = "drop")
+```
+
+```{webr}
+#| exercise: ex_rr
+risiken |>
+  group_by(altersgruppe) |>
+  summarise(rr = risiko[hypertonie == 1] / risiko[hypertonie == 1])
+```
+
+::: {.hint exercise="ex_rr"}
+::: {.callout-note collapse="false"}
+## Hinweis
+Zähler: Risiko der Exponierten (`hypertonie == 1`). Nenner: Risiko der Nicht-Exponierten (`hypertonie == 0`). Im Moment steht zweimal dasselbe – deshalb kommt überall 1 heraus.
+:::
+:::
+
+::: {.solution exercise="ex_rr"}
+::: {.callout-tip collapse="false"}
+## Lösung
+```r
+risiken |>
+  # Schritt 1: je Altersgruppe eine Zeile (zwei Strata)
+  group_by(altersgruppe) |>
+  # Schritt 2: RR = Risiko exponiert / Risiko nicht exponiert
+  #            risiko[hypertonie == 1] wählt innerhalb der Gruppe die Zeile mit Hypertonie aus
+  summarise(rr = risiko[hypertonie == 1] / risiko[hypertonie == 0])
+```
+RR 1,49 (65 und älter) und 1,54 (unter 65) – beide unter dem rohen RR 1,66 und untereinander ungefähr gleich.
+:::
+:::
+
+```{webr}
+#| exercise: ex_rr
+#| check: true
+werte <- tryCatch({
+  if (is.data.frame(.result)) unlist(Filter(is.numeric, .result)) else as.numeric(.result)
+}, error = function(e) numeric(0))
+hat <- function(x) any(abs(werte - x) < 0.01, na.rm = TRUE)
+if (length(werte) == 2 && hat(1.54) && hat(1.49)) {
+  list(correct = TRUE, type = "success", message = "Richtig. RR 1,54 (unter 65) und 1,49 (65 und älter): In beiden Strata ist das Risiko mit Hypertonie etwa 1,5-mal so hoch – roh waren es 1,66.")
+} else if (length(werte) == 2 && hat(0.65) && hat(0.67)) {
+  list(correct = FALSE, type = "warning", message = "Das sind die Kehrwerte (0,65 / 0,67): Zähler und Nenner sind vertauscht. Das Risiko der Exponierten (hypertonie == 1) gehört in den Zähler.")
+} else if (length(werte) == 2 && all(abs(werte - 1) < 1e-9)) {
+  list(correct = FALSE, type = "warning", message = "Überall 1: Zähler und Nenner sind noch identisch. Im Nenner muss hypertonie == 0 stehen.")
+} else {
+  list(correct = FALSE, type = "info", message = "Noch nicht ganz. summarise(rr = risiko[hypertonie == 1] / risiko[hypertonie == 0]).")
+}
+```
+
+### Übung R4: Eine Grafik je Stratum
+
+Die Abbildung aus dem Abschnitt „Kerndatensatz“ in R: Balken je Exposition, eine Teilgrafik je Altersgruppe. `facet_wrap()` teilt eine Grafik nach einer Variable in nebeneinanderliegende Felder; die Variable wird mit einer Tilde angegeben: `facet_wrap(~ variable)`. Ergänzen Sie die Facet-Variable.
+
+```{webr}
+#| setup: true
+#| exercise: ex_facet
+library(dplyr)
+library(readr)
+library(ggplot2)
+kohorte <- read_csv("data/ckd_kohorte.csv", show_col_types = FALSE)
+unter_risiko <- kohorte |> filter(ckd_baseline == 0) |>
+  mutate(altersgruppe = if_else(alter < 65, "unter 65", "65 und aelter"))
+risiken <- unter_risiko |>
+  group_by(altersgruppe, hypertonie) |>
+  summarise(n = n(), faelle = sum(ckd_inzident), risiko = faelle / n, .groups = "drop")
+```
+
+```{webr}
+#| exercise: ex_facet
+ggplot(risiken, aes(x = factor(hypertonie), y = risiko, fill = factor(hypertonie))) +
+  geom_col() +
+  facet_wrap(~ ______) +
+  labs(x = "Hypertonie (0 = nein, 1 = ja)", y = "neue CKD in 5 Jahren", fill = "Hypertonie")
+```
+
+::: {.hint exercise="ex_facet"}
+::: {.callout-note collapse="false"}
+## Hinweis
+Welche Spalte von `risiken` soll die Grafik in zwei Felder teilen? Es ist das Stratum. `factor(hypertonie)` macht aus 0/1 eine Kategorie, damit `ggplot()` zwei getrennte Balken (und Farben) zeichnet statt einer Zahlenachse.
+:::
+:::
+
+::: {.solution exercise="ex_facet"}
+::: {.callout-tip collapse="false"}
+## Lösung
+```r
+ggplot(risiken, aes(x = factor(hypertonie), y = risiko, fill = factor(hypertonie))) +
+  # Schritt 1: ein Balken je Exposition
+  geom_col() +
+  # Schritt 2: ein Feld je Stratum
+  facet_wrap(~ altersgruppe) +
+  # Schritt 3: Beschriftung
+  labs(x = "Hypertonie (0 = nein, 1 = ja)", y = "neue CKD in 5 Jahren", fill = "Hypertonie")
+```
+Zwei Felder (alphabetisch: „65 und aelter“ links, „unter 65“ rechts), in jedem ist der Balken mit Hypertonie höher – aber die Felder liegen auf verschiedenen Niveaus. Das ist Confounding im Bild: Das Alter verschiebt beide Balken, die Hypertonie den Abstand innerhalb eines Feldes.
+:::
+:::
+
+```{webr}
+#| exercise: ex_facet
+#| check: true
+ist_plot <- inherits(.result, "ggplot")
+facet_vars <- tryCatch(names(.result$facet$params$facets), error = function(e) character(0))
+if (ist_plot && length(facet_vars) == 1 && facet_vars == "altersgruppe") {
+  list(correct = TRUE, type = "success", message = "Richtig. facet_wrap(~ altersgruppe) zeichnet je Stratum ein Feld – der Unterschied zwischen den Balken bleibt in beiden erhalten, das Niveau nicht.")
+} else if (ist_plot && length(facet_vars) == 1 && facet_vars == "hypertonie") {
+  list(correct = FALSE, type = "warning", message = "Die Felder sind nach hypertonie geteilt – das ist schon die x-Achse. Geteilt werden soll nach dem Stratum: altersgruppe.")
+} else if (ist_plot && length(facet_vars) == 0) {
+  list(correct = FALSE, type = "warning", message = "Die Grafik hat keine Facetten. facet_wrap(~ altersgruppe) teilt sie in zwei Felder.")
+} else {
+  list(correct = FALSE, type = "info", message = "Noch nicht ganz. Das Ergebnis soll eine ggplot-Grafik mit facet_wrap(~ altersgruppe) sein.")
+}
+```
+
+### Code ordnen: Der Mantel-Haenszel-Schätzer
+
+Zum Schluss das adjustierte RR. Die fünf Zeilen berechnen je Stratum die Bausteine der Formel aus „Mehr dazu“ (a, n~1~, c, n~0~, N; Zähler a·n~0~/N, Nenner c·n~1~/N). Bringen Sie sie in die richtige Reihenfolge; jede Zeile hängt von den davor erzeugten Spalten ab.
+
+```{=html}
+<div class="epir-order">
+<script type="application/json">
+{
+  "code": true,
+  "prompt": "<strong>Position 1 = erste Zeile</strong> der Pipeline. Achten Sie darauf, welche Spalten jede Zeile braucht.",
+  "shown": [3, 1, 5, 2, 4],
+  "items": [
+    { "text": "unter_risiko |>", "feedback": "Jede Pipeline beginnt mit den Daten." },
+    { "text": "mutate(altersgruppe = if_else(alter < 65, \"unter 65\", \"65 und aelter\")) |>", "feedback": "Die Spalte altersgruppe muss existieren, bevor group_by() sie benutzen kann." },
+    { "text": "group_by(altersgruppe) |>", "feedback": "group_by() braucht die Spalte altersgruppe aus mutate(); erst danach rechnet summarise() je Stratum." },
+    { "text": "summarise(a = sum(ckd_inzident[hypertonie == 1]), n1 = sum(hypertonie == 1), c = sum(ckd_inzident[hypertonie == 0]), n0 = sum(hypertonie == 0), N = n()) |>", "feedback": "summarise() verdichtet jedes Stratum zu einer Zeile mit a, n1, c, n0 und N – die Bausteine der Formel." },
+    { "text": "mutate(zaehler = a * n0 / N, nenner = c * n1 / N)", "feedback": "zaehler und nenner brauchen a, n1, c, n0 und N aus summarise(); darum steht dieses mutate() zuletzt." }
+  ],
+  "success": "Führen Sie die Pipeline im nächsten Block aus: Die Summe der Zähler geteilt durch die Summe der Nenner ist das Mantel-Haenszel-RR."
+}
+</script>
+</div>
+```
+
+Hier dieselbe Pipeline ausführbar – mit einem letzten Schritt, der die Summen bildet:
+
+```{webr}
+library(dplyr)
+library(readr)
+kohorte <- read_csv("data/ckd_kohorte.csv", show_col_types = FALSE)
+unter_risiko <- kohorte |> filter(ckd_baseline == 0)
+
+strata <- unter_risiko |>
+  mutate(altersgruppe = if_else(alter < 65, "unter 65", "65 und aelter")) |>
+  group_by(altersgruppe) |>
+  summarise(a = sum(ckd_inzident[hypertonie == 1]), n1 = sum(hypertonie == 1),
+            c = sum(ckd_inzident[hypertonie == 0]), n0 = sum(hypertonie == 0), N = n()) |>
+  mutate(zaehler = a * n0 / N, nenner = c * n1 / N)
+
+strata
+sum(strata$zaehler) / sum(strata$nenner)   # Mantel-Haenszel RR
+```
+
+### Bonus: `mantelhaen.test()` lesen
+
+Base R bringt die Mantel-Haenszel-Rechnung als fertige Funktion mit – allerdings für das **Odds Ratio**, nicht das RR. Führen Sie den Block aus und lesen Sie die Ausgabe bis zur Zeile „common odds ratio“.
+
+```{webr}
+library(dplyr)
+library(readr)
+kohorte <- read_csv("data/ckd_kohorte.csv", show_col_types = FALSE)
+unter_risiko <- kohorte |> filter(ckd_baseline == 0) |>
+  mutate(altersgruppe = if_else(alter < 65, "unter 65", "65 und aelter"))
+
+# three-way table: exposure x outcome x stratum (base R)
+mantelhaen.test(table(unter_risiko$hypertonie, unter_risiko$ckd_inzident, unter_risiko$altersgruppe))
+```
+
+Die Zeile `common odds ratio` zeigt `r de(mh_or, 2)` – das adjustierte **OR**, größer als das adjustierte RR `r de(mh, 2)`. Das ist die Regel aus Modul 3: Bei einem Risiko über etwa 10 % liegt das OR weiter von 1 entfernt als das RR. Die Zeilen `p-value` und `95 percent confidence interval` lassen wir bewusst stehen: Was sie bedeuten, ist Thema von Modul 6. Die Ausgabe ist typisch für Base-R-Tests – Modul 7 zeigt, wie man solche Ausgaben systematisch liest.
+
+::: {.callout-note collapse="true"}
+## Was Sie in R mitnehmen
+- `group_by()` mit zwei Variablen bildet alle Kombinationen – die Vierfeldertafeln aller Strata in einer Tabelle.
+- Logische Indexierung `x[bedingung]` wählt innerhalb einer Gruppe einzelne Werte aus; in `summarise()` lassen sich so Zeilen miteinander verrechnen (RR aus zwei Risiken).
+- `facet_wrap(~ variable)` zerlegt eine Grafik in ein Feld je Kategorie – das Stratifizieren für Abbildungen.
+- `mantelhaen.test()` ist Base R: funktioniert ohne Pakete, rechnet aber das OR, nicht das RR.
+:::
+
+## Quellen und weiterführende Literatur
+
+- Webb P, Bain C, Page A. *Essential Epidemiology: An Introduction for Students and Health Professionals*. 4. Aufl. Cambridge: Cambridge University Press; 2020. Kapitel 8 „Muddied waters: The challenge of confounding“ (Confounder-Bedingungen, Kontrolle im Design und in der Auswertung, Effektmodifikation); Anhang 8 (Mantel-Haenszel-Methode). Inhaltsverzeichnis: <https://assets.cambridge.org/97811087/66807/frontmatter/9781108766807_frontmatter.pdf>
+- Lash TL, VanderWeele TJ, Haneuse S, Rothman KJ. *Modern Epidemiology*. 4. Aufl. Philadelphia: Wolters Kluwer; 2021. Kapitel 12 „Confounding and Confounders“ (Verlagsseite: <https://shop.lww.com/Modern-Epidemiology/p/9781451193282>) – Confounding, Effektmodifikation (effect-measure modification), Skalenabhängigkeit.
+- Celentano DD, Szklo M. *Gordis Epidemiology*. 6. Aufl. Philadelphia: Elsevier; 2019. Kapitel 15 „More on Causal Inference: Bias, Confounding, and Interaction“.
+- Maldonado G, Greenland S. Simulation study of confounder-selection strategies. *Am J Epidemiol* 1993;138:923–936. <https://doi.org/10.1093/oxfordjournals.aje.a116813> – Grundlage der 10-%-Konvention (change-in-estimate).
+- Burstyn I. The mockery that confounds better treatment of confounding in epidemiology: The change in estimate fallacy. *Glob Epidemiol* 2024;8:100166. <https://doi.org/10.1016/j.gloepi.2024.100166> (frei zugänglich: [PMC11474205](https://pmc.ncbi.nlm.nih.gov/articles/PMC11474205/)) – Kritik der 10-%-Regel.
+- VanderWeele TJ. Principles of confounder selection. *Eur J Epidemiol* 2019;34:211–219. <https://doi.org/10.1007/s10654-019-00494-6> – Confounder-Auswahl aus Vorwissen statt aus den Daten.
+- Grimes DA, Schulz KF. Bias and causal associations in observational research. *Lancet* 2002;359:248–252. <https://doi.org/10.1016/S0140-6736(02)07451-2> – Confounding und Confounding by indication in Beobachtungsstudien.
+- Hernán MA, Robins JM. *Causal Inference: What If*. Boca Raton: Chapman & Hall/CRC; 2020. Frei zugänglich: <https://miguelhernan.org/whatifbook> – „Mehr dazu“: Kausaldiagramme, Kollider, formale Adjustierungsregeln.
+- Catalogue of Bias, Centre for Evidence-Based Medicine, Universität Oxford: <https://catalogofbias.org/> – Einträge „Confounding“ und „Confounding by indication“ (englisch).
+- dplyr- und ggplot2-Dokumentation: `case_when()`, `group_by()`, `summarise()`: <https://dplyr.tidyverse.org>; `facet_wrap()`: <https://ggplot2.tidyverse.org/reference/facet_wrap.html>
+- R-Dokumentation `mantelhaen.test()` (Paket stats): <https://stat.ethz.ch/R-manual/R-devel/library/stats/html/mantelhaen.test.html>

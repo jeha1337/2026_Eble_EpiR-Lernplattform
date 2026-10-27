@@ -1,0 +1,81 @@
+---
+title: "Glossar"
+subtitle: "Fachbegriffe deutsch / englisch mit Kurzdefinition und Modulverweis"
+---
+
+::: {.callout-note appearance="simple"}
+**Entwurf zur Durchsicht (Oktober 2026).** Das Glossar wird mit jedem Modul erweitert. Die Klausur in Modul 13 ist englischsprachig; deshalb steht zu jedem deutschen Begriff die englische Entsprechung. Die Kurzdefinitionen ersetzen nicht die Erklärung im Modul – der Verweis in der letzten Spalte führt dorthin.
+:::
+
+Abkürzungen werden bei der ersten Nennung in jedem Modul ausgeschrieben; hier stehen sie zusätzlich gesammelt.
+
+## Klinische Begriffe {#klinisch}
+
+Nachschlagepunkt für alle Module; Angaben nach der KDIGO-Leitlinie 2024 (Quelle in [Modul 1](module/01_praevalenz_inzidenz.qmd#niere-kurz)).
+
+| Deutsch | Englisch | Kurzdefinition | Modul |
+|---|---|---|---|
+| CKD – chronische Nierenkrankheit | chronic kidney disease | Nierenschaden oder eGFR < 60, der bzw. die mindestens drei Monate besteht; häufigste Ursachen Diabetes und Bluthochdruck | [1](module/01_praevalenz_inzidenz.qmd#niere-kurz) |
+| eGFR – geschätzte glomeruläre Filtrationsrate | estimated glomerular filtration rate | Filterleistung der Nieren in mL/min/1,73 m², aus Kreatinin (ggf. Cystatin C) geschätzt; < 60 erfüllt das CKD-Kriterium | [1](module/01_praevalenz_inzidenz.qmd#niere-kurz) |
+| UACR – Albumin-Kreatinin-Quotient im Urin | urine albumin-creatinine ratio | Albumin im Urin bezogen auf Kreatinin (mg/g); ≥ 30 mg/g = Albuminurie, ein Zeichen für Nierenschaden | [1](module/01_praevalenz_inzidenz.qmd#niere-kurz) |
+| Albuminurie | albuminuria | Erhöhte Albuminausscheidung im Urin (UACR ≥ 30 mg/g) | [1](module/01_praevalenz_inzidenz.qmd#niere-kurz), [2](module/02_diagnostische_tests.qmd) |
+| Hypertonie | hypertension | Bluthochdruck; in der Beispielkohorte die Exposition der Module 3, 5a und 5b | [3](module/03_risiko_rr_or_nnt.qmd) |
+| Progression | progression | Fortschreiten einer Erkrankung, hier Verschlechterung der Nierenfunktion | [5b](module/05b_confounding.qmd#worked-b) |
+| NSAR – nichtsteroidale Antirheumatika | NSAIDs – non-steroidal anti-inflammatory drugs | Schmerz- und Entzündungshemmer wie Ibuprofen; in 5b Exposition eines fiktiven Beispiels | [5b](module/05b_confounding.qmd#effektmodifikation) |
+
+## Studiendesign und Bias (Modul 5a) {#design-bias}
+
+| Deutsch | Englisch | Kurzdefinition | Modul |
+|---|---|---|---|
+| Beobachtungsstudie | observational study | Exposition entsteht ohne Zutun der Forschenden | [5a](module/05a_studiendesign_bias.qmd) |
+| Experiment, randomisierte kontrollierte Studie | experiment, randomized controlled trial (RCT) | Forschende teilen die Exposition per Zufall zu | [5a](module/05a_studiendesign_bias.qmd) |
+| Querschnittsstudie | cross-sectional study | Exposition und Erkrankung gleichzeitig gemessen; Prävalenz | [5a](module/05a_studiendesign_bias.qmd) |
+| Kohortenstudie (prospektiv / retrospektiv) | cohort study (prospective / retrospective) | Gruppen nach Exposition, Blick nach vorn; Risiko, RR | [5a](module/05a_studiendesign_bias.qmd) |
+| Fall-Kontroll-Studie | case-control study | Gruppen nach Erkrankung, Exposition rückblickend; nur OR | [5a](module/05a_studiendesign_bias.qmd#masszahl) |
+| Fälle / Kontrollen | cases / controls | Erkrankte / Vergleichspersonen ohne die Erkrankung | [5a](module/05a_studiendesign_bias.qmd) |
+| Prävalenzverhältnis | prevalence ratio (PR) | Quotient zweier Prävalenzen (Querschnitt) | [5a](module/05a_studiendesign_bias.qmd#masszahl) |
+| Systematischer Fehler, Verzerrung | bias, systematic error | Abweichung vom wahren Wert in immer dieselbe Richtung; wird durch mehr Teilnehmende nicht kleiner | [5a](module/05a_studiendesign_bias.qmd) |
+| Zufallsfehler | random error | Abweichung durch Stichprobenziehung; wird mit n kleiner | [4](module/04_verteilungen_zufall.qmd), [5a](module/05a_studiendesign_bias.qmd) |
+| Selektionsbias | selection bias | Auswahl in die Studie (oder Verbleib) hängt mit Exposition und Erkrankung zusammen | [5a](module/05a_studiendesign_bias.qmd) |
+| Informationsbias, Fehlklassifikation | information bias, misclassification | Exposition oder Erkrankung falsch erfasst | [5a](module/05a_studiendesign_bias.qmd) |
+| nicht-differenziell / differenziell | non-differential / differential | Messfehler in beiden Gruppen gleich / ungleich | [5a](module/05a_studiendesign_bias.qmd) |
+| Erinnerungsverzerrung | recall bias | Erkrankte erinnern Expositionen anders als Gesunde | [5a](module/05a_studiendesign_bias.qmd) |
+| Verlust in der Nachbeobachtung | loss to follow-up, attrition | Vorzeitiges Ausscheiden aus einer Kohorte | [5a](module/05a_studiendesign_bias.qmd) |
+| Zensierung | censoring | Beobachtung endet, bevor das Ereignis eintritt | [1](module/01_praevalenz_inzidenz.qmd), [5a](module/05a_studiendesign_bias.qmd) |
+| Zeitlichkeit | temporality | Exposition geht der Erkrankung voraus (Bradford Hill) | [5a](module/05a_studiendesign_bias.qmd) |
+| Dosis-Wirkungs-Beziehung | dose-response relationship, biological gradient | Risiko steigt mit Dosis oder Dauer | [5a](module/05a_studiendesign_bias.qmd) |
+| Interne Validität | internal validity | Stimmt das Ergebnis für die untersuchten Personen? (frei von Bias und Confounding) | [5a](module/05a_studiendesign_bias.qmd) |
+| Externe Validität, Übertragbarkeit | external validity, generalizability | Gilt das Ergebnis auch für andere Personen? | [5a](module/05a_studiendesign_bias.qmd) |
+
+Englische Kurzeinträge zu jedem Bias: [Catalogue of Bias, Universität Oxford](https://catalogofbias.org/).
+
+## Confounding und Effektmodifikation (Modul 5b) {#confounding}
+
+| Deutsch | Englisch | Kurzdefinition | Modul |
+|---|---|---|---|
+| Confounder, Störgröße | confounder | Dritte Variable, die mit der Exposition assoziiert, ein eigenständiger Risikofaktor für das Outcome und kein Zwischenschritt ist | [5b](module/05b_confounding.qmd) |
+| Confounding | confounding | Verzerrung einer Assoziation durch einen Confounder; kann eine Assoziation erzeugen, verdecken oder umkehren | [5b](module/05b_confounding.qmd) |
+| Confounding by indication | confounding by indication | Die Indikation für eine Behandlung ist zugleich Risikofaktor für das Outcome; Hauptproblem von Beobachtungsstudien zu Therapien | [5b](module/05b_confounding.qmd#worked-b) |
+| Mediator, Intermediärvariable | mediator, intermediate variable | Zwischenschritt auf dem Weg von der Exposition zum Outcome; für den Gesamteffekt nicht adjustieren | [5b](module/05b_confounding.qmd) |
+| Kausaldiagramm | causal diagram, directed acyclic graph (DAG) | Pfeilbild der angenommenen Ursache-Wirkungs-Beziehungen | [5b](module/05b_confounding.qmd) |
+| Kollider | collider | Gemeinsame Folge zweier Variablen; Adjustieren dafür erzeugt Verzerrung (nur „Mehr dazu“) | [5b](module/05b_confounding.qmd) |
+| Stratifizierung | stratification | Auswertung getrennt nach Stufen einer dritten Variable | [5b](module/05b_confounding.qmd) |
+| Stratum (Mehrzahl Strata) | stratum (strata) | Eine Schicht der Stratifizierung, z. B. „unter 65 Jahre“ | [5b](module/05b_confounding.qmd) |
+| rohes RR | crude RR | RR aus der Gesamttafel ohne Berücksichtigung dritter Variablen | [5b](module/05b_confounding.qmd) |
+| adjustiertes RR, Adjustierung | adjusted RR, adjustment | Um gemessene Confounder bereinigtes RR (Stratifizierung oder Regression) | [5b](module/05b_confounding.qmd) |
+| Mantel-Haenszel-Schätzer | Mantel-Haenszel estimator | Gewichtetes Mittel der Stratum-Maßzahlen, große Strata zählen mehr | [5b](module/05b_confounding.qmd#kerndatensatz) |
+| Effektmodifikation | effect modification, effect-measure modification | Stärke des Zusammenhangs hängt von einer dritten Variable ab; Stratum-RRs getrennt berichten | [5b](module/05b_confounding.qmd#effektmodifikation) |
+| Interaktion | interaction | Statistischer Begriff für Effektmodifikation (Produktterm im Regressionsmodell) | [5b](module/05b_confounding.qmd#effektmodifikation) |
+| Simpson-Paradox | Simpson's paradox | Umkehr einer Assoziation beim Stratifizieren – erklärbar durch einen Confounder | [5b](module/05b_confounding.qmd#worked-b) |
+| Randomisierung | randomisation, randomization | Zuteilung der Exposition per Los; gleicht bekannte und unbekannte Confounder im Erwartungswert aus | [5a](module/05a_studiendesign_bias.qmd), [5b](module/05b_confounding.qmd) |
+| Restriktion | restriction | Einschluss nur einer Stufe des Confounders | [5b](module/05b_confounding.qmd) |
+| Matching | matching | Zu jeder exponierten Person eine nicht-exponierte mit gleichem Confounder-Wert | [5b](module/05b_confounding.qmd) |
+| Restconfounding | residual confounding | Verbleibendes Confounding durch unbekannte, nicht oder zu grob gemessene Confounder; in Beobachtungsstudien nie auszuschließen | [5b](module/05b_confounding.qmd) |
+| 10-%-Faustregel (Änderung der Schätzung) | 10 % change-in-estimate rule | Konvention: Confounder relevant, wenn sich die Schätzung beim Adjustieren um ≥ 10 % ändert; fachlich umstritten | [5b](module/05b_confounding.qmd#kerndatensatz) |
+
+## Quellen
+
+- KDIGO 2024 Clinical Practice Guideline for the Evaluation and Management of Chronic Kidney Disease. *Kidney Int* 2024;105(4S):S117–S314. <https://doi.org/10.1016/j.kint.2023.10.018>
+- Porta M (Hrsg.). *A Dictionary of Epidemiology*. 6. Aufl. Oxford: Oxford University Press; 2014 – Referenz für die englische Terminologie.
+- Lash TL, VanderWeele TJ, Haneuse S, Rothman KJ. *Modern Epidemiology*. 4. Aufl. Philadelphia: Wolters Kluwer; 2021.
+- Catalogue of Bias, Centre for Evidence-Based Medicine, Universität Oxford: <https://catalogofbias.org/>

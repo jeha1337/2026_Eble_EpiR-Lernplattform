@@ -9,7 +9,7 @@ webr:
 {{< include ../_extensions/r-wasm/live/_knitr.qmd >}}
 
 ::: {.callout-note appearance="simple"}
-**Entwurf zur Durchsicht (Oktober 2026).** Fachinhalte sind quellengeprüft; Formulierungen und Aufgaben werden nach dem Review durch die Lehrenden angepasst. Modul 5 besteht aus zwei Seiten: **5a Studiendesign und Bias** (diese Seite) und **5b Confounding und Effektmodifikation** (folgt).
+**Entwurf zur Durchsicht (Oktober 2026).** Fachinhalte sind quellengeprüft; Formulierungen und Aufgaben werden nach dem Review durch die Lehrenden angepasst. Modul 5 besteht aus zwei Seiten: **5a Studiendesign und Bias** (diese Seite) und [**5b Confounding und Effektmodifikation**](05b_confounding.qmd).
 :::
 
 ```{r}
@@ -404,7 +404,7 @@ plot_dose_response(unter_risiko)
 ::: {.callout-note collapse="true"}
 ## Glossar: Design- und Bias-Begriffe (deutsch / englisch)
 
-Die Klausur in Modul 13 ist englischsprachig; hier die Begriffe dieses Moduls in beiden Sprachen.
+Die Klausur in Modul 13 ist englischsprachig; hier die Begriffe dieses Moduls in beiden Sprachen. Alle Begriffe der Plattform gesammelt: [Glossar](../glossar.qmd#design-bias).
 
 | Deutsch | Englisch | Kurzdefinition |
 |---|---|---|

@@ -771,3 +771,171 @@ plot_dose_response <- function(unter_risiko) {
     epir_theme() +
     theme(panel.grid.major.x = element_blank())
 }
+
+# =============================================================================
+# Module 5b: confounding and effect modification
+# =============================================================================
+
+fmt_rr_de <- function(x) formatC(x, format = "f", digits = 2, decimal.mark = ",")
+
+# Four small causal diagrams: confounder, mediator, two non-confounders.
+# Nodes: E (exposure, teal), O (outcome, orange), Z (third variable, grey);
+# the questioned E -> O association is dashed.
+plot_dag_panels <- function() {
+  nodes <- function(panel, labels) {
+    tibble(panel = panel, name = c("E", "O", "Z"), x = c(1, 2, 1.5), y = c(1, 1, 1.9), label = labels)
+  }
+  n <- bind_rows(
+    nodes("a) Confounder", c("Hypertonie", "neue CKD", "Alter")),
+    nodes("b) Mediator (Zwischenschritt)", c("Hypertonie", "neue CKD", "Gef\u00e4\u00dfschaden\nder Niere")),
+    nodes("c) nur mit der Exposition assoziiert", c("Hypertonie", "neue CKD", "Kochsalz-\nzufuhr (fiktiv)")),
+    nodes("d) nur mit dem Outcome assoziiert", c("Hypertonie", "neue CKD", "famili\u00e4re\nNierenerkrankung"))
+  ) |> mutate(panel = factor(panel, levels = unique(panel)))
+  e <- bind_rows(
+    tibble(panel = "a) Confounder", from = c("Z", "Z", "E"), to = c("E", "O", "O")),
+    tibble(panel = "b) Mediator (Zwischenschritt)", from = c("E", "Z"), to = c("Z", "O")),
+    tibble(panel = "c) nur mit der Exposition assoziiert", from = c("Z", "E"), to = c("E", "O")),
+    tibble(panel = "d) nur mit dem Outcome assoziiert", from = c("Z", "E"), to = c("O", "O"))
+  ) |> mutate(panel = factor(panel, levels = levels(n$panel)))
+  e <- e |>
+    left_join(n |> select(panel, from = name, x, y), by = c("panel", "from")) |>
+    left_join(n |> select(panel, to = name, xend = x, yend = y), by = c("panel", "to")) |>
+    mutate(questioned = from == "E" & to == "O",
+           dx = xend - x, dy = yend - y, len = sqrt(dx^2 + dy^2),
+           x = x + dx / len * 0.22, y = y + dy / len * 0.22,
+           xend = xend - dx / len * 0.22, yend = yend - dy / len * 0.22)
+  n <- n |> mutate(fill = case_when(name == "E" ~ "primary", name == "O" ~ "accent", TRUE ~ "grey"),
+                   ly = if_else(name == "Z", y + 0.3, y - 0.3))
+  ggplot() +
+    geom_segment(data = e, aes(x = x, y = y, xend = xend, yend = yend, linetype = questioned),
+                 arrow = arrow(length = unit(0.25, "cm"), type = "closed"), linewidth = 0.9, colour = epir_cols[["dark"]]) +
+    geom_point(data = n, aes(x = x, y = y, colour = fill), size = 13) +
+    geom_text(data = n, aes(x = x, y = y, label = name), colour = "white", size = 4.2, fontface = "bold") +
+    geom_text(data = n, aes(x = x, y = ly, label = label), colour = epir_cols[["dark"]], size = 3.1, lineheight = 0.85) +
+    scale_colour_manual(values = c(primary = epir_cols[["primary"]], accent = epir_cols[["accent"]], grey = "#6b7680"), guide = "none") +
+    scale_linetype_manual(values = c(`TRUE` = "22", `FALSE` = "solid"), guide = "none") +
+    facet_wrap(~ panel, ncol = 2) +
+    coord_cartesian(xlim = c(0.6, 2.4), ylim = c(0.55, 2.35)) +
+    labs(caption = "E = Exposition, O = Outcome, Z = dritte Variable. Gestrichelt: die zu pr\u00fcfende Assoziation.\nNur in a) ist Z ein Confounder: Z beeinflusst Exposition und Outcome und liegt nicht auf dem Weg dazwischen.") +
+    epir_theme() +
+    theme(axis.text = element_blank(), axis.title = element_blank(), panel.grid = element_blank(), strip.text = element_text(hjust = 0))
+}
+
+# Decision flowchart: stratum RRs equal? -> adjusted vs crude? (after Webb, Bain & Page 2020)
+plot_strat_decision <- function() {
+  b <- tribble(
+    ~x, ~y, ~label, ~fill, ~w,
+    2, 3, "Rohes RR berechnen,\ndann nach der dritten Variable stratifizieren", "dark", 2.6,
+    2, 2, "Sind die Stratum-RRs\nungef\u00e4hr gleich?", "blue", 2.0,
+    3.6, 1, "Nein \u2192 Effektmodifikation\nStratum-RRs getrennt berichten", "accent", 2.0,
+    1.1, 1, "Ja \u2192 Unterscheidet sich das\nadjustierte vom rohen RR?", "blue", 2.0,
+    0.1, 0, "Ja \u2192 Confounding\nadjustiertes RR berichten", "accent", 1.7,
+    2.1, 0, "Nein \u2192 kein relevantes Confounding\nrohes RR gen\u00fcgt", "primary", 1.8
+  )
+  arrows <- tribble(
+    ~x, ~y, ~xend, ~yend,
+    2, 2.72, 2, 2.3,
+    2, 1.7, 3.6, 1.3,
+    2, 1.7, 1.1, 1.3,
+    1.1, 0.7, 0.1, 0.3,
+    1.1, 0.7, 2.1, 0.3
+  )
+  cols <- c(dark = "#555555", blue = epir_cols[["blue"]], accent = epir_cols[["accent"]], primary = epir_cols[["primary"]])
+  ggplot(b) +
+    geom_segment(data = arrows, aes(x = x, y = y, xend = xend, yend = yend),
+                 arrow = arrow(length = unit(0.22, "cm"), type = "closed"), linewidth = 0.8, colour = epir_cols[["dark"]]) +
+    geom_tile(aes(x = x, y = y, fill = fill, width = w), height = 0.58, colour = NA) +
+    geom_text(aes(x = x, y = y, label = label), colour = "white", size = 3.3, lineheight = 0.9, fontface = "bold") +
+    scale_fill_manual(values = cols, guide = "none") +
+    coord_cartesian(xlim = c(-0.7, 4.7), ylim = c(-0.4, 3.4)) +
+    labs(caption = "Vereinfacht: \u201eungef\u00e4hr gleich\u201c nach Augenma\u00df; exakt pr\u00fcft ein Heterogenit\u00e4tstest (nicht Teil dieses Moduls).\nSchema adaptiert nach Webb, Bain & Page 2020.") +
+    epir_theme() +
+    theme(axis.text = element_blank(), axis.title = element_blank(), panel.grid = element_blank())
+}
+
+# Simpson-style line plot: risk by exposure, one line per stratum plus the crude line.
+# tables: list of c(a, n1, c, n0) per stratum (a/n1 exposed, c/n0 unexposed); names = stratum labels.
+plot_simpson <- function(tables, exposure_labels, ylab, caption = NULL) {
+  d <- bind_rows(lapply(names(tables), function(s) {
+    t <- tables[[s]]
+    tibble(stratum = s, exp = c(0, 1), risk = c(t[3] / t[4], t[1] / t[2]), n = c(t[4], t[2]))
+  }))
+  tot <- Reduce(`+`, tables)
+  d <- bind_rows(d, tibble(stratum = "alle zusammen (roh)", exp = c(0, 1), risk = c(tot[3] / tot[4], tot[1] / tot[2]), n = c(tot[4], tot[2]))) |>
+    mutate(stratum = factor(stratum, levels = c(names(tables), "alle zusammen (roh)")))
+  lab <- d |> group_by(stratum) |> summarise(y = risk[exp == 1], rr = risk[exp == 1] / risk[exp == 0], .groups = "drop") |>
+    mutate(label = paste0(stratum, "\nRR = ", fmt_rr_de(rr)))
+  # spread labels vertically if they would collide
+  lab <- lab |> arrange(y) |> mutate(y = { v <- y; for (i in seq_along(v)[-1]) if (v[i] - v[i - 1] < 0.045) v[i] <- v[i - 1] + 0.045; v })
+  ggplot(d, aes(x = exp, y = risk, group = stratum, colour = stratum)) +
+    geom_line(aes(linetype = stratum), linewidth = 1.1) +
+    geom_point(aes(size = n)) +
+    geom_text(data = lab, aes(x = 1.08, y = y, label = label), hjust = 0, size = 3.4, lineheight = 0.9, fontface = "bold", show.legend = FALSE) +
+    scale_colour_manual(values = c(epir_cols[["primary"]], epir_cols[["accent"]], "#555555"), guide = "none") +
+    scale_linetype_manual(values = c("solid", "solid", "22"), guide = "none") +
+    scale_size_area(max_size = 9, guide = "none") +
+    scale_x_continuous(breaks = c(0, 1), labels = exposure_labels, limits = c(-0.15, 1.75)) +
+    scale_y_continuous(labels = function(x) paste0(100 * x, " %"), limits = c(0, max(d$risk) * 1.12)) +
+    labs(x = NULL, y = ylab, caption = caption) +
+    epir_theme() +
+    theme(panel.grid.major.x = element_blank())
+}
+
+# Cohort: incident CKD by hypertension, crude and within two age strata (facets).
+plot_strat_bars <- function(unter_risiko, cut_age = 65) {
+  lv <- c("alle (roh)", sprintf("unter %d Jahre", cut_age), sprintf("%d Jahre und \u00e4lter", cut_age))
+  d <- unter_risiko |>
+    mutate(altersgruppe = if_else(alter < cut_age, lv[2], lv[3])) |>
+    group_by(altersgruppe, hypertonie) |>
+    summarise(n = n(), f = sum(ckd_inzident), r = f / n, .groups = "drop")
+  roh <- unter_risiko |> group_by(hypertonie) |> summarise(n = n(), f = sum(ckd_inzident), r = f / n, .groups = "drop") |> mutate(altersgruppe = lv[1])
+  d <- bind_rows(roh, d) |>
+    mutate(altersgruppe = factor(altersgruppe, levels = lv),
+           grp = factor(if_else(hypertonie == 1, "mit Hypertonie", "ohne Hypertonie"), levels = c("ohne Hypertonie", "mit Hypertonie")),
+           lab = sprintf("%s\n(%d/%d)", fmt_pct_de(r), f, n))
+  rr <- d |> group_by(altersgruppe) |> summarise(rr = r[hypertonie == 1] / r[hypertonie == 0], .groups = "drop") |> mutate(label = paste0("RR = ", fmt_rr_de(rr)))
+  ymax <- max(d$r) * 1.35
+  ggplot(d, aes(x = grp, y = r, fill = grp)) +
+    geom_col(width = 0.6) +
+    geom_text(aes(label = lab), vjust = -0.3, size = 3.1, lineheight = 0.9) +
+    geom_text(data = rr, aes(x = 1.5, y = ymax * 0.95, label = label), inherit.aes = FALSE, fontface = "bold", size = 3.8) +
+    facet_wrap(~ altersgruppe) +
+    scale_fill_manual(values = c(epir_cols[["primary"]], epir_cols[["accent"]]), guide = "none") +
+    scale_y_continuous(labels = function(x) paste0(round(100 * x), " %"), limits = c(0, ymax), expand = expansion(mult = c(0, 0.02))) +
+    labs(x = NULL, y = "neue CKD in 5 Jahren") +
+    epir_theme() +
+    theme(panel.grid.major.x = element_blank(), axis.text.x = element_text(size = 9))
+}
+
+# Stratum RRs and crude RR on a log scale (effect modification example).
+# rrs: named numeric vector of stratum RRs (names = labels incl. counts); crude: numeric.
+plot_strat_forest <- function(rrs, crude, crude_label, caption = NULL) {
+  d <- tibble(lab = c(names(rrs), crude_label), rr = c(unname(rrs), crude), typ = c(rep("Stratum", length(rrs)), "roh")) |>
+    mutate(y = rev(seq_len(n())), lab = factor(lab, levels = rev(lab)))
+  ggplot(d, aes(x = rr, y = lab)) +
+    geom_vline(xintercept = 1, colour = "#888888", linetype = "22") +
+    geom_vline(xintercept = crude, colour = epir_cols[["grey"]]) +
+    geom_point(aes(colour = typ, shape = typ), size = 5) +
+    geom_text(aes(label = paste0("RR = ", fmt_rr_de(rr))), vjust = -1.1, size = 3.4, fontface = "bold") +
+    scale_colour_manual(values = c(Stratum = epir_cols[["accent"]], roh = "#555555"), guide = "none") +
+    scale_shape_manual(values = c(Stratum = 16, roh = 18), guide = "none") +
+    scale_x_log10(breaks = c(0.5, 1, 1.5, 2, 3, 4), limits = c(0.7, 4.2)) +
+    scale_y_discrete(expand = expansion(add = c(0.6, 0.9))) +
+    labs(x = "relatives Risiko (log-Skala)", y = NULL, caption = caption) +
+    epir_theme()
+}
+
+# Randomisation balances measured and unmeasured characteristics: split the cohort at random.
+plot_randomisation <- function(unter_risiko, seed = 5) {
+  set.seed(seed)
+  r <- unter_risiko |> mutate(gruppe = sample(rep(c("Gruppe A (Los)", "Gruppe B (Los)"), length.out = n())))
+  s <- r |> group_by(gruppe) |> summarise(m = mean(alter), ant65 = mean(alter >= 65), hyp = mean(hypertonie), diab = mean(diabetes), .groups = "drop")
+  ggplot(r, aes(x = alter, fill = gruppe)) +
+    geom_histogram(binwidth = 5, boundary = 40, colour = "white", linewidth = 0.3) +
+    facet_wrap(~ gruppe) +
+    geom_text(data = s, aes(x = 85, y = Inf, label = sprintf("Alter im Mittel %s J.\n65+: %s\nHypertonie: %s\nDiabetes: %s", fmt_de(m), fmt_pct_de(ant65, 0), fmt_pct_de(hyp, 0), fmt_pct_de(diab, 0))),
+              inherit.aes = FALSE, hjust = 1, vjust = 1.2, size = 3.2, lineheight = 0.95) +
+    scale_fill_manual(values = c(epir_cols[["blue"]], epir_cols[["primary"]]), guide = "none") +
+    labs(x = "Alter (Jahre)", y = "Personen") +
+    epir_theme()
+}

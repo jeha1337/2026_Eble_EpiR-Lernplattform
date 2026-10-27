@@ -7,7 +7,7 @@ toc: false
 {{< include ./_extensions/r-wasm/live/_knitr.qmd >}}
 
 ::: {.callout-note appearance="simple"}
-**Status: Prototyp (Oktober 2026).** Module 1 bis 4 und Modul 5a liegen als vollständige Entwürfe zur Durchsicht vor. Alles läuft im Browser – ohne Installation, ohne Login, ohne Server.
+**Status: Prototyp (Oktober 2026).** Module 1 bis 4 sowie 5a und 5b liegen als vollständige Entwürfe zur Durchsicht vor; ein seitenweites [Glossar](glossar.qmd) sammelt die Fachbegriffe. Alles läuft im Browser – ohne Installation, ohne Login, ohne Server.
 :::
 
 ## Was Sie hier lernen
@@ -71,7 +71,8 @@ flowchart LR
 | 3 | [Relatives und absolutes Risiko (RR, OR, NNT)](module/03_risiko_rr_or_nnt.qmd) | Wie groß ist das Risiko – relativ und absolut? | Entwurf zur Durchsicht |
 | 4 | [Verteilungen und Zufall](module/04_verteilungen_zufall.qmd) | Warum sehen zwei Studien verschiedene Ergebnisse? | Entwurf zur Durchsicht |
 | 5a | [Studiendesign und Bias](module/05a_studiendesign_bias.qmd) | Welche Studie kann die Frage beantworten – und was kann dabei schiefgehen? | Entwurf zur Durchsicht |
-| 5b–9 | Confounding & Effektmodifikation · Konfidenzintervalle & p-Werte · Base R lesen · Reproduzierbare Berichte · Mini-Projekt | | geplant |
+| 5b | [Confounding und Effektmodifikation](module/05b_confounding.qmd) | „Hypertoniker sind einfach älter“ – wie prüft man das, und was bleibt von der Assoziation übrig? | Entwurf zur Durchsicht |
+| 6–9 | Konfidenzintervalle & p-Werte · Base R lesen · Reproduzierbare Berichte · Mini-Projekt | | geplant |
 
 ## Kurzer Funktionstest
 

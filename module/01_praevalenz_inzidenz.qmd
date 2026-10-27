@@ -64,7 +64,7 @@ plot_followup(kohorte, n_prev = 4, n_case = 3, n_cens = 3, n_full = 14, seed = 7
 ::: {#niere-kurz}
 ::: {.callout-note collapse="true"}
 ## Mehr dazu: Die Niere in drei Begriffen – CKD, eGFR, UACR
-Diese Box ist der Nachschlagepunkt für alle Module; die Angaben folgen der KDIGO-Leitlinie 2024 (Quellen).
+Diese Box ist der Nachschlagepunkt für alle Module; die Angaben folgen der KDIGO-Leitlinie 2024 (Quellen). Alle Fachbegriffe der Plattform mit englischer Entsprechung: [Glossar](../glossar.qmd#klinisch).
 
 - **CKD – chronische Nierenkrankheit** (engl. *chronic kidney disease*): Nierenschaden *oder* eingeschränkte Filterleistung (eGFR < 60), der bzw. die **mindestens drei Monate** besteht. Die häufigsten Ursachen weltweit sind Diabetes und Bluthochdruck – deshalb tauchen beide als Risikofaktoren in dieser Kohorte auf.
 - **eGFR – geschätzte glomeruläre Filtrationsrate** (engl. *estimated glomerular filtration rate*): Wie viele Milliliter Blut die Nieren pro Minute filtern, umgerechnet auf eine Standard-Körperoberfläche von 1,73 m² (daher die Einheit mL/min/1,73 m²). Sie wird nicht gemessen, sondern mit einer Formel aus dem Blutwert Kreatinin (ggf. zusätzlich Cystatin C) geschätzt (daher „e“). Je niedriger, desto schlechter: ≥ 90 normal, 60–89 leicht vermindert, **< 60 erfüllt das CKD-Kriterium**, < 15 Nierenversagen.

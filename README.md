@@ -19,15 +19,17 @@ module/02_*.qmd             module 2 – diagnostic tests: Sens/Spez/PPV/NPV (di
 module/03_*.qmd             module 3 – relative and absolute risk: RR, OR, NNT (2×2 calculators, slider widget, quiz, 4 graded R exercises)
 module/04_*.qmd             module 4 – distributions and random variation: mean/SD vs median/IQR, normal and log-normal, SD vs SE, sqrt-n rule (study simulator widget, quiz, 4 graded R exercises)
 module/05a_*.qmd            module 5a – study designs and bias: design map, timelines, measure per design, selection/information bias, loss to follow-up, Bradford Hill (design detective + ordering widgets, quiz, 3 graded R exercises incl. embedded case-control sampling)
+module/05b_*.qmd            module 5b – confounding and effect modification: confounder conditions, causal diagrams, stratification, Mantel-Haenszel RR, Simpson reversal, effect modification, randomisation (DAG + stratifier widgets, quiz, 4 graded R exercises, Parsons problem)
 module/_template.qmd        module template with QA checklist (ignored by Quarto)
 data/simulate_ckd_cohort.R  simulation script for the synthetic cohort (seed 20261026)
 data/ckd_kohorte.csv        synthetic dataset (n = 2000) – NOT real patient data
 data/codebook.md            variable definitions and expected summary values
 R/epir_plots.R              ggplot2 helpers for build-time figures (icon arrays, swimmer plot, person-time bars, RR/OR curves, design schema, diagnostic tree, PPV curves, histograms with SD bands / normal curve / log axis, boxplots, sampling distributions, target schema, design map/timelines, three-explanations schema, censoring by exposure, dose-response bars)
-assets/epir-widgets.js      dependency-free widgets: quiz (MC + numeric), measure calculator, pool model, 2×2 table, relative-vs-absolute slider, diagnostic 2×2, predictive-value tree, study simulator (sampling variation), design detective, ordering task (keyboard-friendly, reusable for Parsons problems)
+assets/epir-widgets.js      dependency-free widgets: quiz (MC + numeric), measure calculator, pool model, 2×2 table, relative-vs-absolute slider, diagnostic 2×2, predictive-value tree, study simulator (sampling variation), design detective, ordering task (keyboard-friendly, reusable for Parsons problems), DAG role assignment, stratifier (Mantel-Haenszel)
 assets/includes/            HTML include that loads the widget script on every page
 styles.scss                 theme tweaks (accent colour, callout classes, widget styles)
 _extensions/                quarto-live (r-wasm/live) and shinylive (quarto-ext/shinylive)
+glossar.qmd                 site-wide glossary (German / English, short definitions, module links)
 .github/workflows/          CI: render + deploy to GitHub Pages
 ```
 
@@ -94,7 +96,7 @@ Code: MIT (see `LICENSE`). Learning content and data: CC BY 4.0 (see `LICENSE-CO
 ## Widgets (code-free path)
 
 `assets/epir-widgets.js` is loaded on every page via `include-in-header` (see `_quarto.yml`) and
-initialises seven widget types declared as raw HTML blocks in the `.qmd` files:
+initialises the widget types declared as raw HTML blocks in the `.qmd` files:
 
 | Widget | Markup | Notes |
 |---|---|---|
@@ -106,6 +108,10 @@ initialises seven widget types declared as raw HTML blocks in the `.qmd` files:
 | Diagnostic 2×2 | `<div class="epir-dx" data-tp="175" data-fn="46" data-fp="179" data-tn="1600" data-disease="…" data-test="…"></div>` | editable table (TP/FN/FP/TN, colour-coded); prevalence, sensitivity, specificity, PPV, NPV, likelihood ratios, answer sentence; hint when sensitivity and PPV diverge |
 | Predictive values | `<div class="epir-ppv" data-prev="7.4" data-sens="79" data-spez="90" data-n="1000" data-disease="…" data-scenarios="Label|prev|sens|spez;…"></div>` | sliders prevalence × sensitivity × specificity with a natural-frequency tree (SVG) and PPV/NPV |
 | Study simulator | `<div class="epir-sample" data-prev="18.1" data-n="100"></div>` | sliders n × true prevalence; draws 1/100/1000 studies (Math.random, unseeded on purpose) and shows the histogram of estimates, their SD (= empirical standard error) and the formula value √(p(1−p)/n) |
+| Design detective | `<div class="epir-design"><script type="application/json">{ "items": [...] }</script></div>` | two questions per fictive study description (who assigns the exposure, time direction) → design and measure |
+| Ordering task | `<div class="epir-order"><script type="application/json">{ "items": [...], "shown": [...], "code": false }</script></div>` | one `<select>` per item instead of drag-and-drop; `code: true` renders items as code lines (Parsons problem) |
+| DAG roles | `<div class="epir-dag"><script type="application/json">{ "scenarios": [...] }</script></div>` | three nodes with arrows (SVG); learner assigns exposure / outcome / confounder / mediator; feedback names the violated confounder condition |
+| Stratifier | `<div class="epir-strat"><script type="application/json">{ "scenarios": [...] }</script></div>` | two editable stratum tables (a, n1, c, n0) → crude RR, stratum RRs, Mantel-Haenszel RR and a rule-of-thumb classification (thresholds are didactic conventions, labelled as such); scenario buttons |
 
 No state is stored; reloading the page resets all widgets. See the JSDoc header of the script for the
 full field list.

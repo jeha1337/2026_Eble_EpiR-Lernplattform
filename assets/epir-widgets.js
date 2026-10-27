@@ -16,6 +16,7 @@
  *                    data-max="100" data-next="Abschnitt „Durchgerechnetes Beispiel“">Frage …</div>
  *               <div class="epir-estimate-reveal" data-ref="m1-prev" data-answer="18" data-unit="von 100"
  *                    data-diff-unit="Personen" data-answer-text="18 von 100 (Punktprävalenz 18,1 %)"></div>
+ *               optional on the reveal: data-tol="0.1" (absolute band for "Sehr nah dran"; default max(1, 10 %))
  *             (prequestion: the learner writes down a guess before the concept is taught; the
  *              reveal box later compares guess and actual value. Nothing is stored or sent.)
  *  2. Calc:   <div class="epir-calc" data-mode="prev|cuminc|rate"
@@ -46,6 +47,16 @@
  *              code:false, success}
  *             (ordering task without drag-and-drop: one <select> per item, keyboard friendly;
  *              used for the evidence hierarchy in module 5a and as Parsons problems for code)
+ * 12. DAG:    <div class="epir-dag"><script type="application/json">{...}</script></div>
+ *             {scenarios:[{title, nodes:[{id, text, role:"exposition"|"outcome"|"confounder"|"mediator"}],
+ *                          edges:[[from, to], ...], explain}]}
+ *             (three fixed nodes with arrows; the learner assigns a role to every node;
+ *              feedback names the first wrong node and the violated confounder condition)
+ * 13. Strat:  <div class="epir-strat"><script type="application/json">{...}</script></div>
+ *             {scenarios:[{key, label, exposure:[without, with], outcome, strata:[s1, s2],
+ *                          tables:[[a, n1, c, n0], [a, n1, c, n0]], lesson}]}
+ *             (two editable stratum tables a/n1 and c/n0 -> crude RR, stratum RRs, Mantel-Haenszel RR
+ *              and a rule-of-thumb classification; thresholds are didactic conventions, see module 5b)
  */
 (function () {
   "use strict";
@@ -889,6 +900,9 @@
     const items = data.items || [];
     const n = items.length;
     if (n < 2) return;
+    // plain text for messages: strip markup, except for code lines (they may contain "<")
+    const plain = (t) => (data.code ? t : t.replace(/<[^>]+>/g, ""));
+    const esc = (t) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     // display order: 1-based indices into the correct order; fixed so every learner sees the same list
     let shown = Array.isArray(data.shown) && data.shown.length === n ? data.shown.map((k) => k - 1) : items.map((_, i) => i);
     const id = nextId("epir-order");
@@ -896,7 +910,7 @@
     const list = el("ol", { class: "epir-order-list" + (data.code ? " epir-order-code" : "") });
     const selects = [];
     shown.forEach((k) => {
-      const sel = el("select", { class: "form-select form-select-sm epir-order-select", "aria-label": `Position für: ${items[k].text.replace(/<[^>]+>/g, "")}` });
+      const sel = el("select", { class: "form-select form-select-sm epir-order-select", "aria-label": `Position für: ${plain(items[k].text)}` });
       sel.appendChild(el("option", { value: "", text: "–" }));
       for (let p = 1; p <= n; p++) sel.appendChild(el("option", { value: String(p), text: String(p) }));
       selects.push({ sel, k });
@@ -919,18 +933,240 @@
         out.className = "epir-feedback epir-success";
         out.innerHTML = `<strong>Richtig.</strong> ${data.success || ""}`;
         const ul = el("ol", { class: "epir-alllist" });
-        items.forEach((it) => ul.appendChild(el("li", { html: `${it.text}${it.feedback ? ' <span class="epir-why">– ' + it.feedback + "</span>" : ""}` })));
+        items.forEach((it) => ul.appendChild(el("li", { html: `${data.code ? "<code>" + esc(it.text) + "</code>" : it.text}${it.feedback ? ' <span class="epir-why">– ' + it.feedback + "</span>" : ""}` })));
         out.appendChild(ul);
         return;
       }
       const shouldBe = items[firstWrong - 1];
       const placedThere = items[seen.get(firstWrong)];
       out.className = "epir-feedback epir-warning";
-      out.innerHTML = `<strong>Ab Position ${firstWrong} stimmt die Reihenfolge nicht.</strong> Dort steht „${placedThere.text.replace(/<[^>]+>/g, "")}“, erwartet wird „${shouldBe.text.replace(/<[^>]+>/g, "")}“. ${shouldBe.feedback || ""}`;
+      out.innerHTML = `<strong>Ab Position ${firstWrong} stimmt die Reihenfolge nicht.</strong> Dort steht „${data.code ? "<code>" + esc(placedThere.text) + "</code>" : plain(placedThere.text)}“, erwartet wird „${data.code ? "<code>" + esc(shouldBe.text) + "</code>" : plain(shouldBe.text)}“. ${shouldBe.feedback || ""}`;
     });
     root.appendChild(list);
     root.appendChild(el("div", { class: "epir-quiz-actions" }, [btn]));
     root.appendChild(out);
+  }
+
+  // ---------- 12. DAG role assignment (module 5b) ---------------------------
+  function initDag(root) {
+    const script = root.querySelector("script[type='application/json']");
+    if (!script) return;
+    let data;
+    try { data = JSON.parse(script.textContent); } catch (e) { root.appendChild(el("p", { class: "epir-error", text: "Widget-Daten fehlerhaft." })); return; }
+    const roles = [
+      ["exposition", "Exposition"], ["outcome", "Outcome"], ["confounder", "Confounder"], ["mediator", "Mediator"],
+    ];
+    const roleLabel = (r) => (roles.find((x) => x[0] === r) || [r, r])[1];
+    // node layout: E left, O right, Z top (same picture as the figures in module 5b)
+    const pos = { 0: [70, 150], 1: [330, 150], 2: [200, 45] };
+    (data.scenarios || []).forEach((sc, si) => {
+      const id = nextId("epir-dag");
+      const box = el("div", { class: "epir-dag-scenario" });
+      box.appendChild(el("p", { class: "epir-dag-title", html: `<strong>Szenario ${si + 1}:</strong> ${sc.title || ""}` }));
+      const nodes = sc.nodes || [];
+      if (nodes.length !== 3) return;
+      const idx = (nid) => nodes.findIndex((nd) => nd.id === nid);
+      // SVG picture
+      const ns = "http://www.w3.org/2000/svg";
+      const svg = document.createElementNS(ns, "svg");
+      svg.setAttribute("viewBox", "0 0 400 200"); svg.setAttribute("class", "epir-dag-svg"); svg.setAttribute("role", "img");
+      svg.setAttribute("aria-label", `Kausaldiagramm mit den Knoten ${nodes.map((nd) => nd.text).join(", ")}`);
+      const defs = document.createElementNS(ns, "defs");
+      defs.innerHTML = `<marker id="${id}-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#333"/></marker>`;
+      svg.appendChild(defs);
+      (sc.edges || []).forEach(([f, t]) => {
+        const a = pos[idx(f)], b = pos[idx(t)];
+        if (!a || !b) return;
+        const dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy), r = 34;
+        const line = document.createElementNS(ns, "line");
+        line.setAttribute("x1", a[0] + dx / len * r); line.setAttribute("y1", a[1] + dy / len * r);
+        line.setAttribute("x2", b[0] - dx / len * r); line.setAttribute("y2", b[1] - dy / len * r);
+        line.setAttribute("stroke", "#333"); line.setAttribute("stroke-width", "2.2"); line.setAttribute("marker-end", `url(#${id}-arrow)`);
+        svg.appendChild(line);
+      });
+      nodes.forEach((nd, i) => {
+        const [x, y] = pos[i];
+        const g = document.createElementNS(ns, "g");
+        const c = document.createElementNS(ns, "circle");
+        c.setAttribute("cx", x); c.setAttribute("cy", y); c.setAttribute("r", 30); c.setAttribute("class", "epir-dag-node");
+        g.appendChild(c);
+        const label = document.createElementNS(ns, "text");
+        label.setAttribute("x", x); label.setAttribute("y", y + 4); label.setAttribute("text-anchor", "middle"); label.setAttribute("class", "epir-dag-nodelabel");
+        label.textContent = String(i + 1);
+        g.appendChild(label);
+        const t = document.createElementNS(ns, "text");
+        t.setAttribute("x", x); t.setAttribute("y", i === 2 ? y - 38 : y + 50); t.setAttribute("text-anchor", "middle"); t.setAttribute("class", "epir-dag-text");
+        t.textContent = nd.text;
+        g.appendChild(t);
+        svg.appendChild(g);
+      });
+      box.appendChild(svg);
+      // one select per node
+      const form = el("div", { class: "epir-dag-form" });
+      const selects = nodes.map((nd, i) => {
+        const sel = el("select", { class: "form-select form-select-sm", id: `${id}-n${i}` });
+        sel.appendChild(el("option", { value: "", text: "– Rolle wählen –" }));
+        roles.forEach(([v, lab]) => sel.appendChild(el("option", { value: v, text: lab })));
+        form.appendChild(el("label", { class: "epir-dag-row", for: `${id}-n${i}` }, [el("span", { class: "epir-dag-num", text: String(i + 1) }), el("span", { text: nd.text }), sel]));
+        return sel;
+      });
+      box.appendChild(form);
+      const btn = el("button", { type: "button", class: "btn btn-sm btn-primary", text: "Prüfen" });
+      const out = el("div", { class: "epir-feedback", "aria-live": "polite", role: "status" });
+      btn.addEventListener("click", () => {
+        const chosen = selects.map((s) => s.value);
+        if (chosen.some((v) => v === "")) { out.className = "epir-feedback epir-info"; out.textContent = "Bitte jedem Knoten eine Rolle zuordnen."; return; }
+        // Exposition and Outcome are fixed by the question: check them first, then the third variable
+        const order = [0, 1, 2];
+        for (const i of order) {
+          if (chosen[i] !== nodes[i].role) {
+            out.className = "epir-feedback epir-warning";
+            out.innerHTML = `<strong>Knoten ${i + 1} („${nodes[i].text}“) ist nicht ${roleLabel(chosen[i])}.</strong> ${nodes[i].why || ""}`;
+            return;
+          }
+        }
+        out.className = "epir-feedback epir-success";
+        out.innerHTML = `<strong>Richtig.</strong> ${sc.explain || ""}`;
+        selects.forEach((s) => (s.disabled = true));
+        btn.disabled = true;
+      });
+      box.appendChild(el("div", { class: "epir-quiz-actions" }, [btn]));
+      box.appendChild(out);
+      root.appendChild(box);
+    });
+  }
+
+  // ---------- 13. Stratifier: crude vs. stratum-specific vs. Mantel-Haenszel RR ----
+  function initStrat(root) {
+    const script = root.querySelector("script[type='application/json']");
+    if (!script) return;
+    let data;
+    try { data = JSON.parse(script.textContent); } catch (e) { root.appendChild(el("p", { class: "epir-error", text: "Widget-Daten fehlerhaft." })); return; }
+    const scenarios = data.scenarios || [];
+    if (!scenarios.length) return;
+    const id = nextId("epir-strat");
+    // didactic conventions (declared as such in module 5b, not statistical tests)
+    const HOMOG = Number.isFinite(data.homog_ratio) ? data.homog_ratio : 1.25; // max(RR)/min(RR) <= 1.25 -> "ungefähr gleich"
+    const CONF = Number.isFinite(data.conf_change) ? data.conf_change : 0.10; // |crude - MH| / crude >= 10 % -> confounding
+    const rr2 = (x) => fmtDE(x, 2);
+    const pp = (x) => `${fmtDE(100 * x, 1)} %`;
+
+    let current = scenarios[0];
+    const head = el("div", { class: "epir-strat-head" });
+    const btnRow = el("div", { class: "epir-strat-buttons" });
+    const labels = { exp: [], strata: [] };
+    const inputs = [[], []]; // per stratum: a, n1, c, n0
+    const mkIn = (key) => el("input", { type: "text", inputmode: "numeric", class: "form-control form-control-sm epir-cell", "aria-label": key });
+
+    const tables = el("div", { class: "epir-strat-tables" });
+    const tableEls = [0, 1].map((s) => {
+      const t = el("table", { class: "epir-2x2-table epir-strat-table" });
+      const cap = el("caption", { class: "epir-strat-cap" });
+      labels.strata[s] = cap;
+      t.appendChild(cap);
+      const outTh = el("th", { text: "Fälle" });
+      t.appendChild(el("tr", null, [el("th", { text: "" }), outTh, el("th", { text: "Personen" }), el("th", { text: "Risiko" })]));
+      labels["out" + s] = outTh;
+      const rows = ["mit", "ohne"].map((k, r) => {
+        const th = el("th");
+        labels.exp.push(th);
+        const i1 = mkIn(r === 0 ? "a" : "c"), i2 = mkIn(r === 0 ? "n1" : "n0");
+        const risk = el("td", { class: "epir-sum" });
+        inputs[s].push(i1, i2);
+        inputs[s]["risk" + r] = risk;
+        return el("tr", null, [th, el("td", null, [i1]), el("td", null, [i2]), risk]);
+      });
+      rows.forEach((r) => t.appendChild(r));
+      const rrRow = el("tr", { class: "epir-strat-rr" }, [el("th", { text: "RR im Stratum" }), el("td", { colspan: "3", class: "epir-strat-rrval" })]);
+      inputs[s].rr = rrRow.lastChild;
+      t.appendChild(rrRow);
+      tables.appendChild(t);
+      return t;
+    });
+    const out = el("div", { class: "epir-calc-out", "aria-live": "polite" });
+
+    function load(sc) {
+      current = sc;
+      head.innerHTML = `<strong>${sc.label}</strong>${sc.question ? " – " + sc.question : ""}`;
+      [0, 1].forEach((s) => {
+        labels.strata[s].textContent = `Stratum: ${sc.strata[s]}`;
+        labels["out" + s].textContent = sc.outcome || "Fälle";
+        sc.tables[s].forEach((v, j) => (inputs[s][j].value = String(v)));
+      });
+      labels.exp.forEach((th, i) => (th.textContent = sc.exposure[i % 2 === 0 ? 1 : 0]));
+      render();
+    }
+
+    function render() {
+      out.innerHTML = "";
+      const S = [0, 1].map((s) => inputs[s].slice(0, 4).map((inp) => parseNum(inp.value)));
+      let valid = true;
+      S.forEach((v, s) => {
+        const [a, n1, c, n0] = v;
+        const ok = v.every((x) => Number.isFinite(x) && x >= 0 && Number.isInteger(x)) && n1 > 0 && n0 > 0 && a <= n1 && c <= n0;
+        inputs[s].risk0.textContent = ok ? pp(a / n1) : "";
+        inputs[s].risk1.textContent = ok ? pp(c / n0) : "";
+        inputs[s].rr.textContent = ok && c > 0 ? rr2((a / n1) / (c / n0)) : (ok ? "nicht definiert" : "");
+        if (!ok) valid = false;
+      });
+      if (!valid) { out.appendChild(el("p", { class: "epir-warning", text: "Bitte ganze Zahlen ≥ 0 eintragen; die Fälle dürfen die Personenzahl der Zeile nicht übersteigen, und jede Zeile braucht mindestens eine Person." })); return; }
+      // crude table
+      const A = S[0][0] + S[1][0], N1 = S[0][1] + S[1][1], C = S[0][2] + S[1][2], N0 = S[0][3] + S[1][3];
+      if (C === 0 || S.some((v) => v[2] === 0)) { out.appendChild(el("p", { class: "epir-warning", text: "Ohne Fälle in einer Vergleichsgruppe ist das RR nicht definiert (Division durch 0)." })); return; }
+      const rCrude = (A / N1) / (C / N0);
+      const rrS = S.map(([a, n1, c, n0]) => (a / n1) / (c / n0));
+      let num = 0, den = 0;
+      S.forEach(([a, n1, c, n0]) => { const N = n1 + n0; num += a * n0 / N; den += c * n1 / N; });
+      const mh = num / den;
+      const ratio = Math.max(...rrS) / Math.min(...rrS);
+      const change = Math.abs(rCrude - mh) / rCrude;
+      const shareExp = S.map(([a, n1, c, n0]) => n1 / (n1 + n0));
+      const riskStr = S.map(([a, n1, c, n0]) => (a + c) / (n1 + n0));
+
+      const tbl = el("table", { class: "epir-2x2-table epir-strat-crude" });
+      tbl.appendChild(el("caption", { class: "epir-strat-cap", text: "Alle zusammen (rohe Tabelle = Summe der Strata)" }));
+      tbl.appendChild(el("tr", null, [el("th", { text: "" }), el("th", { text: current.outcome || "Fälle" }), el("th", { text: "Personen" }), el("th", { text: "Risiko" })]));
+      tbl.appendChild(el("tr", null, [el("th", { text: current.exposure[1] }), el("td", { text: fmtInt(A) }), el("td", { text: fmtInt(N1) }), el("td", { text: pp(A / N1) })]));
+      tbl.appendChild(el("tr", null, [el("th", { text: current.exposure[0] }), el("td", { text: fmtInt(C) }), el("td", { text: fmtInt(N0) }), el("td", { text: pp(C / N0) })]));
+      out.appendChild(tbl);
+
+      const res = el("div", { class: "epir-calc-body" });
+      res.appendChild(el("p", { html: `<strong>Rohes RR:</strong> ${rr2(rCrude)} &nbsp;·&nbsp; <strong>Stratum-RRs:</strong> ${current.strata[0]}: ${rr2(rrS[0])}, ${current.strata[1]}: ${rr2(rrS[1])} &nbsp;·&nbsp; <strong>Mantel-Haenszel-RR (adjustiert):</strong> ${rr2(mh)}` }));
+      res.appendChild(el("p", { class: "epir-small", html: `Mantel-Haenszel: Zähler Σ a·n₀/N = ${fmtDE(num, 2)}, Nenner Σ c·n₁/N = ${fmtDE(den, 2)}, Quotient ${rr2(mh)}.` }));
+      res.appendChild(el("p", { class: "epir-small", html: `Prüfung der Confounder-Bedingungen: Anteil „${current.exposure[1]}“ je Stratum ${pp(shareExp[0])} vs. ${pp(shareExp[1])}; Risiko je Stratum (ohne Rücksicht auf die Exposition) ${pp(riskStr[0])} vs. ${pp(riskStr[1])}.` }));
+      // classification
+      let cls, txt;
+      if (ratio > HOMOG) {
+        cls = "epir-feedback epir-warning";
+        txt = `<strong>Einordnung: Effektmodifikation.</strong> Die Stratum-RRs unterscheiden sich deutlich (Verhältnis ${rr2(ratio)} > ${fmtDE(HOMOG, 2)}). Dann ist ein gemeinsames adjustiertes RR irreführend – beide Stratum-RRs getrennt berichten.`;
+      } else if (change >= CONF) {
+        cls = "epir-feedback epir-warning";
+        txt = `<strong>Einordnung: Confounding.</strong> Die Stratum-RRs sind ungefähr gleich (Verhältnis ${rr2(ratio)} ≤ ${fmtDE(HOMOG, 2)}), aber das adjustierte RR weicht um ${fmtDE(100 * change, 0)} % vom rohen ab (≥ ${fmtDE(100 * CONF, 0)} %). Das adjustierte RR ${rr2(mh)} ist die bessere Antwort.`;
+      } else {
+        cls = "epir-feedback epir-success";
+        txt = `<strong>Einordnung: kein relevantes Confounding.</strong> Stratum-RRs ungefähr gleich (Verhältnis ${rr2(ratio)}) und adjustiertes RR nur ${fmtDE(100 * change, 0)} % vom rohen entfernt (< ${fmtDE(100 * CONF, 0)} %). Das rohe RR genügt.`;
+      }
+      res.appendChild(el("div", { class: cls, html: txt }));
+      res.appendChild(el("p", { class: "epir-small epir-muted", text: `Schwellen (Konvention dieses Moduls, kein statistischer Test): Stratum-RRs „ungefähr gleich“, wenn größeres/kleineres RR ≤ ${fmtDE(HOMOG, 2)}; „Confounding“, wenn sich rohes und adjustiertes RR um mindestens ${fmtDE(100 * CONF, 0)} % unterscheiden.` }));
+      if (current.lesson) res.appendChild(el("p", { class: "epir-why", html: current.lesson }));
+      out.appendChild(res);
+    }
+
+    scenarios.forEach((sc) => {
+      const b = el("button", { type: "button", class: "btn btn-sm btn-outline-primary", text: sc.label });
+      b.addEventListener("click", () => load(sc));
+      btnRow.appendChild(b);
+    });
+    const reset = el("button", { type: "button", class: "btn btn-sm btn-outline-secondary", text: "Zurücksetzen" });
+    reset.addEventListener("click", () => load(current));
+    btnRow.appendChild(reset);
+    inputs.flat().forEach((inp) => inp.addEventListener("input", render));
+
+    root.appendChild(btnRow);
+    root.appendChild(head);
+    root.appendChild(tables);
+    root.appendChild(out);
+    load(scenarios[0]);
   }
 
   // ---------- boot ---------------------------------------------------------
@@ -1091,7 +1327,7 @@
       }
       estimates.set(id, v);
       out.className = "epir-feedback epir-success";
-      out.innerHTML = `<strong>Notiert: ${fmtDE(v, Number.isInteger(v) ? 0 : 1)} ${unit}.</strong> Ob Sie richtig liegen, sehen Sie weiter unten${next ? " im " + next : ""} – lesen Sie bis dahin weiter.`;
+      out.innerHTML = `<strong>Notiert: ${fmtDE(v, Number.isInteger(v) ? 0 : 1)}${unit ? " " + unit : ""}.</strong> Ob Sie richtig liegen, sehen Sie weiter unten${next ? " im " + next : ""} – lesen Sie bis dahin weiter.`;
       document.dispatchEvent(new CustomEvent("epir-estimate", { detail: { id, value: v } }));
     }
     btn.addEventListener("click", submit);
@@ -1110,6 +1346,8 @@
     const answerText = root.dataset.answerText || String(root.dataset.answer);
     const unit = root.dataset.unit || "";
     const diffUnit = root.dataset.diffUnit || "";
+    // "close enough" band: data-tol (absolute), default max(1, 10 % of the answer) as in modules 1-5a
+    const tol = root.dataset.tol != null && Number.isFinite(Number(root.dataset.tol)) ? Number(root.dataset.tol) : Math.max(1, 0.1 * Math.abs(answer));
     function render() {
       const v = estimates.get(ref);
       if (v == null) {
@@ -1120,10 +1358,10 @@
       const absDiff = Math.abs(diff);
       const digits = Number.isInteger(v) && Number.isInteger(answer) ? 0 : 1;
       let verdict;
-      if (absDiff <= Math.max(1, 0.1 * Math.abs(answer))) verdict = "Sehr nah dran.";
-      else if (diff > 0) verdict = `Ihre Schätzung lag um ${fmtDE(absDiff, digits)} ${diffUnit} zu hoch.`;
-      else verdict = `Ihre Schätzung lag um ${fmtDE(absDiff, digits)} ${diffUnit} zu niedrig.`;
-      root.innerHTML = `<span class="epir-item-tag">Auflösung</span> Ihre Schätzung: <strong>${fmtDE(v, digits)} ${unit}</strong> · tatsächlich: <strong>${answerText}</strong>. ${verdict} Eine Abweichung ist kein Fehler – sie zeigt, wo das Konzept die Intuition korrigiert.`;
+      if (absDiff <= tol) verdict = "Sehr nah dran.";
+      else if (diff > 0) verdict = `Ihre Schätzung lag um ${fmtDE(absDiff, digits)}${diffUnit ? " " + diffUnit : ""} zu hoch.`;
+      else verdict = `Ihre Schätzung lag um ${fmtDE(absDiff, digits)}${diffUnit ? " " + diffUnit : ""} zu niedrig.`;
+      root.innerHTML = `<span class="epir-item-tag">Auflösung</span> Ihre Schätzung: <strong>${fmtDE(v, digits)}${unit ? " " + unit : ""}</strong> · tatsächlich: <strong>${answerText}</strong>. ${verdict} Eine Abweichung ist kein Fehler – sie zeigt, wo das Konzept die Intuition korrigiert.`;
     }
     document.addEventListener("epir-estimate", (e) => { if (e.detail && e.detail.id === ref) render(); });
     render();
@@ -1160,6 +1398,8 @@
     document.querySelectorAll(".epir-sample").forEach(initSample);
     document.querySelectorAll(".epir-design").forEach(initDesign);
     document.querySelectorAll(".epir-order").forEach(initOrder);
+    document.querySelectorAll(".epir-dag").forEach(initDag);
+    document.querySelectorAll(".epir-strat").forEach(initStrat);
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
   else boot();

@@ -19,11 +19,22 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    # Normal build time is ~3 min; a slow apt mirror on the runner once
-    # stretched the setup steps to >30 min. Fail visibly instead of hanging.
+    # Normal build time is ~3 min; a slow apt mirror on the runner repeatedly
+    # stretched the setup steps to >30 min (see first step). Fail visibly
+    # instead of hanging.
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+
+      - name: Drop the Azure apt mirror
+        # setup-r installs ~170 Debian packages via apt. The runner's default
+        # mirror azure.archive.ubuntu.com intermittently delivers at ~36 kB/s
+        # (several >10 min hangs on 2026-10-27; actions/runner-images#12949,
+        # #14596). Removing it leaves archive.ubuntu.com and security.ubuntu.com
+        # as the mirrors. Decision 2026-10-27 (Langfassung 7.1).
+        run: |
+          sudo sed -i '/azure\.archive\.ubuntu\.com/d' /etc/apt/apt-mirrors.txt
+          cat /etc/apt/apt-mirrors.txt
 
       - name: Set up R
         uses: r-lib/actions/setup-r@v2

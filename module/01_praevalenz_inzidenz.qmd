@@ -50,7 +50,7 @@ In der nephrologischen Sprechstunde scheint fast jede zweite Person eine chronis
 
 ## Die Beispielkohorte
 
-Alle Zahlen stammen aus einem **simulierten** Datensatz (keine echten Patientendaten): 2000 Erwachsene (40–85 Jahre) einer Hausarztpraxis, Screening auf CKD zu Beginn (eGFR < 60 mL/min/1,73 m² oder Albuminurie UACR ≥ 30 mg/g), danach bis zu fünf Jahre Nachbeobachtung.
+Alle Zahlen stammen aus einem **simulierten** Datensatz (keine echten Patientendaten): 2000 Erwachsene (40–85 Jahre) einer Hausarztpraxis, Screening auf CKD zu Beginn, danach bis zu fünf Jahre Nachbeobachtung. Als CKD zählt hier eine verminderte Filterleistung der Nieren (geschätzte glomeruläre Filtrationsrate, **eGFR**, < 60 mL/min/1,73 m²) *oder* Eiweiß im Urin (Albumin-Kreatinin-Quotient im Urin, **UACR**, ≥ 30 mg/g; „Albuminurie“). Was hinter den drei Abkürzungen steckt, erklärt die aufklappbare Box unter der Grafik.
 
 ```{r}
 #| label: fig-followup
@@ -61,9 +61,17 @@ Alle Zahlen stammen aus einem **simulierten** Datensatz (keine echten Patientend
 plot_followup(kohorte, n_prev = 4, n_case = 3, n_cens = 3, n_full = 14, seed = 7)
 ```
 
+::: {#niere-kurz}
 ::: {.callout-note collapse="true"}
-## Mehr dazu: Warum die CKD-Definition hier vereinfacht ist
-Die Leitlinie verlangt für die Diagnose, dass die Auffälligkeit über mindestens drei Monate besteht (KDIGO 2024, siehe Quellen). Unsere Kohorte nutzt eine Einzelmessung. Für das Rechnen mit Prävalenz und Inzidenz ist das unerheblich; für eine klinische Diagnose nicht.
+## Mehr dazu: Die Niere in drei Begriffen – CKD, eGFR, UACR
+Diese Box ist der Nachschlagepunkt für alle Module; die Angaben folgen der KDIGO-Leitlinie 2024 (Quellen).
+
+- **CKD – chronische Nierenkrankheit** (engl. *chronic kidney disease*): Nierenschaden *oder* eingeschränkte Filterleistung (eGFR < 60), der bzw. die **mindestens drei Monate** besteht. Die häufigsten Ursachen weltweit sind Diabetes und Bluthochdruck – deshalb tauchen beide als Risikofaktoren in dieser Kohorte auf.
+- **eGFR – geschätzte glomeruläre Filtrationsrate** (engl. *estimated glomerular filtration rate*): Wie viele Milliliter Blut die Nieren pro Minute filtern, umgerechnet auf eine Standard-Körperoberfläche von 1,73 m² (daher die Einheit mL/min/1,73 m²). Sie wird nicht gemessen, sondern mit einer Formel aus dem Blutwert Kreatinin (ggf. zusätzlich Cystatin C) geschätzt (daher „e“). Je niedriger, desto schlechter: ≥ 90 normal, 60–89 leicht vermindert, **< 60 erfüllt das CKD-Kriterium**, < 15 Nierenversagen.
+- **UACR – Albumin-Kreatinin-Quotient im Urin** (engl. *urine albumin-creatinine ratio*): Menge des Eiweißes Albumin im Urin, bezogen auf Kreatinin, in mg/g. Gesunde Nieren halten Albumin fast vollständig zurück: < 30 mg/g normal, **≥ 30 mg/g = Albuminurie** (ein Zeichen für Nierenschaden), > 300 mg/g stark erhöht.
+
+**Vereinfachung in diesem Modul:** Unsere Kohorte nutzt eine **Einzelmessung** zum Screening-Zeitpunkt; die Leitlinie verlangt für die Diagnose, dass die Auffälligkeit über mindestens drei Monate besteht. Für das Rechnen mit Prävalenz und Inzidenz ist das unerheblich; für eine klinische Diagnose nicht.
+:::
 :::
 
 ## Prävalenz: Wie viele sind *jetzt* betroffen?
@@ -795,7 +803,7 @@ kohorte |>
 - Lash TL, VanderWeele TJ, Haneuse S, Rothman KJ. *Modern Epidemiology*. 4. Aufl. Philadelphia: Wolters Kluwer; 2021. Kapitel 4 „Measures of Occurrence“ (Inzidenzrate, Risiko, Prävalenz; Beziehung Prävalenz-Odds = Inzidenzrate × mittlere Dauer).
 - Celentano DD, Szklo M. *Gordis Epidemiology*. 6. Aufl. Philadelphia: Elsevier; 2019. Kapitel 3 „The Occurrence of Disease: I. Disease Surveillance and Measures of Morbidity“ (Becken-Modell der Prävalenz).
 - Porta M (Hrsg.). *A Dictionary of Epidemiology*. 6. Aufl. Oxford: Oxford University Press; 2014. Einträge „Prevalence“, „Incidence rate“, „Cumulative incidence“, „Person-time“.
-- Kidney Disease: Improving Global Outcomes (KDIGO) CKD Work Group. KDIGO 2024 Clinical Practice Guideline for the Evaluation and Management of Chronic Kidney Disease. *Kidney Int.* 2024;105(4S):S117–S314. <https://doi.org/10.1016/j.kint.2023.10.018> – vollständige CKD-Definition (Persistenz ≥ 3 Monate), die in diesem Modul vereinfacht wurde.
+- Kidney Disease: Improving Global Outcomes (KDIGO) CKD Work Group. KDIGO 2024 Clinical Practice Guideline for the Evaluation and Management of Chronic Kidney Disease. *Kidney Int.* 2024;105(4S):S117–S314. <https://doi.org/10.1016/j.kint.2023.10.018> – CKD-Definition, GFR- und Albuminurie-Kategorien (S. S137), Diabetes und Hypertonie als häufigste Ursachen (S. S138); Persistenz ≥ 3 Monate wurde in diesem Modul vereinfacht.
 - Wickham H, Çetinkaya-Rundel M, Grolemund G. *R for Data Science*. 2. Aufl. O'Reilly; 2023. Frei verfügbar: <https://r4ds.hadley.nz> – Kapitel „Data transformation“ zu `filter()`, `summarise()`, `group_by()`.
 - dplyr-Dokumentation: <https://dplyr.tidyverse.org>
 

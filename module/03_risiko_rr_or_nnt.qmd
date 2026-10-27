@@ -64,7 +64,7 @@ In der Beispielkohorte aus Modul 1 erkranken Menschen mit Diabetes häufiger neu
 
 ## Die Beispielkohorte
 
-Dieselbe **simulierte** Kohorte wie in Modul 1 (keine echten Patientendaten): 2000 Erwachsene, davon 1638 zu Beginn ohne CKD („unter Risiko“), fünf Jahre beobachtet. Neu in diesem Modul: Wir teilen die Personen unter Risiko nach einer **Exposition** (Diabetes ja/nein) und vergleichen, wie oft das **Ereignis** (neue CKD) eintritt.
+Dieselbe **simulierte** Kohorte wie in Modul 1 (keine echten Patientendaten; [Kurzerklärung der Begriffe CKD, eGFR und UACR in Modul 1](01_praevalenz_inzidenz.qmd#niere-kurz)): 2000 Erwachsene, davon 1638 zu Beginn ohne CKD („unter Risiko“), fünf Jahre beobachtet. Neu in diesem Modul: Wir teilen die Personen unter Risiko nach einer **Exposition** (Diabetes ja/nein) und vergleichen, wie oft das **Ereignis** (neue CKD) eintritt.
 
 ## Risiko je Gruppe: die Vierfeldertafel
 

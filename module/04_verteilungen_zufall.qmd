@@ -108,7 +108,7 @@ plot_icon_array(setNames(c(praxis_a, praxis_b), c(sprintf("Praxis A: %d von 100"
 
 ## Die Beispielkohorte – diesmal mit Messwerten
 
-Dieselbe **simulierte** Kohorte wie in den Modulen 1–3 (keine echten Patientendaten): 2000 Erwachsene zwischen 40 und 85 Jahren. Bisher haben wir Ja/Nein-Merkmale ausgewertet (CKD ja/nein, Diabetes ja/nein). Jetzt geht es um **Messwerte**: die geschätzte glomeruläre Filtrationsrate (**eGFR**, in mL/min/1,73 m²) und den Albumin-Kreatinin-Quotienten im Urin (**UACR**, in mg/g).
+Dieselbe **simulierte** Kohorte wie in den Modulen 1–3 (keine echten Patientendaten): 2000 Erwachsene zwischen 40 und 85 Jahren. Bisher haben wir Ja/Nein-Merkmale ausgewertet (CKD ja/nein, Diabetes ja/nein). Jetzt geht es um **Messwerte**: die geschätzte glomeruläre Filtrationsrate (**eGFR**, in mL/min/1,73 m² – ein Maß für die Filterleistung der Nieren; je niedriger, desto schlechter, < 60 gilt als CKD-Kriterium) und den Albumin-Kreatinin-Quotienten im Urin (**UACR**, in mg/g – Eiweiß im Urin als Zeichen eines Nierenschadens; ≥ 30 mg/g gilt als Albuminurie). Ausführlicher: [Kurzerklärung der Begriffe CKD, eGFR und UACR in Modul 1](01_praevalenz_inzidenz.qmd#niere-kurz).
 
 ## Eine Messgröße beschreiben: die eGFR
 

@@ -49,7 +49,7 @@ pct <- function(x, d = 1) paste0(de(100 * x, d), "\u00a0%")
 ```
 
 ::: {.leitfrage}
-Ein **Urin-Teststreifen** auf Albumin soll eine Albuminurie (Frühzeichen einer Nierenschädigung) erkennen; der Referenzstandard ist die Labormessung des Albumin-Kreatinin-Quotienten (UACR ≥ 30 mg/g). Eine 55-jährige Patientin ohne Diabetes hat einen **positiven** Teststreifen und fragt: „Habe ich jetzt eine Nierenschädigung?“ **Wie wahrscheinlich ist es, dass sie tatsächlich eine Albuminurie hat – und warum reicht die Angabe „Der Test erkennt etwa 80 % der Erkrankten“ nicht als Antwort?**
+Ein **Urin-Teststreifen** auf Albumin soll eine Albuminurie (Frühzeichen einer Nierenschädigung) erkennen; der Referenzstandard ist die Labormessung des Albumin-Kreatinin-Quotienten im Urin (UACR, engl. *urine albumin-creatinine ratio*; ≥ 30 mg/g gilt als Albuminurie). Eine 55-jährige Patientin ohne Diabetes hat einen **positiven** Teststreifen und fragt: „Habe ich jetzt eine Nierenschädigung?“ **Wie wahrscheinlich ist es, dass sie tatsächlich eine Albuminurie hat – und warum reicht die Angabe „Der Test erkennt etwa 80 % der Erkrankten“ nicht als Antwort?**
 :::
 
 ```{=html}
@@ -78,7 +78,7 @@ Ein **Urin-Teststreifen** auf Albumin soll eine Albuminurie (Frühzeichen einer 
 
 ## Die Beispielkohorte
 
-Dieselbe **simulierte** Kohorte wie in Modul 1 (keine echten Patientendaten): `r format(n_all, big.mark = "\u202f")` Erwachsene. Bei allen liegen zwei Messungen vor: das Ergebnis des Teststreifens (positiv/negativ) und der Laborwert UACR. Als **Referenzstandard** (engl. *reference standard*, die bestmögliche Bestimmung, ob die Krankheit vorliegt) gilt hier UACR ≥ 30 mg/g. *Vereinfacht:* Wir behandeln eine einzelne UACR-Messung als Wahrheit; *exakt* fordert die KDIGO-Leitlinie für die Diagnose einer CKD eine über mindestens drei Monate bestätigte Albuminurie (Quellen).
+Dieselbe **simulierte** Kohorte wie in Modul 1 (keine echten Patientendaten): `r format(n_all, big.mark = "\u202f")` Erwachsene. Bei allen liegen zwei Messungen vor: das Ergebnis des Teststreifens (positiv/negativ) und der Laborwert UACR. Als **Referenzstandard** (engl. *reference standard*, die bestmögliche Bestimmung, ob die Krankheit vorliegt) gilt hier UACR ≥ 30 mg/g. *Vereinfacht:* Wir behandeln eine einzelne UACR-Messung als Wahrheit; *exakt* fordert die KDIGO-Leitlinie für die Diagnose einer chronischen Nierenkrankheit (CKD, engl. *chronic kidney disease*) eine über mindestens drei Monate bestätigte Albuminurie (Quellen; [Kurzerklärung der Begriffe CKD, eGFR und UACR in Modul 1](01_praevalenz_inzidenz.qmd#niere-kurz)).
 
 ## Die Vierfeldertafel eines Tests
 

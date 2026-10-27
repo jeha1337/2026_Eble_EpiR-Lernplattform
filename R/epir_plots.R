@@ -648,3 +648,126 @@ plot_target_schema <- function(seed = 4) {
     epir_theme() +
     theme(axis.text = element_blank(), axis.title = element_blank(), panel.grid = element_blank())
 }
+
+# ---------------------------------------------------------------------------
+# Module 5a: study designs and bias
+# Colour semantics as above: orange = case/event, petrol = healthy/reference,
+# blue = censored, grey = not applicable. Schematic figures carry no data.
+# ---------------------------------------------------------------------------
+
+# Design map: who assigns the exposure (rows) x direction of observation (cols)
+plot_design_map <- function() {
+  cells <- tribble(
+    ~zuteilung, ~zeit, ~design, ~mass, ~fill,
+    "das Leben\n(Beobachtung)", "Momentaufnahme", "Querschnittsstudie", "Pr\u00e4valenz,\nPr\u00e4valenzverh\u00e4ltnis", "primary",
+    "das Leben\n(Beobachtung)", "vorw\u00e4rts:\nExposition \u2192 Erkrankung", "Kohortenstudie", "Risiko, Inzidenzrate,\nRR, Risikodifferenz", "primary",
+    "das Leben\n(Beobachtung)", "r\u00fcckw\u00e4rts:\nErkrankung \u2192 Exposition", "Fall-Kontroll-Studie", "nur Odds Ratio", "accent",
+    "die Forschenden\n(per Zufall)", "Momentaufnahme", "\u2013", "nicht m\u00f6glich", "grey",
+    "die Forschenden\n(per Zufall)", "vorw\u00e4rts:\nExposition \u2192 Erkrankung", "Randomisierte\nkontrollierte Studie (RCT)", "Risiko, RR,\nRisikodifferenz, NNT", "blue",
+    "die Forschenden\n(per Zufall)", "r\u00fcckw\u00e4rts:\nErkrankung \u2192 Exposition", "\u2013", "nicht m\u00f6glich", "grey"
+  )
+  cells$zuteilung <- factor(cells$zuteilung, levels = c("die Forschenden\n(per Zufall)", "das Leben\n(Beobachtung)"))
+  cells$zeit <- factor(cells$zeit, levels = c("r\u00fcckw\u00e4rts:\nErkrankung \u2192 Exposition", "Momentaufnahme", "vorw\u00e4rts:\nExposition \u2192 Erkrankung"))
+  cols <- c(primary = epir_cols[["primary"]], accent = epir_cols[["accent"]], blue = epir_cols[["blue"]], grey = epir_cols[["light"]])
+  cells$txt <- ifelse(cells$fill == "grey", "#777777", "white")
+  ggplot(cells, aes(x = zeit, y = zuteilung)) +
+    geom_tile(aes(fill = fill), width = 0.94, height = 0.9, colour = NA) +
+    geom_text(aes(label = design, colour = txt), fontface = "bold", size = 3.9, lineheight = 0.9, nudge_y = 0.14) +
+    geom_text(aes(label = mass, colour = txt), size = 3.1, lineheight = 0.9, nudge_y = -0.2) +
+    scale_fill_manual(values = cols, guide = "none") +
+    scale_colour_identity() +
+    scale_x_discrete(position = "top") +
+    labs(x = "In welche Zeitrichtung wird beobachtet?", y = "Wer teilt die Exposition zu?") +
+    epir_theme() +
+    theme(panel.grid = element_blank(), axis.title = element_text(face = "bold", size = 12),
+          axis.text = element_text(size = 10.5, colour = epir_cols[["dark"]]), axis.title.x.top = element_text(margin = margin(b = 6)))
+}
+
+# Timelines of the designs on a common axis; "heute" = recruitment.
+plot_design_timelines <- function() {
+  rows <- tribble(
+    ~design, ~y, ~x, ~xend, ~dir, ~lab,
+    "Randomisierte kontrollierte Studie", 5, 0, 4, "vor", "Zufallszuteilung heute \u2192 Beobachtung nach vorn",
+    "Prospektive Kohortenstudie", 4, 0, 4, "vor", "Exposition heute erfasst \u2192 Beobachtung nach vorn",
+    "Retrospektive Kohortenstudie", 3, -4, 0, "vor", "Exposition aus alten Akten \u2192 Erkrankung bis heute (Blick vorw\u00e4rts, aber in der Vergangenheit)",
+    "Fall-Kontroll-Studie", 2, 0, -4, "rueck", "F\u00e4lle und Kontrollen heute \u2192 fr\u00fchere Exposition erfragt",
+    "Querschnittsstudie", 1, 0, 0, "punkt", "Exposition und Erkrankung gleichzeitig gemessen"
+  )
+  cols <- c(vor = epir_cols[["primary"]], rueck = epir_cols[["accent"]], punkt = epir_cols[["blue"]])
+  ggplot(rows) +
+    annotate("rect", xmin = -4.6, xmax = 0, ymin = 0.55, ymax = 5.6, fill = epir_cols[["light"]], alpha = 0.45) +
+    geom_hline(yintercept = c(1.5, 2.5, 3.5, 4.5), colour = "#d5dadf", linewidth = 0.4) +
+    geom_vline(xintercept = 0, colour = epir_cols[["dark"]], linewidth = 0.6) +
+    geom_segment(data = filter(rows, dir != "punkt"), aes(x = x, xend = xend, y = y - 0.1, yend = y - 0.1, colour = dir),
+                 linewidth = 2.2, lineend = "round", arrow = arrow(length = unit(0.3, "cm"), type = "closed")) +
+    geom_point(data = filter(rows, dir == "punkt"), aes(x = x, y = y - 0.1, colour = dir), size = 6, shape = 18) +
+    geom_text(aes(x = -4.5, y = y + 0.3, label = design), hjust = 0, fontface = "bold", size = 3.8, colour = epir_cols[["dark"]]) +
+    geom_text(aes(x = -4.5, y = y - 0.34, label = lab), hjust = 0, size = 3.0, colour = "#555555") +
+    annotate("text", x = -2.3, y = 5.78, label = "Vergangenheit", size = 3.4, colour = "#555555") +
+    annotate("text", x = 2.3, y = 5.78, label = "Zukunft", size = 3.4, colour = "#555555") +
+    annotate("label", x = 0, y = 0.3, label = "heute: Rekrutierung", size = 3.3, colour = epir_cols[["dark"]]) +
+    scale_colour_manual(values = cols, guide = "none") +
+    scale_x_continuous(limits = c(-4.6, 4.6), breaks = NULL) +
+    scale_y_continuous(limits = c(0.1, 5.95), breaks = NULL) +
+    labs(x = NULL, y = NULL) +
+    epir_theme() +
+    theme(panel.grid = element_blank())
+}
+
+# Schematic: from association to causation, the three alternative explanations.
+plot_three_explanations <- function() {
+  boxes <- tribble(
+    ~x, ~label, ~sub, ~fill,
+    1, "Beobachtete\nAssoziation", "z. B. RR = 1,66", "dark",
+    2, "Zufall?", "Modul 4:\nStichprobenfehler", "blue",
+    3, "Bias?", "dieses Modul:\nsystematischer Fehler", "accent",
+    4, "Confounding?", "Modul 5b:\ndritte Variable", "accent",
+    5, "Ursache?", "Bradford Hill:\nGesichtspunkte abw\u00e4gen", "primary"
+  )
+  cols <- c(dark = "#555555", blue = epir_cols[["blue"]], accent = epir_cols[["accent"]], primary = epir_cols[["primary"]])
+  ggplot(boxes) +
+    geom_segment(data = data.frame(x = 1:4 + 0.42, xend = 2:5 - 0.42), aes(x = x, xend = xend, y = 1, yend = 1),
+                 arrow = arrow(length = unit(0.25, "cm"), type = "closed"), linewidth = 0.9, colour = epir_cols[["dark"]]) +
+    geom_tile(aes(x = x, y = 1, fill = fill), width = 0.84, height = 0.55, colour = NA) +
+    geom_text(aes(x = x, y = 1.06, label = label), colour = "white", fontface = "bold", size = 3.8, lineheight = 0.9) +
+    geom_text(aes(x = x, y = 0.56, label = sub), colour = "#444444", size = 3.1, lineheight = 0.9) +
+    annotate("text", x = 3, y = 1.45, label = "Erst wenn alle drei Alternativen unwahrscheinlich sind, wird Kausalit\u00e4t plausibel", size = 3.5, colour = "#555555") +
+    scale_fill_manual(values = cols, guide = "none") +
+    coord_cartesian(xlim = c(0.5, 5.5), ylim = c(0.35, 1.55)) +
+    epir_theme() +
+    theme(axis.text = element_blank(), axis.title = element_blank(), panel.grid = element_blank())
+}
+
+# Loss to follow-up by exposure (non-cases only): share censored before year 5.
+plot_censoring_by_exposure <- function(unter_risiko, exposure = "hypertonie", labels = c("ohne Hypertonie", "mit Hypertonie")) {
+  dat <- unter_risiko |>
+    filter(ckd_inzident == 0) |>
+    group_by(exp = .data[[exposure]]) |>
+    summarise(n = n(), zensiert = sum(followup_jahre < 5 - 1e-9), anteil = zensiert / n, .groups = "drop") |>
+    mutate(grp = factor(labels[exp + 1], levels = labels),
+           lab = sprintf("%s\n(%d von %d)", fmt_pct_de(anteil, 1), zensiert, n))
+  ggplot(dat, aes(x = grp, y = anteil)) +
+    geom_col(fill = epir_cols[["blue"]], width = 0.55) +
+    geom_text(aes(label = lab), vjust = -0.3, size = 3.6, lineheight = 0.9, colour = epir_cols[["dark"]]) +
+    scale_y_continuous(labels = function(x) paste0(100 * x, " %"), limits = c(0, 0.3), expand = expansion(mult = c(0, 0.02))) +
+    labs(x = NULL, y = "vorzeitig ausgeschieden", caption = "Nur Personen ohne neue CKD; Ausscheiden vor Ende des f\u00fcnften Jahres.") +
+    epir_theme() +
+    theme(panel.grid.major.x = element_blank())
+}
+
+# Dose-response: incident CKD by baseline eGFR category (persons at risk).
+plot_dose_response <- function(unter_risiko) {
+  dat <- unter_risiko |>
+    mutate(kat = cut(egfr, breaks = c(60, 75, 90, Inf), right = FALSE,
+                     labels = c("60\u201374", "75\u201389", "\u2265 90"))) |>
+    group_by(kat) |>
+    summarise(n = n(), faelle = sum(ckd_inzident), risiko = faelle / n, .groups = "drop") |>
+    mutate(lab = sprintf("%s\n(%d von %d)", fmt_pct_de(risiko, 1), faelle, n))
+  ggplot(dat, aes(x = kat, y = risiko)) +
+    geom_col(fill = epir_cols[["accent"]], width = 0.6) +
+    geom_text(aes(label = lab), vjust = -0.3, size = 3.6, lineheight = 0.9, colour = epir_cols[["dark"]]) +
+    scale_y_continuous(labels = function(x) paste0(100 * x, " %"), limits = c(0, 0.18), expand = expansion(mult = c(0, 0.02))) +
+    labs(x = "eGFR zu Studienbeginn (mL/min/1,73 m\u00b2)", y = "neue CKD innerhalb von 5 Jahren") +
+    epir_theme() +
+    theme(panel.grid.major.x = element_blank())
+}

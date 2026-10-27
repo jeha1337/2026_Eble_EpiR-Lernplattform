@@ -7,7 +7,7 @@ toc: false
 {{< include ./_extensions/r-wasm/live/_knitr.qmd >}}
 
 ::: {.callout-note appearance="simple"}
-**Status: Prototyp (Oktober 2026).** Module 1 bis 4 liegen als vollständige Entwürfe zur Durchsicht vor. Alles läuft im Browser – ohne Installation, ohne Login, ohne Server.
+**Status: Prototyp (Oktober 2026).** Module 1 bis 4 und Modul 5a liegen als vollständige Entwürfe zur Durchsicht vor. Alles läuft im Browser – ohne Installation, ohne Login, ohne Server.
 :::
 
 ## Was Sie hier lernen
@@ -70,7 +70,8 @@ flowchart LR
 | 2 | [Diagnostische Tests (Sensitivität, Spezifität, Vorhersagewerte)](module/02_diagnostische_tests.qmd) | Was sagt ein positiver Test wirklich aus? | Entwurf zur Durchsicht |
 | 3 | [Relatives und absolutes Risiko (RR, OR, NNT)](module/03_risiko_rr_or_nnt.qmd) | Wie groß ist das Risiko – relativ und absolut? | Entwurf zur Durchsicht |
 | 4 | [Verteilungen und Zufall](module/04_verteilungen_zufall.qmd) | Warum sehen zwei Studien verschiedene Ergebnisse? | Entwurf zur Durchsicht |
-| 5–9 | Studiendesign & Bias · Konfidenzintervalle & p-Werte · Base R lesen · Reproduzierbare Berichte · Mini-Projekt | | geplant |
+| 5a | [Studiendesign und Bias](module/05a_studiendesign_bias.qmd) | Welche Studie kann die Frage beantworten – und was kann dabei schiefgehen? | Entwurf zur Durchsicht |
+| 5b–9 | Confounding & Effektmodifikation · Konfidenzintervalle & p-Werte · Base R lesen · Reproduzierbare Berichte · Mini-Projekt | | geplant |
 
 ## Kurzer Funktionstest
 

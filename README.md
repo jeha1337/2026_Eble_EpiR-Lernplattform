@@ -18,12 +18,13 @@ module/01_*.qmd             module 1 – prevalence and incidence (calculators, 
 module/02_*.qmd             module 2 – diagnostic tests: Sens/Spez/PPV/NPV (diagnostic 2×2 + predictive-value widgets, quiz, 3 graded R exercises, Shinylive app)
 module/03_*.qmd             module 3 – relative and absolute risk: RR, OR, NNT (2×2 calculators, slider widget, quiz, 4 graded R exercises)
 module/04_*.qmd             module 4 – distributions and random variation: mean/SD vs median/IQR, normal and log-normal, SD vs SE, sqrt-n rule (study simulator widget, quiz, 4 graded R exercises)
+module/05a_*.qmd            module 5a – study designs and bias: design map, timelines, measure per design, selection/information bias, loss to follow-up, Bradford Hill (design detective + ordering widgets, quiz, 3 graded R exercises incl. embedded case-control sampling)
 module/_template.qmd        module template with QA checklist (ignored by Quarto)
 data/simulate_ckd_cohort.R  simulation script for the synthetic cohort (seed 20261026)
 data/ckd_kohorte.csv        synthetic dataset (n = 2000) – NOT real patient data
 data/codebook.md            variable definitions and expected summary values
-R/epir_plots.R              ggplot2 helpers for build-time figures (icon arrays, swimmer plot, person-time bars, RR/OR curves, design schema, diagnostic tree, PPV curves, histograms with SD bands / normal curve / log axis, boxplots, sampling distributions, target schema)
-assets/epir-widgets.js      dependency-free widgets: quiz (MC + numeric), measure calculator, pool model, 2×2 table, relative-vs-absolute slider, diagnostic 2×2, predictive-value tree, study simulator (sampling variation)
+R/epir_plots.R              ggplot2 helpers for build-time figures (icon arrays, swimmer plot, person-time bars, RR/OR curves, design schema, diagnostic tree, PPV curves, histograms with SD bands / normal curve / log axis, boxplots, sampling distributions, target schema, design map/timelines, three-explanations schema, censoring by exposure, dose-response bars)
+assets/epir-widgets.js      dependency-free widgets: quiz (MC + numeric), measure calculator, pool model, 2×2 table, relative-vs-absolute slider, diagnostic 2×2, predictive-value tree, study simulator (sampling variation), design detective, ordering task (keyboard-friendly, reusable for Parsons problems)
 assets/includes/            HTML include that loads the widget script on every page
 styles.scss                 theme tweaks (accent colour, callout classes, widget styles)
 _extensions/                quarto-live (r-wasm/live) and shinylive (quarto-ext/shinylive)

@@ -37,6 +37,15 @@
  *  8. Sample: <div class="epir-sample" data-prev="18.1" data-n="100"></div>
  *             (study simulator: draw 1 / 100 / 1000 studies of size n from a population with
  *              a given prevalence -> histogram of the estimates, SD = standard error)
+ * 10. Design: <div class="epir-design"><script type="application/json">{"items":[...]}</script></div>
+ *             item: {text, assign:"life"|"researcher", time:"forward"|"backward"|"snapshot",
+ *                    design, measure, explain, why_assign?, why_time?}
+ *             ("design detective": two questions per fictive study description -> design + measure)
+ * 11. Order:  <div class="epir-order"><script type="application/json">{...}</script></div>
+ *             {prompt, items:[{text, feedback}] in CORRECT order, shown:[display order, 1-based],
+ *              code:false, success}
+ *             (ordering task without drag-and-drop: one <select> per item, keyboard friendly;
+ *              used for the evidence hierarchy in module 5a and as Parsons problems for code)
  */
 (function () {
   "use strict";
@@ -795,6 +804,131 @@
     render();
   }
 
+
+  // ---------- 10. Design detective ----------------------------------------
+  const DESIGN_ASSIGN = [
+    { v: "life", t: "Das Leben: Die Personen sind exponiert oder nicht, ohne Zutun der Forschenden (Beobachtungsstudie)." },
+    { v: "researcher", t: "Die Forschenden: Sie teilen die Exposition (z. B. Behandlung) per Zufall zu (Experiment)." },
+  ];
+  const DESIGN_TIME = [
+    { v: "forward", t: "Vorwärts: von der Exposition zur Erkrankung (Gruppen nach Exposition gebildet, Erkrankung abgewartet oder nachverfolgt)." },
+    { v: "backward", t: "Rückwärts: von der Erkrankung zur Exposition (Erkrankte und Nicht-Erkrankte ausgewählt, frühere Exposition erfragt)." },
+    { v: "snapshot", t: "Momentaufnahme: Exposition und Erkrankung gleichzeitig gemessen." },
+  ];
+  function initDesign(root) {
+    const script = root.querySelector("script[type='application/json']");
+    if (!script) return;
+    let data;
+    try { data = JSON.parse(script.textContent); } catch (e) { root.appendChild(el("p", { class: "epir-error", text: "Widget-Daten fehlerhaft." })); return; }
+    const items = data.items || [];
+    const wrap = el("div", { class: "epir-design-list" });
+    let solved = 0;
+    const summary = el("div", { class: "epir-quiz-summary", "aria-live": "polite" });
+    items.forEach((it, i) => {
+      const id = nextId("epir-design");
+      const fs = el("fieldset", { class: "epir-quiz-item epir-design-item" });
+      fs.appendChild(el("legend", { html: `<span class="epir-quiz-num">Studie ${i + 1}.</span> <em>Fiktive Beschreibung:</em> ${it.text}` }));
+      const group = (name, label, opts) => {
+        const g = el("div", { class: "epir-design-q" });
+        g.appendChild(el("div", { class: "epir-design-qlabel", text: label }));
+        opts.forEach((o) => {
+          const rid = `${id}-${name}-${o.v}`;
+          g.appendChild(el("label", { class: "epir-option", for: rid }, [
+            el("input", { type: "radio", name: `${id}-${name}`, id: rid, value: o.v }),
+            el("span", { text: o.t }),
+          ]));
+        });
+        return g;
+      };
+      const gA = group("assign", "1. Wer teilt die Exposition zu?", DESIGN_ASSIGN);
+      const gT = group("time", "2. In welche Zeitrichtung wird beobachtet?", DESIGN_TIME);
+      const btn = el("button", { type: "button", class: "btn btn-sm btn-primary", text: "Prüfen" });
+      const out = el("div", { class: "epir-feedback", "aria-live": "polite", role: "status" });
+      let done = false;
+      btn.addEventListener("click", () => {
+        const a = fs.querySelector(`input[name='${id}-assign']:checked`);
+        const t = fs.querySelector(`input[name='${id}-time']:checked`);
+        if (!a || !t) { out.className = "epir-feedback epir-info"; out.textContent = "Bitte beide Fragen beantworten."; return; }
+        const okA = a.value === it.assign, okT = t.value === it.time;
+        if (okA && okT) {
+          out.className = "epir-feedback epir-success";
+          out.innerHTML = `<strong>Richtig: ${it.design}.</strong> Passende Maßzahl: ${it.measure}. ${it.explain || ""}`;
+          if (!done) { done = true; solved += 1; summary.textContent = `${solved} von ${items.length} Studien richtig eingeordnet.`; }
+          fs.querySelectorAll("input").forEach((inp) => { inp.disabled = true; });
+          btn.disabled = true;
+          return;
+        }
+        const parts = [];
+        if (a.value === "researcher" && t.value !== "forward") {
+          parts.push("Wenn die Forschenden die Exposition zuteilen, kann man nur nach vorn beobachten – rückwärts oder gleichzeitig ist dann nicht möglich.");
+        }
+        if (!okA) parts.push(it.why_assign || (it.assign === "life" ? "Hier hat niemand per Zufall zugeteilt – die Exposition ist im Alltag entstanden. Das ist eine Beobachtungsstudie." : "Hier teilen die Forschenden per Los zu – das ist ein Experiment."));
+        if (!okT) parts.push(it.why_time || "Prüfen Sie, ob die Gruppen nach Exposition (vorwärts), nach Erkrankung (rückwärts) oder gar nicht gebildet wurden (Momentaufnahme).");
+        out.className = "epir-feedback epir-warning";
+        out.innerHTML = `<strong>Noch nicht.</strong> ${parts.join(" ")}`;
+      });
+      fs.appendChild(gA); fs.appendChild(gT);
+      fs.appendChild(el("div", { class: "epir-quiz-actions" }, [btn]));
+      fs.appendChild(out);
+      wrap.appendChild(fs);
+    });
+    root.appendChild(wrap);
+    root.appendChild(summary);
+  }
+
+  // ---------- 11. Ordering task (no drag-and-drop) --------------------------
+  function initOrder(root) {
+    const script = root.querySelector("script[type='application/json']");
+    if (!script) return;
+    let data;
+    try { data = JSON.parse(script.textContent); } catch (e) { root.appendChild(el("p", { class: "epir-error", text: "Widget-Daten fehlerhaft." })); return; }
+    const items = data.items || [];
+    const n = items.length;
+    if (n < 2) return;
+    // display order: 1-based indices into the correct order; fixed so every learner sees the same list
+    let shown = Array.isArray(data.shown) && data.shown.length === n ? data.shown.map((k) => k - 1) : items.map((_, i) => i);
+    const id = nextId("epir-order");
+    if (data.prompt) root.appendChild(el("p", { class: "epir-order-prompt", html: data.prompt }));
+    const list = el("ol", { class: "epir-order-list" + (data.code ? " epir-order-code" : "") });
+    const selects = [];
+    shown.forEach((k) => {
+      const sel = el("select", { class: "form-select form-select-sm epir-order-select", "aria-label": `Position für: ${items[k].text.replace(/<[^>]+>/g, "")}` });
+      sel.appendChild(el("option", { value: "", text: "–" }));
+      for (let p = 1; p <= n; p++) sel.appendChild(el("option", { value: String(p), text: String(p) }));
+      selects.push({ sel, k });
+      list.appendChild(el("li", { class: "epir-order-item" }, [
+        sel,
+        data.code ? el("pre", { class: "epir-quiz-code epir-order-codeline", text: items[k].text }) : el("span", { class: "epir-order-text", html: items[k].text }),
+      ]));
+    });
+    const btn = el("button", { type: "button", class: "btn btn-sm btn-primary", text: "Reihenfolge prüfen" });
+    const out = el("div", { class: "epir-feedback", "aria-live": "polite", role: "status" });
+    btn.addEventListener("click", () => {
+      const chosen = selects.map(({ sel, k }) => ({ k, pos: sel.value === "" ? NaN : Number(sel.value) }));
+      if (chosen.some((c) => Number.isNaN(c.pos))) { out.className = "epir-feedback epir-info"; out.textContent = "Bitte jedem Eintrag eine Position geben."; return; }
+      const seen = new Map();
+      for (const c of chosen) { if (seen.has(c.pos)) { out.className = "epir-feedback epir-info"; out.textContent = `Position ${c.pos} wurde zweimal vergeben – jede Position nur einmal.`; return; } seen.set(c.pos, c.k); }
+      // first wrongly placed item in terms of the correct sequence
+      let firstWrong = -1;
+      for (let p = 1; p <= n; p++) { if (seen.get(p) !== p - 1) { firstWrong = p; break; } }
+      if (firstWrong === -1) {
+        out.className = "epir-feedback epir-success";
+        out.innerHTML = `<strong>Richtig.</strong> ${data.success || ""}`;
+        const ul = el("ol", { class: "epir-alllist" });
+        items.forEach((it) => ul.appendChild(el("li", { html: `${it.text}${it.feedback ? ' <span class="epir-why">– ' + it.feedback + "</span>" : ""}` })));
+        out.appendChild(ul);
+        return;
+      }
+      const shouldBe = items[firstWrong - 1];
+      const placedThere = items[seen.get(firstWrong)];
+      out.className = "epir-feedback epir-warning";
+      out.innerHTML = `<strong>Ab Position ${firstWrong} stimmt die Reihenfolge nicht.</strong> Dort steht „${placedThere.text.replace(/<[^>]+>/g, "")}“, erwartet wird „${shouldBe.text.replace(/<[^>]+>/g, "")}“. ${shouldBe.feedback || ""}`;
+    });
+    root.appendChild(list);
+    root.appendChild(el("div", { class: "epir-quiz-actions" }, [btn]));
+    root.appendChild(out);
+  }
+
   // ---------- boot ---------------------------------------------------------
 
   // ---------- 8. Study simulator (sampling variation of a prevalence) -----
@@ -1020,6 +1154,8 @@
     document.querySelectorAll(".epir-dx").forEach(initDx);
     document.querySelectorAll(".epir-ppv").forEach(initPpv);
     document.querySelectorAll(".epir-sample").forEach(initSample);
+    document.querySelectorAll(".epir-design").forEach(initDesign);
+    document.querySelectorAll(".epir-order").forEach(initOrder);
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
   else boot();

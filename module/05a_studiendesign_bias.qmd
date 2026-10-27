@@ -1,0 +1,840 @@
+---
+title: "Modul 5a · Studiendesign und Bias"
+subtitle: "Welche Studie kann die Frage beantworten – und was kann dabei schiefgehen?"
+webr:
+  resources:
+    - ../data/ckd_kohorte.csv
+---
+
+{{< include ../_extensions/r-wasm/live/_knitr.qmd >}}
+
+::: {.callout-note appearance="simple"}
+**Entwurf zur Durchsicht (Oktober 2026).** Fachinhalte sind quellengeprüft; Formulierungen und Aufgaben werden nach dem Review durch die Lehrenden angepasst. Modul 5 besteht aus zwei Seiten: **5a Studiendesign und Bias** (diese Seite) und **5b Confounding und Effektmodifikation** (folgt).
+:::
+
+```{r}
+#| include: false
+# Build-time figures and numbers (knitr). Uses the synthetic cohort; see R/epir_plots.R.
+source("../R/epir_plots.R", encoding = "UTF-8")
+kohorte <- readr::read_csv("../data/ckd_kohorte.csv", show_col_types = FALSE)
+unter_risiko <- dplyr::filter(kohorte, ckd_baseline == 0)
+de <- function(x, d = 1) formatC(x, format = "f", digits = d, decimal.mark = ",", big.mark = "\u202f")
+# cross-section at baseline: prevalence of CKD by hypertension
+qs <- kohorte |> dplyr::group_by(hypertonie) |> dplyr::summarise(n = dplyr::n(), ckd = sum(ckd_baseline), praev = mean(ckd_baseline))
+pr <- qs$praev[qs$hypertonie == 1] / qs$praev[qs$hypertonie == 0]
+# cohort: incident CKD by hypertension among persons at risk
+ko <- unter_risiko |> dplyr::group_by(hypertonie) |> dplyr::summarise(n = dplyr::n(), faelle = sum(ckd_inzident), risiko = mean(ckd_inzident))
+rr <- ko$risiko[ko$hypertonie == 1] / ko$risiko[ko$hypertonie == 0]
+or_kohorte <- (ko$risiko[ko$hypertonie == 1] / (1 - ko$risiko[ko$hypertonie == 1])) / (ko$risiko[ko$hypertonie == 0] / (1 - ko$risiko[ko$hypertonie == 0]))
+# embedded case-control study: all cases, 2 controls per case drawn from non-cases (seed 5, same as exercise R3)
+set.seed(5)
+faelle <- dplyr::filter(unter_risiko, ckd_inzident == 1)
+kontrollen <- unter_risiko |> dplyr::filter(ckd_inzident == 0) |> dplyr::slice_sample(n = 2 * nrow(faelle))
+fk <- dplyr::bind_rows(faelle, kontrollen)
+exp_f <- mean(faelle$hypertonie); exp_k <- mean(kontrollen$hypertonie)
+or_fk <- (exp_f / (1 - exp_f)) / (exp_k / (1 - exp_k))
+# loss to follow-up among non-cases, by exposure
+lost <- unter_risiko |> dplyr::filter(ckd_inzident == 0) |> dplyr::group_by(hypertonie) |> dplyr::summarise(n = dplyr::n(), weg = sum(followup_jahre < 5), anteil = mean(followup_jahre < 5))
+# selection example: CKD prevalence in the diabetes clinic subgroup
+praev_ges <- mean(kohorte$ckd_baseline); praev_dm <- mean(kohorte$ckd_baseline[kohorte$diabetes == 1])
+# dose-response: incident CKD by baseline eGFR category
+dr <- unter_risiko |> dplyr::mutate(egfr_kat = cut(egfr, c(-Inf, 74.999, 89.999, Inf), labels = c("60–74", "75–89", "≥ 90"))) |>
+  dplyr::group_by(egfr_kat) |> dplyr::summarise(n = dplyr::n(), faelle = sum(ckd_inzident), risiko = mean(ckd_inzident))
+# guards: the text below quotes these numbers
+stopifnot(nrow(kohorte) == 2000, nrow(unter_risiko) == 1638, nrow(faelle) == 131)
+stopifnot(qs$ckd == c(123, 239), qs$n == c(1140, 860), round(pr, 2) == 2.58)
+stopifnot(ko$faelle == c(65, 66), ko$n == c(1017, 621), round(rr, 2) == 1.66, round(or_kohorte, 2) == 1.74)
+stopifnot(nrow(fk) == 393, round(100 * nrow(faelle) / nrow(fk)) == 33, round(or_fk, 1) == 1.7)
+stopifnot(lost$weg == c(183, 105), lost$n == c(952, 555))
+stopifnot(round(100 * praev_ges, 1) == 18.1, round(100 * praev_dm, 1) == 45.9)
+stopifnot(dr$faelle == c(57, 54, 20), dr$n == c(430, 654, 554))
+```
+
+::: {.leitfrage}
+Eine Kollegin berichtet aus der Beispielkohorte: „Personen mit Hypertonie (Bluthochdruck) entwickeln 1,7-mal so häufig eine neue chronische Nierenkrankheit (CKD) wie Personen ohne Hypertonie.“ Ein Kollege hält dagegen: „Das kann an der Studie liegen – wer wurde da überhaupt untersucht, und wie?“ **Welche Studie kann die Frage nach Hypertonie und CKD überhaupt beantworten – und welche Fehler können ein RR von 1,7 erzeugen, obwohl Hypertonie gar nichts mit der Niere zu tun hätte?**
+:::
+
+```{=html}
+<div class="epir-estimate" data-id="m5a-cc" data-unit="von 100" data-min="0" data-max="100" data-next="Abschnitt „Welche Maßzahl zu welchem Design?“">
+<p>In der Beispielkohorte entwickelten 8 von 100 Personen unter Risiko innerhalb von fünf Jahren eine neue CKD. Nun bauen wir aus derselben Kohorte eine <em>Fall-Kontroll-Studie</em>: alle 131 Erkrankten („Fälle“) plus 262 zufällig gezogene Nicht-Erkrankte („Kontrollen“). <strong>Wie viele von 100 Teilnehmenden dieser Fall-Kontroll-Studie haben Ihrer Einschätzung nach eine CKD?</strong></p>
+</div>
+```
+
+::: {.lernziele}
+**Lernziele.** Nach diesem Modul können Sie …
+
+**Konzept (ohne R):**
+
+1. die vier Grunddesigns (Querschnittsstudie, Kohortenstudie, Fall-Kontroll-Studie, randomisierte kontrollierte Studie) anhand zweier Fragen **einordnen** – Wer teilt die Exposition zu? In welche Zeitrichtung wird beobachtet? – und für eine Fragestellung ein geeignetes Design **auswählen** und **begründen**.
+2. jedem Design die passende Maßzahl aus den Modulen 1 bis 3 **zuordnen** (Prävalenz bzw. Prävalenzverhältnis, Risiko und relatives Risiko, nur Odds Ratio) und **erklären**, warum eine Fall-Kontroll-Studie keine Prävalenz und kein Risiko liefert.
+3. Selektionsbias, Informationsbias (Recall Bias) und Loss to follow-up an kurzen Szenarien **erkennen** und die **Richtung** der Verzerrung **abschätzen**; Zufall, Bias und Confounding als die drei Alternativerklärungen einer Assoziation **benennen**.
+4. die Bradford-Hill-Gesichtspunkte als Hilfe, nicht als Checkliste **anwenden**, insbesondere Zeitlichkeit und Dosis-Wirkungs-Beziehung.
+
+**Vertiefung mit R** (Abschnitt „Dasselbe in R“):
+
+5. dieselbe Kohorte als drei Designs **analysieren** – Querschnitt zu Studienbeginn (Prävalenzverhältnis), Kohorte (relatives Risiko) und eingebettete Fall-Kontroll-Studie (`slice_sample()`, Odds Ratio) – und die Ergebnisse **vergleichen**.
+:::
+
+::: {.callout-tip appearance="simple" icon=false}
+**Zwei Lesepfade.** Bis zum Selbsttest brauchen Sie kein R. Der Abschnitt [Dasselbe in R](#dasselbe-in-r) am Ende ist Vertiefung, keine Voraussetzung.
+:::
+
+## Die Beispielkohorte
+
+Dieselbe **simulierte** Kohorte wie in den Modulen 1 bis 4 (keine echten Patientendaten; [Kurzerklärung der Begriffe CKD, eGFR und UACR in Modul 1](01_praevalenz_inzidenz.qmd#niere-kurz)): 2000 Erwachsene, zu Beginn untersucht, davon 1638 ohne CKD („unter Risiko“), fünf Jahre beobachtet. Die **Exposition** ist in diesem Modul die Hypertonie, das **Ereignis** (engl. *outcome*) die neue CKD. Aus Modul 3 kennen Sie das Ergebnis: Risiko `r de(100 * ko$risiko[2])` % mit und `r de(100 * ko$risiko[1])` % ohne Hypertonie, relatives Risiko (RR, Quotient der beiden Risiken) `r de(rr, 2)`.
+
+Neu ist die Perspektive: Wir fragen nicht mehr nur, *was* herauskommt, sondern *wie* eine Studie gebaut ist – und was das für die Zahl bedeutet.
+
+## Zwei Fragen, vier Designs
+
+Ein **Studiendesign** (engl. *study design*) ist der Bauplan einer Studie: Wer wird untersucht, was wird wann gemessen, wer vergleicht wen mit wem? Die meisten Designs, die Ihnen in Publikationen begegnen, lassen sich mit zwei Fragen einordnen:
+
+1. **Wer teilt die Exposition zu?** Teilen die Forschenden sie zu (per Los), ist es ein **Experiment**. Ist sie im Leben der Personen entstanden (Blutdruck, Rauchen, Beruf), ist es eine **Beobachtungsstudie** (engl. *observational study*).
+2. **In welche Zeitrichtung wird beobachtet?** **Vorwärts**: Gruppen nach Exposition bilden, Erkrankung abwarten. **Rückwärts**: Erkrankte und Nicht-Erkrankte auswählen, frühere Exposition erfragen. **Momentaufnahme**: beides gleichzeitig messen.
+
+```{r}
+#| label: fig-design-map
+#| echo: false
+#| fig-height: 4.2
+#| fig-cap: "Die Design-Landkarte: zwei Fragen ordnen vier Grunddesigns. Teilen die Forschenden zu, kann man nur vorwärts beobachten – die beiden Felder rechts oben bleiben leer."
+#| fig-alt: "Raster mit zwei Zeilen (das Leben teilt zu; die Forschenden teilen zu) und drei Spalten (rückwärts, Momentaufnahme, vorwärts). Obere Zeile: Fall-Kontroll-Studie, Querschnittsstudie, Kohortenstudie. Untere Zeile: zwei Felder 'nicht möglich' und rechts die randomisierte kontrollierte Studie."
+plot_design_map()
+```
+
+Die vier Grunddesigns im Überblick (deutscher Begriff, englischer in Klammern):
+
+- **Querschnittsstudie** (*cross-sectional study*): Alle Personen werden zu *einem* Zeitpunkt untersucht; Exposition und Erkrankung werden gleichzeitig erhoben. Beispiel: Unsere Kohorte *zu Studienbeginn* – wer hat Hypertonie, wer hat (schon) eine CKD?
+- **Kohortenstudie** (*cohort study*): Personen *ohne* die Erkrankung werden nach Exposition eingeteilt und über die Zeit beobachtet: Wer erkrankt neu? Das ist unsere Kohorte über fünf Jahre.
+- **Fall-Kontroll-Studie** (*case-control study*): Man beginnt am Ende – mit Erkrankten (**Fälle**) und einer Vergleichsgruppe ohne die Erkrankung (**Kontrollen**) – und fragt rückwärts: Wer war exponiert?
+- **Randomisierte kontrollierte Studie** (*randomized controlled trial*, RCT): Die Forschenden teilen die Exposition (meist eine Behandlung) per Zufall zu (**Randomisierung**) und beobachten nach vorn. Für Risikofaktoren wie Hypertonie ist das ethisch nicht möglich – niemand bekommt per Los einen hohen Blutdruck zugeteilt. Darum stammt das meiste Wissen über Risikofaktoren aus Beobachtungsstudien.
+
+## Zeitstrahlen: Wann wird was gemessen?
+
+Die Zeitrichtung ist die häufigste Fehlerquelle beim Einordnen. @fig-timelines zeigt die Designs auf einer gemeinsamen Zeitachse; der senkrechte Strich ist der Moment, in dem die Studie beginnt und Teilnehmende aufgenommen werden (**Rekrutierung**).
+
+```{r}
+#| label: fig-timelines
+#| echo: false
+#| fig-height: 5.2
+#| fig-cap: "Zeitstrahlen der Designs. Petrolfarbene Pfeile: Blick von der Exposition zur Erkrankung (vorwärts); oranger Pfeil: von der Erkrankung zurück zur Exposition; blaue Raute: Momentaufnahme. Die retrospektive Kohortenstudie blickt vorwärts – nur liegt die ganze Beobachtung in der Vergangenheit."
+#| fig-alt: "Fünf Zeilen mit Pfeilen auf einer Zeitachse mit senkrechtem Strich 'heute: Rekrutierung'. RCT und prospektive Kohorte: Pfeil von heute nach rechts. Retrospektive Kohorte: Pfeil aus der Vergangenheit bis heute. Fall-Kontroll-Studie: Pfeil von heute nach links. Querschnitt: Raute auf dem Strich."
+plot_design_timelines()
+```
+
+Zwei Begriffe gehören hierher, weil sie oft verwechselt werden:
+
+- **Prospektiv** (*prospective*) heißt: Die Exposition wird *vor* dem Auftreten der Erkrankung erfasst, die Erkrankung tritt erst nach Studienbeginn ein.
+- **Retrospektiv** (*retrospective*) heißt: Die Erkrankung ist bei Studienbeginn bereits eingetreten; Exposition und Erkrankung werden aus Akten oder Erinnerung rekonstruiert.
+
+Eine **retrospektive Kohortenstudie** (etwa aus Krankenakten der Jahre 2015 bis 2025) bildet die Gruppen trotzdem *nach Exposition* und schaut von dort nach vorn – sie ist eine Kohortenstudie, keine Fall-Kontroll-Studie. „Retrospektiv“ beschreibt den Zeitpunkt der Datenerhebung, nicht die Blickrichtung des Vergleichs.
+
+## Welche Maßzahl zu welchem Design? {#masszahl}
+
+Jedes Design erlaubt bestimmte Maßzahlen aus den Modulen 1 bis 3 – und andere nicht. Entscheidend ist, welche Gruppen die Forschenden festlegen und welche „von selbst“ entstehen (die **Leserichtung** aus Modul 3).
+
+::: {.epir-cards}
+::: {.epir-card .epir-card-blue}
+**Querschnittsstudie**
+
+- **Was gezählt wird:** Wer ist *jetzt* exponiert, wer ist *jetzt* erkrankt?
+- **Maßzahl:** Prävalenz je Gruppe (Modul 1), Quotient = **Prävalenzverhältnis** (engl. *prevalence ratio*, PR)
+- **Beispiel:** CKD zu Beginn bei `r de(100 * qs$praev[2])` % mit vs. `r de(100 * qs$praev[1])` % ohne Hypertonie; PR `r de(pr, 2)`
+- **Grenze:** Keine Zeitrichtung – war zuerst der Blutdruck hoch oder die Niere krank?
+:::
+::: {.epir-card}
+**Kohortenstudie**
+
+- **Was gezählt wird:** Neue Fälle je Expositionsgruppe über die Zeit
+- **Maßzahl:** Risiko (kumulative Inzidenz) oder Inzidenzrate je Gruppe, **relatives Risiko** (RR), Risikodifferenz, NNT/NNH (Modul 3)
+- **Beispiel:** `r de(100 * ko$risiko[2])` % vs. `r de(100 * ko$risiko[1])` % in fünf Jahren; RR `r de(rr, 2)`
+- **Grenze:** Dauer und Größe – seltene Erkrankungen brauchen riesige Kohorten
+:::
+::: {.epir-card .epir-card-accent}
+**Fall-Kontroll-Studie**
+
+- **Was gezählt wird:** Anteil Exponierter unter den Fällen und unter den Kontrollen
+- **Maßzahl:** **nur das Odds Ratio** (OR, Modul 3). Kein Risiko, keine Prävalenz, kein RR
+- **Beispiel:** siehe Auflösung unten
+- **Stärke:** Effizient bei seltenen Erkrankungen und langen Latenzzeiten
+:::
+::: {.epir-card}
+**Randomisierte kontrollierte Studie**
+
+- **Was gezählt wird:** Ereignisse je zugeloster Gruppe über die Zeit
+- **Maßzahl:** wie Kohorte: Risiko, RR, Risikodifferenz, **NNT** (Modul 3)
+- **Besonderheit:** Durch das Los sind die Gruppen zu Beginn im Mittel in *allen* Merkmalen gleich – auch in unbekannten (Modul 5b)
+- **Grenze:** Nur für zuteilbare Expositionen; ethische Voraussetzung ist echte Unsicherheit über den Nutzen
+:::
+:::
+
+**Warum liefert die Fall-Kontroll-Studie keine Prävalenz?** Weil die Forschenden entscheiden, wie viele Fälle und wie viele Kontrollen aufgenommen werden. In unserer eingebetteten Fall-Kontroll-Studie sind es alle `r nrow(faelle)` Fälle und `r nrow(kontrollen)` Kontrollen – also `r nrow(faelle)` von `r nrow(fk)` Teilnehmenden mit CKD, rund **`r round(100 * nrow(faelle) / nrow(fk))` von 100**. Diese Zahl sagt nichts über die Häufigkeit der CKD in der Bevölkerung (dort waren es 8 von 100 in fünf Jahren); sie ist ein Artefakt des Designs. Was man dagegen vergleichen kann, ist der Anteil Exponierter: `r de(100 * exp_f)` % der Fälle hatten Hypertonie, `r de(100 * exp_k)` % der Kontrollen. Daraus folgt ein OR von `r de(or_fk, 2)` – nahe am OR der vollständigen Kohorte (`r de(or_kohorte, 2)`) und, weil das Ereignis mit 8 % relativ selten ist, auch nahe am RR von `r de(rr, 2)`.
+
+```{=html}
+<div class="epir-estimate-reveal" data-ref="m5a-cc" data-answer="33" data-unit="von 100" data-diff-unit="Personen" data-answer-text="33 von 100 (131 Fälle unter 393 Teilnehmenden) – festgelegt durch das Design, nicht durch die Krankheitshäufigkeit"></div>
+```
+
+::: {.callout-note collapse="true"}
+## Mehr dazu: Wie man Kontrollen zieht – und was das OR dann schätzt
+In unserem Beispiel wurden die Kontrollen am Ende der Beobachtungszeit aus den Nicht-Erkrankten gezogen (**kumulative Stichprobe**). Dann gilt OR ≈ RR nur, wenn das Ereignis selten ist (Modul 3). Zieht man die Kontrollen stattdessen *während* der Beobachtung aus allen, die zum Zeitpunkt eines Falls noch unter Risiko sind (**Dichte-Stichprobe**, engl. *risk-set sampling*), schätzt das OR direkt das Verhältnis der Inzidenzraten – ohne Seltenheitsannahme ([Lash et al. 2021, Kapitel 8](https://shop.lww.com/Modern-Epidemiology/p/9781451193282)). Für dieses Modul reicht die vereinfachte Regel: **Fall-Kontroll-Studie → OR.**
+:::
+
+## Interaktiv: Design-Detektiv
+
+Sechs kurze, **fiktive** Studienbeschreibungen. Beantworten Sie je Studie die beiden Fragen; das Widget nennt dann Design und passende Maßzahl – und erklärt, wenn eine Antwort nicht passt.
+
+```{=html}
+<div class="epir-design">
+<script type="application/json">
+{
+  "items": [
+    {
+      "text": "An einem Stichtag werden in zwölf Hausarztpraxen alle 500 Personen, die an diesem Tag kommen, auf Bluthochdruck untersucht; gleichzeitig wird die eGFR bestimmt.",
+      "assign": "life", "time": "snapshot",
+      "design": "Querschnittsstudie", "measure": "Prävalenz je Gruppe und Prävalenzverhältnis (PR)",
+      "explain": "Beides wird am selben Tag gemessen; wer zuerst da war – Hypertonie oder Nierenschaden –, bleibt offen.",
+      "why_time": "Es gibt keine Nachbeobachtung und keine Auswahl nach Erkrankung: Exposition (Blutdruck) und Erkrankung (eGFR) werden am selben Tag erfasst – eine Momentaufnahme."
+    },
+    {
+      "text": "2000 nierengesunde Erwachsene mit und ohne Hypertonie werden ab heute fünf Jahre lang jährlich untersucht; gezählt wird, wer neu eine CKD entwickelt.",
+      "assign": "life", "time": "forward",
+      "design": "prospektive Kohortenstudie", "measure": "Risiko je Gruppe, relatives Risiko (RR), Risikodifferenz",
+      "explain": "Gruppen nach Exposition, Blick nach vorn, Ereignis wird abgewartet – genau unsere Beispielkohorte.",
+      "why_time": "Die Gruppen werden nach der Exposition (Hypertonie ja/nein) gebildet und man wartet, wer erkrankt: vorwärts."
+    },
+    {
+      "text": "150 Personen mit einem ersten Nierenstein und 300 Personen ohne Nierenstein aus denselben Praxen werden gefragt, wie viel sie in den letzten Jahren täglich getrunken haben.",
+      "assign": "life", "time": "backward",
+      "design": "Fall-Kontroll-Studie", "measure": "nur das Odds Ratio (OR)",
+      "explain": "Start bei der Erkrankung (150 Fälle, 300 Kontrollen), Exposition wird rückblickend erfragt. Der Anteil Erkrankter (150 von 450) ist vom Design festgelegt – kein Risiko, keine Prävalenz berechenbar.",
+      "why_time": "Die Gruppen sind nach der Erkrankung gebildet (Nierenstein ja/nein) und die Exposition (Trinkmenge) wird rückblickend erhoben: rückwärts."
+    },
+    {
+      "text": "400 Personen mit Diabetes erhalten per Los entweder ein neues Medikament oder ein Placebo; nach drei Jahren wird verglichen, wie viele je Gruppe eine CKD entwickelt haben.",
+      "assign": "researcher", "time": "forward",
+      "design": "randomisierte kontrollierte Studie (RCT)", "measure": "Risiko je Gruppe, RR, Risikodifferenz, NNT",
+      "explain": "Das Los teilt die Exposition zu; dann wird nach vorn beobachtet. Die Gruppen sind zu Beginn im Mittel in allen Merkmalen gleich."
+    },
+    {
+      "text": "Aus den Krankenakten einer Klinik werden alle Personen herausgesucht, bei denen 2015 der Blutdruck dokumentiert wurde; anhand der Akten bis 2025 wird geprüft, wer seitdem eine CKD entwickelt hat.",
+      "assign": "life", "time": "forward",
+      "design": "retrospektive Kohortenstudie", "measure": "Risiko je Gruppe, RR, Risikodifferenz",
+      "explain": "Alles liegt in der Vergangenheit – aber die Gruppen werden nach der Exposition von 2015 gebildet und von dort nach vorn verfolgt. „Retrospektiv“ heißt nicht „Fall-Kontroll“.",
+      "why_time": "Beliebte Falle: Die Daten sind alt, aber der Vergleich läuft von der Exposition (Blutdruck 2015) nach vorn zur Erkrankung. Rückwärts wäre es nur, wenn man mit den CKD-Fällen von 2025 begonnen hätte."
+    },
+    {
+      "text": "80 Kinder mit einer angeborenen Nierenfehlbildung und 160 gesunde Kinder gleichen Alters werden ausgewählt; die Mütter werden befragt, welche Medikamente sie in der Schwangerschaft eingenommen haben.",
+      "assign": "life", "time": "backward",
+      "design": "Fall-Kontroll-Studie", "measure": "nur das Odds Ratio (OR)",
+      "explain": "Klassischer Einsatz: seltene Erkrankung, Exposition liegt lange zurück. Achtung Recall Bias: Mütter erkrankter Kinder erinnern Expositionen möglicherweise gründlicher (Abschnitt Informationsbias).",
+      "why_time": "Ausgewählt wird nach der Erkrankung (Fehlbildung ja/nein), die Exposition (Medikamente) wird rückblickend erfragt: rückwärts."
+    }
+  ]
+}
+</script>
+</div>
+```
+
+## Interaktiv: Aussagekraft ordnen
+
+Für die Frage „Verursacht X die Erkrankung Y?“ sind nicht alle Designs gleich überzeugend. Ordnen Sie die sechs Studientypen von der **geringsten** (1) zur **höchsten** (6) Aussagekraft für Kausalfragen. Wählen Sie für jeden Eintrag eine Position.
+
+```{=html}
+<div class="epir-order">
+<script type="application/json">
+{
+  "prompt": "<strong>Position 1 = geringste, 6 = höchste Aussagekraft</strong> für die Frage nach Ursache und Wirkung.",
+  "shown": [4, 1, 6, 3, 5, 2],
+  "items": [
+    { "text": "Fallbericht / Fallserie", "feedback": "Beschreibt einzelne Erkrankte ohne Vergleichsgruppe – kann Hypothesen anstoßen, aber keine Assoziation zeigen." },
+    { "text": "Querschnittsstudie", "feedback": "Hat eine Vergleichsgruppe, aber keine Zeitrichtung: Ursache und Wirkung sind nicht trennbar." },
+    { "text": "Fall-Kontroll-Studie", "feedback": "Blickt rückwärts; anfällig für Recall Bias und für die Auswahl der Kontrollen – aber mit Zeitbezug zur Exposition." },
+    { "text": "Kohortenstudie", "feedback": "Exposition vor Erkrankung gemessen, Risiken direkt schätzbar; bleibt aber eine Beobachtungsstudie (Confounding, Modul 5b)." },
+    { "text": "Randomisierte kontrollierte Studie (RCT)", "feedback": "Das Los gleicht bekannte und unbekannte Störgrößen im Mittel aus – das stärkste Einzeldesign." },
+    { "text": "Systematischer Review mit Metaanalyse von RCTs", "feedback": "Fasst alle RCTs zu einer Frage nach festen Regeln zusammen; steht deshalb über der einzelnen Studie." }
+  ],
+  "success": "Diese Reihenfolge ist eine <strong>Heuristik</strong>, keine Rangliste einzelner Studien: Eine sorgfältige Kohortenstudie kann aussagekräftiger sein als eine schlecht durchgeführte RCT, und für manche Fragen (Nebenwirkungen, seltene Erkrankungen, Risikofaktoren) ist ein RCT gar nicht möglich."
+}
+</script>
+</div>
+```
+
+::: {.callout-note collapse="true"}
+## Mehr dazu: Was die Hierarchie misst – und was nicht
+Die Hierarchie ordnet Designs nach ihrer Anfälligkeit für systematische Fehler bei *Kausalfragen* (interne Validität). Sie sagt nichts über die Qualität einer konkreten Studie und nichts darüber, ob die Ergebnisse auf andere Personen übertragbar sind. Für andere Fragetypen gelten andere Rangfolgen: Die Häufigkeit einer Erkrankung beantwortet eine gute Querschnittsstudie besser als ein RCT; die Treffsicherheit eines Tests (Modul 2) eine Diagnostikstudie ([Grimes & Schulz 2002](https://doi.org/10.1016/S0140-6736(02)07283-5)).
+:::
+
+## Drei Alternativerklärungen für eine Assoziation
+
+Zurück zur Leitfrage. Das RR von `r de(rr, 2)` zeigt eine **Assoziation** (einen statistischen Zusammenhang) zwischen Hypertonie und neuer CKD. Bevor man „Ursache“ sagt, müssen drei andere Erklärungen unwahrscheinlich gemacht werden – in dieser Reihenfolge:
+
+```{r}
+#| label: fig-three
+#| echo: false
+#| fig-height: 2.4
+#| fig-cap: "Von der Assoziation zur Ursache: drei Alternativerklärungen, die nacheinander geprüft werden. Zufall war Thema in Modul 4, Bias ist Thema dieser Seite, Confounding folgt in Modul 5b."
+#| fig-alt: "Fünf Kästen mit Pfeilen: Beobachtete Assoziation → Zufall? → Bias? → Confounding? → Ursache?"
+plot_three_explanations()
+```
+
+1. **Zufall** (Modul 4): Könnte der Unterschied allein durch die zufällige Zusammensetzung der Stichprobe entstanden sein? Mehr Personen machen diesen Fehler kleiner.
+2. **Bias** (*systematischer Fehler*): Ist die Zahl verzerrt, weil die *falschen* Personen in die Studie kamen oder etwas *falsch gemessen* wurde? Mehr Personen helfen hier **nicht** – eine große Studie ist dann nur „präziser falsch“ (Zielscheibe aus Modul 4).
+3. **Confounding** (*Störgröße*): Erklärt eine dritte Variable – etwa das Alter – sowohl die Exposition als auch die Erkrankung? Das ist Thema von Modul 5b.
+
+**Bias** heißt: Das Ergebnis weicht *systematisch*, also in jeder Wiederholung in dieselbe Richtung, vom wahren Wert ab. Wir sehen uns drei Formen an, die in Beobachtungsstudien am häufigsten diskutiert werden.
+
+## Bias I: Selektionsbias
+
+**Selektionsbias** (*selection bias*) entsteht, wenn die Art, wie Personen in die Studie kommen (oder in ihr bleiben), mit Exposition *und* Erkrankung zusammenhängt – die Studienpopulation ist dann kein verkleinertes Abbild der Zielpopulation mehr.
+
+Das einfachste Beispiel kennen Sie aus Modul 1: Eine Prävalenz gilt nur für die Population, aus der sie stammt. @fig-selection zeigt es mit echten Zahlen der Kohorte: Rekrutiert man nur in der **Diabetes-Sprechstunde**, findet man eine CKD-Prävalenz von `r de(100 * praev_dm)` % statt `r de(100 * praev_ges)` %.
+
+```{r}
+#| label: fig-selection
+#| echo: false
+#| fig-height: 4.4
+#| fig-cap: "Selektion verändert die Zahl: CKD-Prävalenz zu Studienbeginn in der ganzen Kohorte (links) und in der Teilgruppe mit Diabetes (rechts), wie sie eine Rekrutierung nur in der Diabetes-Sprechstunde liefern würde. Zahlen aus der simulierten Kohorte."
+#| fig-alt: "Zwei Raster mit je 100 Quadraten. Links sind 18 Quadrate gefüllt, rechts 46."
+plot_icon_array(c("Ganze Kohorte: 18 von 100" = 100 * praev_ges, "Nur Diabetes-Sprechstunde: 46 von 100" = 100 * praev_dm), label_case = "CKD", label_no = "keine CKD")
+```
+
+Für eine *Prävalenz* ist das offensichtlich. Für einen *Vergleich* (RR, OR) wird es heimtückischer, weil der Vergleich nur dann verzerrt ist, wenn die Auswahl mit Exposition **und** Erkrankung zusammenhängt. Drei typische Situationen:
+
+| Situation | Was passiert | Richtung |
+|---|---|---|
+| **Fall-Kontroll-Studie: Kontrollen aus der falschen Population.** Fälle aus einer Nierenklinik, Kontrollen aus einer Herzsprechstunde (dort ist Hypertonie häufiger als in der Bevölkerung) | Die Kontrollen sind häufiger exponiert, als es die Population der Fälle wäre | OR zu klein (zur Null oder darunter) |
+| **Teilnahmebereitschaft hängt von beidem ab.** Personen mit Hypertonie *und* Nierenbeschwerden nehmen besonders gern an einer „Nierenstudie“ teil | Exponierte Fälle sind überrepräsentiert | RR/OR zu groß |
+| **Gesunde-Arbeiter-Effekt** (*healthy worker effect*): Berufstätige werden mit der Allgemeinbevölkerung verglichen | Wer arbeitet, ist im Mittel gesünder als wer nicht arbeiten kann | Risiken der Exponierten erscheinen zu klein |
+
+Die Richtung lässt sich also nicht pauschal angeben – sie folgt aus der Frage: *Welche Kombination aus Exposition und Erkrankung ist in der Studie häufiger (oder seltener) als in der Zielpopulation?*
+
+::: {.callout-note collapse="true"}
+## Mehr dazu: die strukturelle Sicht
+In der modernen Epidemiologie wird Selektionsbias allgemeiner gefasst: Er entsteht, wenn die Auswahl auf eine Variable beschränkt wird, die eine *gemeinsame Folge* von Exposition und Erkrankung (oder ihrer Ursachen) ist – ein sogenannter Kollider. Diese Sicht erklärt mit einem einzigen Prinzip auch Loss to follow-up und manche „paradoxen“ Befunde ([Hernán, Hernández-Díaz & Robins 2004](https://doi.org/10.1097/01.ede.0000135174.63482.43)). Für dieses Modul genügt die klassische Beschreibung oben.
+:::
+
+## Bias II: Informationsbias
+
+**Informationsbias** (*information bias*, auch Messfehler, *misclassification*) entsteht, wenn Exposition oder Erkrankung falsch erfasst werden – Personen landen in der falschen Zelle der Vierfeldertafel. Entscheidend ist, ob der Fehler in beiden Gruppen gleich ist:
+
+| | Was heißt das | Beispiel | Richtung |
+|---|---|---|---|
+| **Nicht-differenzieller** Fehler (*non-differential*) | Die Messung ist gleich (un)genau, egal ob jemand erkrankt bzw. exponiert ist | Ein Blutdruckmessgerät misst bei allen um 5 mmHg zu niedrig; ein Fragebogen erfasst die Trinkmenge bei allen grob | **vereinfacht:** zur Null – Unterschiede zwischen den Gruppen werden verwischt |
+| **Differenzieller** Fehler (*differential*) | Die Messung hängt davon ab, in welcher Gruppe jemand ist | **Recall Bias** (*Erinnerungsverzerrung*): Erkrankte erinnern sich gründlicher an frühere Expositionen als Gesunde; Untersuchende suchen bei Exponierten genauer nach der Erkrankung | beliebig – häufig weg von der Null (Assoziation wird überschätzt) |
+
+Recall Bias ist der klassische Schwachpunkt der Fall-Kontroll-Studie: Mütter eines Kindes mit Fehlbildung (Studie 6 im Design-Detektiv) haben die Schwangerschaft oft gedanklich vielfach durchgegangen – und berichten Medikamente, die Mütter gesunder Kinder vergessen haben. Dann erscheint das OR zu groß, obwohl sich die tatsächliche Exposition nicht unterscheidet. Gegenmittel: Expositionsdaten, die *vor* der Erkrankung dokumentiert wurden (Apothekenregister, Akten), standardisierte Fragebögen, verblindete Interviewende.
+
+*Vereinfachung:* „Nicht-differenziell → zur Null“ gilt für Ja/Nein-Variablen mit voneinander unabhängigen Fehlern. Bei mehr als zwei Kategorien oder zusammenhängenden Fehlern kann die Verzerrung auch in die andere Richtung gehen ([Lash et al. 2021, Kapitel 13](https://shop.lww.com/Modern-Epidemiology/p/9781451193282)).
+
+## Bias III: Loss to follow-up
+
+In jeder Kohortenstudie scheiden Personen vorzeitig aus – Umzug, Rückzug, Tod aus anderer Ursache. In Modul 1 hießen sie **zensiert**. Das ist zunächst kein Bias, sondern Informationsverlust. **Loss to follow-up** (*Verlust in der Nachbeobachtung*) wird zum Bias, wenn das Ausscheiden mit Exposition **und** Erkrankung zusammenhängt – es ist damit eine Form des Selektionsbias, die *nach* Studienbeginn entsteht.
+
+Erste Prüfung: Scheiden Exponierte und Nicht-Exponierte unterschiedlich häufig aus? In der Beispielkohorte nicht (@fig-censoring): Von den Personen ohne neue CKD schieden `r de(100 * lost$anteil[2])` % mit und `r de(100 * lost$anteil[1])` % ohne Hypertonie vor Ende des fünften Jahres aus.
+
+```{r}
+#| label: fig-censoring
+#| echo: false
+#| fig-height: 3.6
+#| fig-cap: "Vorzeitiges Ausscheiden (Zensierung) nach Exposition in der Beispielkohorte, nur Personen ohne neue CKD. Die Anteile sind praktisch gleich – ein Hinweis, aber kein Beweis, dass das Ausscheiden unabhängig von der Exposition war."
+#| fig-alt: "Zwei blaue Balken: ohne Hypertonie 19,2 Prozent (183 von 952), mit Hypertonie 18,9 Prozent (105 von 555)."
+plot_censoring_by_exposure(unter_risiko)
+```
+
+Gleiche Ausscheideraten je Exposition schließen Bias jedoch nicht aus: Das Problem entsteht, wenn das Ausscheiden zusätzlich vom *Ereignis* abhängt. Ein **fiktives** Rechenbeispiel (Zahlen frei gewählt): 1000 Exponierte, davon erkranken 100; 1000 Nicht-Exponierte, davon erkranken 50 – wahres RR 2,0. Nun gehen 50 % der exponierten Erkrankten verloren (etwa weil sie in eine Spezialklinik wechseln und nicht mehr nachbeobachtet werden), von allen anderen nur 10 %:
+
+| | erkrankt (beobachtet) | gesamt (beobachtet) | Risiko |
+|---|---:|---:|---:|
+| exponiert | 100 − 50 = 50 | 1000 − 50 − 90 = 860 | 5,8 % |
+| nicht exponiert | 50 − 5 = 45 | 1000 − 5 − 95 = 900 | 5,0 % |
+
+Beobachtetes RR 1,16 statt 2,0 – die Assoziation ist fast verschwunden, obwohl die Ausscheiderate der Exponierten insgesamt (140 von 1000) nur wenig über der der Nicht-Exponierten (100 von 1000) liegt. Faustregeln aus der Literatur („unter 20 % Verlust ist unproblematisch“) greifen deshalb zu kurz; entscheidend ist, *wer* ausscheidet ([Grimes & Schulz 2002](https://doi.org/10.1016/S0140-6736(02)07451-2)).
+
+## Von der Assoziation zur Kausalität: Bradford Hill
+
+1965 formulierte der Statistiker Austin Bradford Hill neun **Gesichtspunkte** (engl. *viewpoints*; oft als „Kriterien“ bezeichnet, was Hill selbst vermied), die helfen zu beurteilen, ob eine Assoziation kausal ist. Sein eigener Kommentar dazu: „None of my nine viewpoints can bring indisputable evidence for or against the cause-and-effect hypothesis and none can be required as a sine qua non.“ ([Hill 1965](https://doi.org/10.1177/003591576505800503)) – kein Punkt beweist etwas, keiner ist zwingend.
+
+| Gesichtspunkt (Hill 1965) | Frage | Beispiel Hypertonie → CKD |
+|---|---|---|
+| **1 Stärke** (*strength*) | Wie groß ist die Assoziation? Große RR sind schwerer allein durch Bias oder Confounding zu erklären | RR `r de(rr, 2)`: moderat – Confounding durch Alter ist plausibel (Modul 5b) |
+| **2 Konsistenz** (*consistency*) | Finden andere Studien, andere Populationen, andere Methoden dasselbe? | Eine einzelne simulierte Kohorte kann das nicht zeigen |
+| 3 Spezifität (*specificity*) | Führt die Exposition zu genau einer Erkrankung? (heute als schwaches Argument angesehen) | Hypertonie schädigt viele Organe – fehlende Spezifität spricht nicht dagegen |
+| **4 Zeitlichkeit** (*temporality*) | Liegt die Exposition *vor* der Erkrankung? | In der Kohorte ja: Hypertonie zu Beginn, CKD danach. Im Querschnitt nicht entscheidbar |
+| **5 Dosis-Wirkungs-Beziehung** (*biological gradient*) | Steigt das Risiko mit der Dosis bzw. Dauer? | @fig-dose zeigt das Prinzip an der eGFR |
+| 6 Plausibilität (*plausibility*) | Gibt es einen biologischen Mechanismus? | Druckschädigung der Glomeruli |
+| 7 Kohärenz (*coherence*) | Passt der Befund zum sonstigen Wissen über die Erkrankung? | Blutdrucksenkung verlangsamt CKD-Progression |
+| 8 Experiment (*experiment*) | Verändert ein Eingriff in die Exposition das Risiko? | RCTs zur Blutdrucksenkung |
+| 9 Analogie (*analogy*) | Gibt es ähnliche, bereits akzeptierte Zusammenhänge? | Andere Gefäßschäden durch Hypertonie |
+
+Die fett gesetzten Punkte werden in der Praxis am meisten gewichtet. **Zeitlichkeit** nimmt eine Sonderrolle ein: Eine Ursache muss ihrer Wirkung vorausgehen – das ist keine empirische Frage, sondern Teil dessen, was „Ursache“ bedeutet. Deshalb gilt Zeitlichkeit heute als der einzige zwingend notwendige Punkt ([Rothman & Greenland 2005](https://doi.org/10.2105/AJPH.2004.059204)); Hill selbst hat diese Rangfolge nicht ausgesprochen. Eine Querschnittsstudie kann Zeitlichkeit nicht belegen, eine Kohortenstudie schon.
+
+Zur **Dosis-Wirkungs-Beziehung** liefert die Kohorte ein Beispiel. Die eGFR zu Studienbeginn liegt bei allen Personen unter Risiko bei mindestens 60 mL/min/1,73 m² (sonst hätten sie bereits eine CKD). Teilt man sie in drei Stufen, steigt das 5-Jahres-Risiko für eine neue CKD stufenweise, je näher die Ausgangs-eGFR an der Grenze liegt:
+
+```{r}
+#| label: fig-dose
+#| echo: false
+#| fig-height: 3.8
+#| fig-cap: "Dosis-Wirkungs-Beziehung in der Beispielkohorte: Je niedriger die eGFR zu Studienbeginn (noch im Normalbereich ≥ 60), desto häufiger eine neue CKD in fünf Jahren. Ein solcher Gradient stützt eine kausale Deutung – beweist sie aber nicht, weil ein Confounder denselben Gradienten erzeugen kann."
+#| fig-alt: "Drei orange Balken: eGFR 60 bis 74: 13,3 Prozent (57 von 430); 75 bis 89: 8,3 Prozent (54 von 654); 90 und mehr: 3,6 Prozent (20 von 554)."
+plot_dose_response(unter_risiko)
+```
+
+*Hinweis zur Deutung:* Die eGFR ist hier keine äußere Exposition, sondern ein Frühzeichen der Erkrankung selbst – das Beispiel zeigt das *Muster* eines Gradienten, nicht einen kausalen Risikofaktor. Für Hypertonie ließe sich dasselbe mit Blutdruckstufen prüfen; die Simulation enthält den Blutdruck nur als Ja/Nein-Variable.
+
+## Typische Fehler
+
+| Fehler | Richtig |
+|---|---|
+| „Retrospektiv = Fall-Kontroll-Studie“ | Retrospektiv beschreibt den Erhebungszeitpunkt. Eine retrospektive Kohortenstudie bildet Gruppen nach Exposition und blickt von dort nach vorn |
+| „Aus der Fall-Kontroll-Studie: 150 von 450 haben Nierensteine, Prävalenz 33 %“ | Der Anteil der Fälle ist vom Design festgelegt. Nur das OR (Vergleich der Expositionsanteile) ist interpretierbar |
+| „Mit 20 000 Teilnehmenden ist die Studie verlässlich“ | Ein großes n verkleinert den Zufallsfehler, nicht den Bias. Eine große verzerrte Studie ist präziser falsch |
+| „Ein RCT wäre immer besser gewesen“ | Für Risikofaktoren (Hypertonie, Rauchen) ist ein RCT ethisch oder praktisch unmöglich; dann sind Kohortenstudien das beste erreichbare Design |
+| „Bradford Hill: alle neun Punkte müssen erfüllt sein“ | Es sind Gesichtspunkte zur Abwägung, keine Checkliste; nur die Zeitlichkeit ist logisch notwendig |
+| „18 % Loss to follow-up – die Studie ist unbrauchbar“ | Problematisch ist Ausscheiden, das von Exposition *und* Erkrankung abhängt; gleiche Raten je Gruppe sind ein (unvollständiger) Hinweis auf Unbedenklichkeit |
+| „Die Kontrollen waren gesund, also ist die Auswahl in Ordnung“ | Kontrollen müssen aus derselben Population stammen wie die Fälle – sonst Selektionsbias, auch wenn alle Kontrollen gesund sind |
+
+::: {.takehome}
+**Take-Home-Messages**
+
+- **Zwei Fragen ordnen jedes Design:** Wer teilt die Exposition zu (Forschende → Experiment, das Leben → Beobachtung)? In welche Zeitrichtung wird beobachtet (vorwärts → Kohorte, rückwärts → Fall-Kontroll, Momentaufnahme → Querschnitt)?
+- **Design bestimmt Maßzahl:** Querschnitt → Prävalenz(-verhältnis); Kohorte und RCT → Risiko, RR, Risikodifferenz, NNT; Fall-Kontroll-Studie → **nur OR**, weil der Fallanteil gesetzt ist.
+- **Bias ist ein systematischer Fehler**, den mehr Teilnehmende nicht beheben. Selektionsbias (wer kommt hinein, wer bleibt), Informationsbias (was wird falsch gemessen – Recall Bias) und Loss to follow-up verzerren, wenn sie mit Exposition *und* Erkrankung zusammenhängen.
+- **Assoziation ist nicht Kausalität:** Erst Zufall, Bias und Confounding ausschließen; dann Bradford-Hill-Gesichtspunkte abwägen – nur die Zeitlichkeit ist zwingend.
+:::
+
+## Selbsttest
+
+Die Fragen entsprechen im Format den Klausurfragen (eine richtige Antwort; Rechenaufgaben mit Zahleneingabe). Designs und Bias-Typen sind gemischt; die beiden letzten Fragen wiederholen Stoff aus den Modulen 3 und 4.
+
+```{=html}
+<div class="epir-quiz">
+<script type="application/json">
+{
+  "items": [
+    {
+      "type": "mc",
+      "question": "<em>Fiktive Studie:</em> 200 Personen mit neu festgestellter CKD und 400 Personen ohne CKD aus denselben Hausarztpraxen werden gefragt, wie häufig sie in den vergangenen zehn Jahren rezeptfreie Schmerzmittel eingenommen haben. Welches Design ist das?",
+      "options": [
+        { "text": "Fall-Kontroll-Studie", "correct": true, "feedback": "Richtig: Ausgewählt wird nach der Erkrankung (200 Fälle, 400 Kontrollen), die Exposition wird rückblickend erfragt." },
+        { "text": "Retrospektive Kohortenstudie", "correct": false, "feedback": "Eine Kohortenstudie bildet die Gruppen nach der <em>Exposition</em> (Schmerzmittel ja/nein) und blickt nach vorn. Hier sind die Gruppen nach der <em>Erkrankung</em> gebildet." },
+        { "text": "Querschnittsstudie", "correct": false, "feedback": "Im Querschnitt werden Exposition und Erkrankung gleichzeitig gemessen und niemand wird gezielt nach Erkrankung ausgewählt. Hier wurden 200 Erkrankte und 400 Nicht-Erkrankte bewusst zusammengestellt." },
+        { "text": "Prospektive Kohortenstudie", "correct": false, "feedback": "Prospektiv hieße: Exposition heute erfassen, Erkrankung in Zukunft abwarten. Hier ist die Erkrankung bereits eingetreten und die Exposition wird rückwärts erhoben." }
+      ]
+    },
+    {
+      "type": "mc",
+      "question": "Welche Maßzahl lässt sich in der Studie aus Frage 1 <strong>nicht</strong> sinnvoll berechnen?",
+      "options": [
+        { "text": "Der Anteil Schmerzmittel-Einnehmender unter den Fällen", "correct": false, "feedback": "Doch: Innerhalb der 200 Fälle kann man zählen, wie viele exponiert waren – das ist die Grundlage des OR." },
+        { "text": "Das Odds Ratio für Schmerzmittel und CKD", "correct": false, "feedback": "Doch: Das OR vergleicht die Odds der Exposition bei Fällen und Kontrollen und ist genau die Maßzahl der Fall-Kontroll-Studie." },
+        { "text": "Die Prävalenz der CKD in den Praxen", "correct": true, "feedback": "Richtig: 200 von 600 Teilnehmenden haben CKD, weil die Forschenden es so festgelegt haben. Der Fallanteil sagt nichts über die Häufigkeit in der Praxisbevölkerung." },
+        { "text": "Der Anteil Schmerzmittel-Einnehmender unter den Kontrollen", "correct": false, "feedback": "Doch: Innerhalb der 400 Kontrollen ist der Expositionsanteil berechenbar – er bildet den Nenner des OR." }
+      ]
+    },
+    {
+      "type": "mc",
+      "question": "In der Studie aus Frage 1 berichten Personen mit CKD ihre frühere Schmerzmitteleinnahme gründlicher, weil sie seit der Diagnose über mögliche Ursachen nachgedacht haben; Personen ohne CKD unterschätzen ihre Einnahme. Welcher Bias liegt vor und in welche Richtung verzerrt er das OR?",
+      "options": [
+        { "text": "Informationsbias (Recall Bias); das OR wird überschätzt – weg von der Null", "correct": true, "feedback": "Richtig: Die <em>Messung</em> der Exposition hängt vom Erkrankungsstatus ab (differenzieller Fehler). Bei den Fällen wird mehr Exposition erfasst, bei den Kontrollen weniger – das OR fällt zu groß aus." },
+        { "text": "Selektionsbias; das OR wird überschätzt", "correct": false, "feedback": "Die Richtung stimmt, der Typ nicht: Selektionsbias betrifft, <em>wer</em> in die Studie kommt. Hier sind die Personen richtig ausgewählt, aber ihre Angaben sind verzerrt – ein Informationsbias." },
+        { "text": "Informationsbias; das OR wird zur Null hin verzerrt", "correct": false, "feedback": "Zur Null verzerrt ein <em>nicht-differenzieller</em> Fehler (beide Gruppen gleich ungenau). Hier erinnern sich die Gruppen unterschiedlich gut – das treibt das OR weg von der Null." },
+        { "text": "Kein Bias, weil beide Gruppen denselben Fragebogen erhalten", "correct": false, "feedback": "Derselbe Fragebogen schützt nicht, wenn die <em>Antworten</em> systematisch vom Erkrankungsstatus abhängen. Schutz bieten vor der Erkrankung dokumentierte Daten (z. B. Apothekenregister)." }
+      ]
+    },
+    {
+      "type": "mc",
+      "question": "Welche Aussage zu Loss to follow-up in einer Kohortenstudie ist <strong>falsch</strong>?",
+      "options": [
+        { "text": "Jeder Verlust in der Nachbeobachtung verzerrt das relative Risiko.", "correct": true, "feedback": "Diese Aussage ist falsch und damit die gesuchte Antwort: Ausscheiden, das weder mit Exposition noch mit Erkrankung zusammenhängt, kostet Präzision, verzerrt das RR aber nicht." },
+        { "text": "Problematisch wird es, wenn das Ausscheiden von Exposition und Erkrankung abhängt.", "correct": false, "feedback": "Diese Aussage ist richtig – im fiktiven Beispiel des Moduls sank das RR von 2,0 auf 1,16, weil vor allem exponierte Erkrankte verloren gingen." },
+        { "text": "Ähnliche Ausscheideraten in beiden Expositionsgruppen sprechen gegen eine Verzerrung, beweisen aber nichts.", "correct": false, "feedback": "Diese Aussage ist richtig – gleiche Raten je Exposition schließen nicht aus, dass innerhalb der Gruppen gerade die Erkrankten ausscheiden." },
+        { "text": "Die Personenzeit-Methode aus Modul 1 nutzt die Beobachtungszeit bis zum Ausscheiden.", "correct": false, "feedback": "Diese Aussage ist richtig – zensierte Personen tragen Personenjahre bis zu ihrem Ausscheiden bei; das löst den Informationsverlust, aber nicht einen möglichen Bias." }
+      ]
+    },
+    {
+      "type": "mc",
+      "question": "Welcher Bradford-Hill-Gesichtspunkt ist für eine kausale Beziehung <strong>logisch notwendig</strong>?",
+      "options": [
+        { "text": "Stärke der Assoziation", "correct": false, "feedback": "Große Effekte sind schwerer durch Bias zu erklären, aber auch schwache Assoziationen können kausal sein (z. B. Passivrauchen und Lungenkrebs)." },
+        { "text": "Zeitlichkeit: Die Exposition geht der Erkrankung voraus", "correct": true, "feedback": "Richtig: Eine Ursache muss vor ihrer Wirkung liegen – das gehört zur Bedeutung von „Ursache“. Hill selbst nannte keinen Punkt als zwingend; die Sonderrolle der Zeitlichkeit ist spätere Lehrbuchkonvention." },
+        { "text": "Dosis-Wirkungs-Beziehung", "correct": false, "feedback": "Ein Gradient stützt die Kausalität, aber Schwellenwert-Effekte (alles oder nichts) sind ebenfalls kausal möglich." },
+        { "text": "Biologische Plausibilität", "correct": false, "feedback": "Plausibilität hängt vom Wissensstand ab – Semmelweis' Händedesinfektion wirkte, lange bevor der Mechanismus plausibel war." }
+      ]
+    },
+    {
+      "type": "mc",
+      "question": "„Senkt Medikament X das 5-Jahres-Risiko für eine neue CKD bei Menschen mit Diabetes?“ Welches Design beantwortet diese Frage am verlässlichsten, wenn es ethisch und praktisch möglich ist?",
+      "options": [
+        { "text": "Eine große prospektive Kohortenstudie, in der Behandelte und Unbehandelte verglichen werden", "correct": false, "feedback": "Wer das Medikament bekommt, entscheiden Ärzt:innen – meist nach Schweregrad. Behandelte und Unbehandelte unterscheiden sich dann in vielen (auch unbekannten) Merkmalen (Confounding, Modul 5b)." },
+        { "text": "Eine randomisierte kontrollierte Studie (Medikament vs. Placebo per Los)", "correct": true, "feedback": "Richtig: Das Los macht die Gruppen im Mittel in allen Merkmalen gleich, auch in unbekannten. Der Unterschied im Risiko ist dann dem Medikament zuzuschreiben (plus Zufall, Modul 4/6)." },
+        { "text": "Eine Fall-Kontroll-Studie mit CKD-Fällen und Kontrollen, die nach früherer Einnahme von X gefragt werden", "correct": false, "feedback": "Liefert nur ein OR und ist anfällig für Recall Bias und für die Frage, warum jemand X bekam. Sinnvoll für seltene Nebenwirkungen, nicht als Wirksamkeitsnachweis." },
+        { "text": "Eine Querschnittsstudie: Wer nimmt X, wer hat CKD?", "correct": false, "feedback": "Keine Zeitrichtung: Menschen mit CKD könnten X gerade <em>wegen</em> der Nierenerkrankung erhalten (oder abgesetzt haben)." }
+      ]
+    },
+    {
+      "type": "num",
+      "tag": "Wiederholung · Modul 3",
+      "question": "<em>Fiktive Fall-Kontroll-Studie:</em> Von 200 Fällen waren 80 exponiert, von 400 Kontrollen 100. Wie groß ist das Odds Ratio? (zwei Nachkommastellen)",
+      "label": "OR:",
+      "unit": "",
+      "answer": 2.0,
+      "tol": 0.03,
+      "feedback_correct": "Odds der Exposition bei Fällen 80/120, bei Kontrollen 100/300; OR = (80 · 300) / (120 · 100) = 2,00. Antwortsatz: „Die Odds, exponiert gewesen zu sein, waren bei den Fällen doppelt so hoch wie bei den Kontrollen.“",
+      "feedback_wrong": "OR = (exponierte Fälle · nicht-exponierte Kontrollen) / (nicht-exponierte Fälle · exponierte Kontrollen). Tragen Sie die vier Felder ein: 80, 120, 100, 300.",
+      "near": [
+        { "value": 1.56, "tol": 0.02, "feedback": "1,56 wäre ein „RR“ aus 80/180 und 120/420 – aber diese „Risiken“ sind in einer Fall-Kontroll-Studie bedeutungslos, weil der Fallanteil (200 von 600) gesetzt ist. Nur das OR ist interpretierbar." },
+        { "value": 0.5, "tol": 0.02, "feedback": "Sie haben Zähler und Nenner vertauscht: Das OR setzt die Odds der Fälle in den Zähler. 1 / 0,5 = 2,00." },
+        { "value": 1.6, "tol": 0.012, "feedback": "80/200 = 40 % vs. 100/400 = 25 % ergibt den Quotienten 1,6 – aber das sind Anteile Exponierter, keine Risiken, und ihr Quotient ist weder RR noch OR. OR = (80/120) / (100/300) = 2,00." }
+      ]
+    },
+    {
+      "type": "mc",
+      "tag": "Wiederholung · Modul 4",
+      "question": "Eine Querschnittsstudie zur CKD-Prävalenz rekrutiert ausschließlich in einer Diabetes-Sprechstunde. Die Forschenden vergrößern die Studie von 300 auf 3000 Personen, rekrutieren aber weiterhin nur dort. Was ändert sich?",
+      "options": [
+        { "text": "Zufallsfehler und Selektionsbias werden beide kleiner.", "correct": false, "feedback": "Der Zufallsfehler ja – der Selektionsbias nein. Die Prävalenz in der Sprechstunde (im Modul 46 %) bleibt systematisch über der in der Bevölkerung (18 %), egal wie viele Personen gezählt werden." },
+        { "text": "Der Zufallsfehler wird kleiner; der Selektionsbias bleibt unverändert.", "correct": true, "feedback": "Richtig: Der Standardfehler sinkt um den Faktor √10 ≈ 3,2 (Modul 4), aber die Studie schätzt weiterhin die Prävalenz der <em>Sprechstunden</em>-Population – präziser falsch für die Bevölkerung." },
+        { "text": "Der Selektionsbias wird kleiner, der Zufallsfehler bleibt gleich.", "correct": false, "feedback": "Umgekehrt: Die Stichprobengröße beeinflusst nur den Zufallsfehler. Bias wird durch die Art der Rekrutierung bestimmt, nicht durch die Zahl." },
+        { "text": "Beides bleibt unverändert, weil nur die Population zählt.", "correct": false, "feedback": "Die Population bestimmt den Bias, die Größe den Zufallsfehler – und der wird mit 3000 statt 300 Personen deutlich kleiner." }
+      ]
+    }
+  ]
+}
+</script>
+</div>
+```
+
+## Dasselbe in R {#dasselbe-in-r}
+
+::: {.r-pfad}
+<span class="epir-badge epir-badge-r">Vertiefung R</span> Baut auf den R-Teilen der Module 1 bis 3 auf (`read_csv()`, `filter()`, `group_by()`, `summarise()`, `count()`, `pull()`, Pipe `|>`). Neu hier: `slice_sample()` (zufällige Zeilen ziehen), `bind_rows()` (Tabellen untereinander hängen) und `set.seed()` (Zufall reproduzierbar machen). Code-Blöcke laufen direkt im Browser („Run Code“); der erste Start dauert bis zu einer Minute.
+:::
+
+Die Idee dieses R-Teils: **Eine** Kohorte, **drei** Designs. Die Daten erlauben es, die Kohorte zu Studienbeginn als Querschnittsstudie zu lesen (`ckd_baseline`), über fünf Jahre als Kohortenstudie (`ckd_inzident`) und – durch Ziehen von Kontrollen – als eingebettete Fall-Kontroll-Studie.
+
+### R0 · Daten ansehen
+
+Führen Sie den Block aus („Run Code“); hier gibt es nichts zu lösen. Es entstehen beide Tabellen, die wir brauchen: `kohorte` (alle 2000 Personen, für den Querschnitt) und `unter_risiko` (1638 Personen ohne CKD zu Beginn, für Kohorte und Fall-Kontroll-Studie).
+
+```{webr}
+library(dplyr)
+library(readr)
+
+kohorte <- read_csv("data/ckd_kohorte.csv", show_col_types = FALSE)
+unter_risiko <- kohorte |> filter(ckd_baseline == 0)
+
+glimpse(kohorte)          # one line per column: name, type, first values
+nrow(unter_risiko)        # how many persons were free of CKD at baseline?
+```
+
+::: {.callout-note collapse="true"}
+## Lesehilfe
+- Für dieses Modul brauchen Sie: `hypertonie` (Exposition, 1 = ja), `ckd_baseline` (CKD bereits zu Beginn, 1 = ja – Querschnitt) und `ckd_inzident` (neue CKD in der Nachbeobachtung, 1 = ja – Kohorte). Alle Spalten: [Codebook](../data/codebook.md).
+- `kohorte` hat 2000 Zeilen, `unter_risiko` 1638: Für die Kohortenstudie zählen nur Personen, die zu Beginn noch erkranken *können*. Für den Querschnitt dagegen zählen alle – auch die 362 mit CKD zu Beginn, denn genau die sind dort die „Erkrankten“.
+- Die Zeilen von R0 (Einlesen, `unter_risiko` anlegen) laufen vor jeder Übung unsichtbar noch einmal – jede Übung funktioniert deshalb auch für sich allein.
+:::
+
+### Code lesen: Was kommt heraus?
+
+`count()` mit zwei Spalten kennen Sie aus Modul 3. Sagen Sie voraus, was hier herauskommt – erst danach ausführen.
+
+```{=html}
+<div class="epir-quiz">
+<script type="application/json">
+{
+  "items": [
+    {
+      "type": "mc",
+      "tag": "Code lesen",
+      "question": "Was gibt dieser Code aus?",
+      "code": "kohorte |>\n  count(ckd_baseline, hypertonie)",
+      "options": [
+        { "text": "<strong>Vier Zeilen</strong> – die Vierfeldertafel der Querschnittsstudie zu Studienbeginn: CKD ja/nein × Hypertonie ja/nein mit Anzahl <code>n</code>.", "correct": true, "feedback": "Richtig: 0/0 → 1017, 0/1 → 621, 1/0 → 123, 1/1 → 239. Die Summe ist 2000, weil <code>kohorte</code> alle Personen enthält – nicht nur die unter Risiko." },
+        { "text": "Zwei Zeilen: Personen mit und ohne CKD zu Beginn.", "correct": false, "feedback": "Das ergäbe <code>count(ckd_baseline)</code>. Mit zwei Spalten zählt <code>count()</code> jede Kombination – 2 × 2 = 4 Zeilen." },
+        { "text": "Vier Zeilen mit der Summe 1638.", "correct": false, "feedback": "1638 wäre die Summe für <code>unter_risiko</code>. Hier wird <code>kohorte</code> gezählt – alle 2000 Personen, denn im Querschnitt zählen auch die 362 mit CKD zu Beginn." },
+        { "text": "Die Prävalenz der CKD je Hypertonie-Gruppe als Anteil.", "correct": false, "feedback": "<code>count()</code> liefert absolute Anzahlen. Anteile berechnet erst <code>summarise(mean(...))</code> – Übung R1." }
+      ]
+    }
+  ]
+}
+</script>
+</div>
+```
+
+```{webr}
+kohorte |>
+  count(ckd_baseline, hypertonie)
+```
+
+### Übung R1: Querschnitt – Prävalenz je Gruppe
+
+Zu Studienbeginn ist die Kohorte eine Querschnittsstudie: Wer hat *jetzt* Hypertonie, wer hat *jetzt* eine CKD? Ergänzen Sie die Lücke so, dass die Prävalenz der CKD je Hypertonie-Gruppe berechnet wird (der Mittelwert einer 0/1-Spalte ist ein Anteil – Modul 1).
+
+```{webr}
+#| setup: true
+#| exercise: ex_qs
+library(dplyr)
+library(readr)
+kohorte <- read_csv("data/ckd_kohorte.csv", show_col_types = FALSE)
+unter_risiko <- kohorte |> filter(ckd_baseline == 0)
+```
+
+```{webr}
+#| exercise: ex_qs
+kohorte |>
+  group_by(hypertonie) |>
+  summarise(
+    n = n(),
+    ckd = sum(ckd_baseline),
+    praevalenz = ______
+  )
+```
+
+::: {.hint exercise="ex_qs"}
+::: {.callout-note collapse="false"}
+## Hinweis
+Prävalenz = Erkrankte / alle Personen der Gruppe. Innerhalb von `summarise()` dürfen Sie die gerade berechneten Spalten `ckd` und `n` verwenden – oder `mean()` auf die 0/1-Spalte `ckd_baseline` anwenden.
+:::
+:::
+
+::: {.solution exercise="ex_qs"}
+::: {.callout-tip collapse="false"}
+## Lösung
+```r
+kohorte |>
+  # Schritt 1: nach Exposition gruppieren (alle 2000 Personen, nicht nur unter Risiko)
+  group_by(hypertonie) |>
+  summarise(
+    # Schritt 2: Nenner – Personen je Gruppe
+    n = n(),
+    # Schritt 3: Zähler – Personen mit CKD zu Beginn
+    ckd = sum(ckd_baseline),
+    # Schritt 4: Prävalenz = Zähler / Nenner
+    praevalenz = ckd / n            # oder: mean(ckd_baseline)
+  )
+```
+Zwei Zeilen: ohne Hypertonie 123 / 1140 = 0,108, mit Hypertonie 239 / 860 = 0,278. Prävalenzverhältnis 0,278 / 0,108 = 2,58 – deutlich größer als das RR der Kohorte (1,66). Ein Grund: Im Querschnitt stecken auch Personen, deren CKD *vor* der Hypertonie entstand – die Zeitrichtung ist nicht festgelegt.
+:::
+:::
+
+```{webr}
+#| exercise: ex_qs
+#| check: true
+erw <- kohorte |> group_by(hypertonie) |> summarise(p = mean(ckd_baseline))
+werte <- tryCatch({
+  if (is.data.frame(.result)) unlist(Filter(is.numeric, .result)) else as.numeric(.result)
+}, error = function(e) numeric(0))
+hat <- function(x) any(abs(werte - x) < 1e-6, na.rm = TRUE)
+falsch_ur <- unter_risiko |> group_by(hypertonie) |> summarise(p = mean(ckd_inzident))
+if (length(werte) > 0 && all(sapply(erw$p, hat))) {
+  list(correct = TRUE, type = "success",
+       message = sprintf("Richtig. Prävalenz ohne Hypertonie %s %%, mit Hypertonie %s %%; Prävalenzverhältnis %s.",
+                         formatC(100 * erw$p[1], format = "f", digits = 1, decimal.mark = ","),
+                         formatC(100 * erw$p[2], format = "f", digits = 1, decimal.mark = ","),
+                         formatC(erw$p[2] / erw$p[1], format = "f", digits = 2, decimal.mark = ",")))
+} else if (length(werte) > 0 && all(sapply(falsch_ur$p, hat))) {
+  list(correct = FALSE, type = "warning", message = "Das sind die 5-Jahres-Risiken der Kohortenstudie (Übung R2). Für den Querschnitt zählt ckd_baseline in der Tabelle kohorte.")
+} else if (length(werte) > 0 && hat(mean(kohorte$ckd_baseline))) {
+  list(correct = FALSE, type = "warning", message = "Das ist die Gesamtprävalenz aller 2000 Personen. Gefragt war die Prävalenz je Gruppe – innerhalb von summarise() mit ckd und n.")
+} else {
+  list(correct = FALSE, type = "info", message = "Noch nicht ganz. praevalenz = ckd / n (oder mean(ckd_baseline)).")
+}
+```
+
+### Übung R2: Kohorte – Risiko und relatives Risiko
+
+Dieselbe Frage als Kohortenstudie: Nur Personen *ohne* CKD zu Beginn, Ereignis ist die *neue* CKD in fünf Jahren. Ergänzen Sie die beiden Lücken (dieselbe Spalte) und berechnen Sie dann das RR.
+
+```{webr}
+#| setup: true
+#| exercise: ex_ko
+library(dplyr)
+library(readr)
+kohorte <- read_csv("data/ckd_kohorte.csv", show_col_types = FALSE)
+unter_risiko <- kohorte |> filter(ckd_baseline == 0)
+```
+
+```{webr}
+#| exercise: ex_ko
+risiken <- unter_risiko |>
+  group_by(hypertonie) |>
+  summarise(
+    n = n(),
+    faelle = sum(______),
+    risiko = mean(______)
+  )
+risiken
+
+rr <- (risiken |> filter(hypertonie == 1) |> pull(risiko)) /
+      (risiken |> filter(hypertonie == 0) |> pull(risiko))
+rr
+```
+
+::: {.hint exercise="ex_ko"}
+::: {.callout-note collapse="false"}
+## Hinweis
+Welche Spalte enthält die *neue* CKD in der Nachbeobachtung? Schauen Sie in R0 oder im Codebook nach – es ist nicht `ckd_baseline` (die ist in `unter_risiko` überall 0).
+:::
+:::
+
+::: {.solution exercise="ex_ko"}
+::: {.callout-tip collapse="false"}
+## Lösung
+```r
+risiken <- unter_risiko |>
+  # Schritt 1: nach Exposition gruppieren (nur Personen unter Risiko)
+  group_by(hypertonie) |>
+  summarise(
+    n = n(),
+    # Schritt 2: Zähler – neue Fälle in fünf Jahren
+    faelle = sum(ckd_inzident),
+    # Schritt 3: Risiko = kumulative Inzidenz je Gruppe
+    risiko = mean(ckd_inzident)
+  )
+risiken
+
+# Schritt 4: RR = Risiko exponiert / Risiko nicht exponiert (pull() holt die Zahl heraus)
+rr <- (risiken |> filter(hypertonie == 1) |> pull(risiko)) /
+      (risiken |> filter(hypertonie == 0) |> pull(risiko))
+rr      # 1.66
+```
+66 / 621 = 10,6 % vs. 65 / 1017 = 6,4 %, RR 1,66 – die Zahl aus der Leitfrage. Gegenüber dem Querschnitt (PR 2,58) ist die Zeitrichtung jetzt festgelegt: Hypertonie zu Beginn, CKD danach.
+:::
+:::
+
+```{webr}
+#| exercise: ex_ko
+#| check: true
+erw <- unter_risiko |> group_by(hypertonie) |> summarise(r = mean(ckd_inzident))
+rr_erw <- erw$r[erw$hypertonie == 1] / erw$r[erw$hypertonie == 0]
+wert <- tryCatch(as.numeric(.result), error = function(e) NA_real_)
+if (length(wert) == 1 && !is.na(wert) && abs(wert - rr_erw) < 1e-6) {
+  list(correct = TRUE, type = "success", message = sprintf("Richtig. RR = %s: Das 5-Jahres-Risiko war mit Hypertonie %s-mal so hoch wie ohne.", formatC(rr_erw, format = "f", digits = 2, decimal.mark = ","), formatC(rr_erw, format = "f", digits = 2, decimal.mark = ",")))
+} else if (length(wert) == 1 && is.nan(wert)) {
+  list(correct = FALSE, type = "warning", message = "NaN (0 / 0): Sie haben ckd_baseline eingesetzt – in unter_risiko ist diese Spalte überall 0. Die neue CKD steht in ckd_inzident.")
+} else if (length(wert) == 1 && !is.na(wert) && abs(wert - 1 / rr_erw) < 1e-6) {
+  list(correct = FALSE, type = "warning", message = "Das ist 1 / RR – die Gruppen sind vertauscht. Das Risiko der Exponierten gehört in den Zähler.")
+} else {
+  list(correct = FALSE, type = "info", message = "Noch nicht ganz. Beide Lücken: ckd_inzident. Die letzte Zeile soll rr ausgeben.")
+}
+```
+
+### Übung R3: Eingebettete Fall-Kontroll-Studie
+
+Jetzt bauen wir aus der Kohorte eine Fall-Kontroll-Studie: **alle** 131 Fälle und **zwei zufällig gezogene Kontrollen pro Fall** aus den Nicht-Erkrankten. Dafür braucht es zwei neue Funktionen: `slice_sample(n = ...)` zieht zufällig `n` Zeilen einer Tabelle; `bind_rows()` hängt zwei Tabellen untereinander. `set.seed(5)` sorgt dafür, dass der Zufall bei jedem Durchlauf dieselben Kontrollen liefert (sonst wären Ihre Zahlen bei jedem Klick andere). Ergänzen Sie die Lücke so, dass genau 262 Kontrollen gezogen werden.
+
+```{webr}
+#| setup: true
+#| exercise: ex_fk
+library(dplyr)
+library(readr)
+kohorte <- read_csv("data/ckd_kohorte.csv", show_col_types = FALSE)
+unter_risiko <- kohorte |> filter(ckd_baseline == 0)
+```
+
+```{webr}
+#| exercise: ex_fk
+set.seed(5)
+faelle     <- unter_risiko |> filter(ckd_inzident == 1)
+kontrollen <- unter_risiko |> filter(ckd_inzident == 0) |> ______
+
+fall_kontroll <- bind_rows(faelle, kontrollen)
+
+fall_kontroll |>
+  group_by(ckd_inzident) |>
+  summarise(
+    n = n(),
+    anteil_hypertonie = mean(hypertonie)
+  )
+```
+
+::: {.hint exercise="ex_fk"}
+::: {.callout-note collapse="false"}
+## Hinweis
+Die Lücke steht am Ende einer Pipe – es fehlt der Schritt, der aus den 1507 Nicht-Erkrankten zufällig 262 Zeilen herausgreift: `slice_sample(n = ...)`.
+:::
+:::
+
+::: {.solution exercise="ex_fk"}
+::: {.callout-tip collapse="false"}
+## Lösung
+```r
+set.seed(5)
+# Schritt 1: alle Fälle (neue CKD) behalten
+faelle     <- unter_risiko |> filter(ckd_inzident == 1)
+# Schritt 2: aus den Nicht-Fällen zufällig 2 Kontrollen pro Fall ziehen
+kontrollen <- unter_risiko |> filter(ckd_inzident == 0) |> slice_sample(n = 262)
+# Schritt 3: Fälle und Kontrollen zu einer Studientabelle zusammenfügen
+fall_kontroll <- bind_rows(faelle, kontrollen)
+# Schritt 4: Anteil Exponierter je Gruppe (das ist, was eine Fall-Kontroll-Studie vergleichen kann)
+fall_kontroll |>
+  group_by(ckd_inzident) |>
+  summarise(n = n(), anteil_hypertonie = mean(hypertonie))
+```
+Kontrollen (0): 262 Personen, 37,4 % mit Hypertonie; Fälle (1): 131 Personen, 50,4 %. Daraus das OR: (0,504 / 0,496) / (0,374 / 0,626) = 1,70. Die Kohorte lieferte OR 1,74 und RR 1,66 – die Fall-Kontroll-Studie kommt mit 393 statt 1638 Personen auf fast dasselbe Ergebnis. Was sie *nicht* liefert: ein Risiko. 131 von 393 „Erkrankten“ wären 33 % – ein Artefakt unserer Wahl von zwei Kontrollen pro Fall.
+
+Ändern Sie testweise den Seed (`set.seed(6)`): Die Kontrollen wechseln, das OR schwankt etwas – das ist der Zufallsfehler aus Modul 4.
+:::
+:::
+
+```{webr}
+#| exercise: ex_fk
+#| check: true
+res <- tryCatch(.result, error = function(e) NULL)
+ok_df <- is.data.frame(res) && all(c("n", "anteil_hypertonie") %in% names(res)) && nrow(res) == 2
+if (!ok_df) {
+  list(correct = FALSE, type = "info", message = "Die letzte Ausgabe soll die Tabelle mit n und anteil_hypertonie je Gruppe sein. Prüfen Sie, ob die Lücke gefüllt ist: slice_sample(n = 262).")
+} else {
+  n_k <- res$n[res$ckd_inzident == 0]; n_f <- res$n[res$ckd_inzident == 1]
+  p_k <- res$anteil_hypertonie[res$ckd_inzident == 0]; p_f <- res$anteil_hypertonie[res$ckd_inzident == 1]
+  or_fk <- (p_f / (1 - p_f)) / (p_k / (1 - p_k))
+  if (n_f == 131 && n_k == 262 && or_fk > 1.2 && or_fk < 2.5) {
+    list(correct = TRUE, type = "success", message = sprintf("Richtig. 131 Fälle, 262 Kontrollen; Hypertonie bei %s %% der Fälle und %s %% der Kontrollen, OR = %s (Kohorte: OR 1,74, RR 1,66).",
+         formatC(100 * p_f, format = "f", digits = 1, decimal.mark = ","), formatC(100 * p_k, format = "f", digits = 1, decimal.mark = ","), formatC(or_fk, format = "f", digits = 2, decimal.mark = ",")))
+  } else if (n_f == 131 && n_k == 1507) {
+    list(correct = FALSE, type = "warning", message = "Sie haben alle 1507 Nicht-Fälle behalten – das ist wieder die ganze Kohorte. Eine Fall-Kontroll-Studie zieht nur eine Stichprobe der Nicht-Fälle: slice_sample(n = 262).")
+  } else if (n_f == 131 && n_k != 262) {
+    list(correct = FALSE, type = "warning", message = sprintf("Es wurden %d Kontrollen gezogen; geplant waren 2 pro Fall, also 262.", n_k))
+  } else {
+    list(correct = FALSE, type = "info", message = "Noch nicht ganz. Fälle: 131 Zeilen; Kontrollen: slice_sample(n = 262) aus den Nicht-Fällen.")
+  }
+}
+```
+
+### Bonus: Drei Designs, eine Tabelle
+
+Mit `tribble()` (Modul 2) lässt sich das Ergebnis dieses Moduls zusammenfassen – eine kleine Tabelle von Hand, wie man sie in einer Publikation finden könnte. Der Block ist eigenständig lauffähig.
+
+```{webr}
+library(dplyr)
+
+tribble(
+  ~design,                 ~personen, ~masszahl,              ~wert,
+  "Querschnitt (Beginn)",  2000,      "Praevalenzverhaeltnis", 2.58,
+  "Kohorte (5 Jahre)",     1638,      "Relatives Risiko",      1.66,
+  "Kohorte (5 Jahre)",     1638,      "Odds Ratio",            1.74,
+  "Fall-Kontroll (1:2)",    393,      "Odds Ratio",            1.70
+)
+```
+
+Die drei Designs beantworten verwandte, aber nicht identische Fragen – und nur die Kohorte liefert ein Risiko. Der große Unterschied zwischen Prävalenzverhältnis (2,58) und RR (1,66) ist typisch: Prävalenz mischt Neuerkrankung und Krankheitsdauer (Modul 1), und der Querschnitt kennt keine Zeitrichtung.
+
+::: {.callout-note collapse="true"}
+## Was Sie in R mitnehmen
+- Dieselben Daten lassen sich als verschiedene Designs auswerten – welche Spalte das Ereignis ist (`ckd_baseline` oder `ckd_inzident`) und welche Tabelle die Basis bildet (`kohorte` oder `unter_risiko`), *ist* die Design-Entscheidung.
+- `slice_sample(n = ...)` zieht zufällige Zeilen; `set.seed()` davor macht den Zufall reproduzierbar.
+- `bind_rows()` hängt Tabellen mit gleichen Spalten untereinander.
+- `tribble()` schreibt kleine Tabellen von Hand – praktisch für Zusammenfassungen und Beispiele.
+:::
+
+## Quellen und weiterführende Literatur
+
+- Hill AB. The environment and disease: association or causation? *Proc R Soc Med* 1965;58:295–300. <https://doi.org/10.1177/003591576505800503> (frei zugänglich: [PMC1898525](https://pmc.ncbi.nlm.nih.gov/articles/PMC1898525/)) – die neun Gesichtspunkte; Zitat „none can be required as a sine qua non“.
+- Rothman KJ, Greenland S. Causation and causal inference in epidemiology. *Am J Public Health* 2005;95(Suppl 1):S144–S150. <https://doi.org/10.2105/AJPH.2004.059204> – Kritik der Hill-Gesichtspunkte als Checkliste; Zeitlichkeit als einzige notwendige Bedingung.
+- Grimes DA, Schulz KF. An overview of clinical research: the lay of the land. *Lancet* 2002;359:57–61. <https://doi.org/10.1016/S0140-6736(02)07283-5> – Einordnung der Designs, Hierarchie als Heuristik.
+- Grimes DA, Schulz KF. Bias and causal associations in observational research. *Lancet* 2002;359:248–252. <https://doi.org/10.1016/S0140-6736(02)07451-2> – Selektions- und Informationsbias, Loss to follow-up.
+- Celentano DD, Szklo M. *Gordis Epidemiology*. 6. Aufl. Philadelphia: Elsevier; 2019. Kapitel 7 „Observational Studies“, 8 „Cohort Studies“, 9 „Comparing Cohort and Case-Control Studies“, 14 „From Association to Causation“, 15 „More on Causal Inference: Bias, Confounding, and Interaction“.
+- Lash TL, VanderWeele TJ, Haneuse S, Rothman KJ. *Modern Epidemiology*. 4. Aufl. Philadelphia: Wolters Kluwer; 2021. Kapitel 6 „Epidemiologic Study Design With Validity and Efficiency Considerations“, 7 „Cohort Studies“, 8 „Case-Control Studies“ (Kontrollenauswahl), 13 „Measurement and Measurement Error“, 14 „Selection Bias and Generalizability“. [Verlagsseite](https://shop.lww.com/Modern-Epidemiology/p/9781451193282)
+- Hernán MA, Hernández-Díaz S, Robins JM. A structural approach to selection bias. *Epidemiology* 2004;15:615–625. <https://doi.org/10.1097/01.ede.0000135174.63482.43> – „Mehr dazu“: strukturelle Sicht.
+- Catalogue of Bias, Centre for Evidence-Based Medicine, Universität Oxford: <https://catalogofbias.org/> – kurze Einträge zu Recall Bias, Selection Bias, Attrition Bias (englisch).
+- KDIGO 2024 Clinical Practice Guideline for the Evaluation and Management of Chronic Kidney Disease. *Kidney Int* 2024;105(4S):S117–S314. <https://doi.org/10.1016/j.kint.2023.10.018> – CKD-Definition (eGFR < 60 mL/min/1,73 m² oder Albuminurie über drei Monate), Grundlage der eGFR-Stufen in @fig-dose.
+- dplyr-Dokumentation: `slice_sample()`, `bind_rows()`: <https://dplyr.tidyverse.org>

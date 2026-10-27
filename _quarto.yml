@@ -26,6 +26,8 @@ website:
             text: "3 · Relatives & absolutes Risiko"
           - href: module/04_verteilungen_zufall.qmd
             text: "4 · Verteilungen & Zufall"
+          - href: module/05a_studiendesign_bias.qmd
+            text: "5a · Studiendesign & Bias"
       - href: technik.qmd
         text: Technik-Check
     right:
@@ -42,6 +44,7 @@ website:
           - module/02_diagnostische_tests.qmd
           - module/03_risiko_rr_or_nnt.qmd
           - module/04_verteilungen_zufall.qmd
+          - module/05a_studiendesign_bias.qmd
       - technik.qmd
   page-footer:
     left: "Inhalte: CC BY 4.0 · Code: MIT · Prototyp, Stand Oktober 2026"

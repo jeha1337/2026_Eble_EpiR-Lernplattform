@@ -64,7 +64,7 @@ $headings-font-weight: 600;
 
 // ---------------------------------------------------------------------------
 // EpiR widgets (assets/epir-widgets.js)
-.epir-quiz, .epir-calc, .epir-pool, .epir-2x2, .epir-relabs, .epir-dx, .epir-ppv, .epir-sample {
+.epir-quiz, .epir-calc, .epir-pool, .epir-2x2, .epir-relabs, .epir-dx, .epir-ppv, .epir-sample, .epir-design, .epir-order {
   border: 1px solid #d9dee3;
   border-radius: 6px;
   padding: 1rem 1.1rem;
@@ -205,3 +205,14 @@ figcaption, .figure-caption { color: #555; font-size: 0.9rem; }
 .epir-sample-last { fill: #d9822b; }
 .epir-sample-last-lab { fill: #d9822b; font-size: 13px; }
 .epir-sample-axis { stroke: #555; stroke-width: 1; }
+
+// Module 5a widgets: design detective and ordering task
+.epir-design-q { margin: 0.5rem 0 0.2rem 0; }
+.epir-design-qlabel { font-weight: 600; margin-bottom: 0.15rem; }
+.epir-design-item .epir-option span { font-size: 0.95rem; }
+.epir-order-prompt { margin-bottom: 0.5rem; }
+.epir-order-list { list-style: none; padding-left: 0; margin: 0 0 0.4rem 0; }
+.epir-order-item { display: flex; gap: 0.7rem; align-items: center; padding: 0.3rem 0.4rem; border: 1px solid #e5e8eb; border-radius: 4px; margin-bottom: 0.35rem; background: #fff; }
+.epir-order-select { width: 4.2rem; flex: 0 0 auto; }
+.epir-order-codeline { margin: 0; padding: 0.3rem 0.6rem; flex: 1 1 auto; white-space: pre; }
+.epir-order-text { flex: 1 1 auto; }

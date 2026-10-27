@@ -33,14 +33,15 @@ Sie brauchen **keine Vorkenntnisse** in R oder Statistik.
 Der Aufbau folgt gut belegten Befunden der Lernforschung – deshalb sieht jedes Modul so aus:
 
 ```{mermaid}
+%%| echo: false
 %%| fig-cap: "Die Lernschleife eines Moduls: Schätzen vor dem Lesen, Üben statt nur Lesen, Fehler als Lernanlass, Wiederholung aus früheren Modulen."
-%%| fig-alt: "Flussdiagramm mit sechs Schritten im Kreis: Klinische Frage, Erst schätzen, Konzept mit Beispiel, Selbst üben mit Feedback, Typische Fehler, Selbsttest mit Wiederholung aus früheren Modulen; ein Pfeil führt vom Selbsttest zurück zur nächsten klinischen Frage."
+%%| fig-alt: "Flussdiagramm mit sechs Schritten im Kreis: Klinische Frage, Erst schätzen, Konzept mit Beispiel, Üben mit sofortigem Feedback, Typische Fehler, Selbsttest mit Wiederholung aus früheren Modulen; ein gestrichelter Pfeil führt vom Selbsttest zurück zur nächsten klinischen Frage."
 flowchart LR
-  A["Klinische Frage"] --> B["Erst schätzen"]
-  B --> C["Konzept + Beispiel"]
-  C --> D["Selbst üben,<br/>sofortiges Feedback"]
-  D --> E["Typische Fehler"]
-  E --> F["Selbsttest +<br/>Wiederholung früherer Module"]
+  A["Klinische<br/>Frage"] --> B["Erst<br/>schätzen"]
+  B --> C["Konzept +<br/>Beispiel"]
+  C --> D["Üben mit<br/>Feedback"]
+  D --> E["Typische<br/>Fehler"]
+  E --> F["Selbsttest +<br/>Wiederholung"]
   F -. nächstes Modul .-> A
 ```
 

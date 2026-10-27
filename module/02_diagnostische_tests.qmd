@@ -705,16 +705,21 @@ server <- function(input, output, session) {
   zahlen <- reactive({
     n <- 1000
     p <- input$prev / 100; se <- input$sens / 100; sp <- input$spez / 100
-    krank <- n * p; gesund <- n - krank
-    rp <- krank * se; fn <- krank - rp
-    rn <- gesund * sp; fp <- gesund - rn
+    # exact values for PPV/NPV
+    krank_x <- n * p; gesund_x <- n - krank_x
+    rp_x <- krank_x * se; fn_x <- krank_x - rp_x
+    rn_x <- gesund_x * sp; fp_x <- gesund_x - rn_x
+    # stepwise integer rounding for the tree: every branch sums exactly to its parent
+    krank <- round(krank_x); gesund <- n - krank
+    rp <- round(krank * se); fn <- krank - rp
+    rn <- round(gesund * sp); fp <- gesund - rn
     list(krank = krank, gesund = gesund, rp = rp, fn = fn, rn = rn, fp = fp,
-         ppv = rp / (rp + fp), npv = rn / (rn + fn))
+         ppv = rp_x / (rp_x + fp_x), npv = rn_x / (rn_x + fn_x))
   })
 
   output$baum <- renderUI({
     z <- zahlen()
-    f <- function(x) format(round(x), big.mark = " ")
+    f <- function(x) format(x, big.mark = " ")
     HTML(sprintf(
       "<b>%s</b> sind krank → davon Test positiv: <b>%s</b> (richtig positiv), Test negativ: <b>%s</b> (falsch negativ)<br>
        <b>%s</b> sind gesund → davon Test negativ: <b>%s</b> (richtig negativ), Test positiv: <b>%s</b> (falsch positiv)<br>

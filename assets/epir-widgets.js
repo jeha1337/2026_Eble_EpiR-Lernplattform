@@ -764,14 +764,18 @@
       prevVal.textContent = `Prävalenz ${fmtDE(100 * prev, 1)} % (${fmtInt(N * prev)} von ${fmtInt(N)})`;
       sensVal.textContent = `Sensitivität ${fmtDE(100 * sens, 1)} %`;
       spezVal.textContent = `Spezifität ${fmtDE(100 * spez, 1)} %`;
-      const sick = N * prev, well = N - sick;
-      const tp = sick * sens, fn = sick - tp, tn = well * spez, fp = well - tn;
-      const r = (x) => fmtInt(x);   // rounded to whole persons for the tree
+      // exact values for PPV/NPV
+      const sickX = N * prev, wellX = N - sickX;
+      const tpX = sickX * sens, fnX = sickX - tpX, tnX = wellX * spez, fpX = wellX - tnX;
+      const ppv = tpX / (tpX + fpX), npv = tnX / (tnX + fnX);
+      // stepwise integer rounding for the tree: every branch sums exactly to its parent
+      const sick = Math.round(sickX), well = N - sick;
+      const tp = Math.round(sick * sens), fn = sick - tp, tn = Math.round(well * spez), fp = well - tn;
+      const r = (x) => fmtInt(x);
       setNode("root", fmtInt(N), "Personen");
       setNode("sick", r(sick), `mit ${disease}`); setNode("well", r(well), `ohne ${disease}`);
       setNode("TP", r(tp), "Test positiv"); setNode("FN", r(fn), "Test negativ");
       setNode("FP", r(fp), "Test positiv"); setNode("TN", r(tn), "Test negativ");
-      const ppv = tp / (tp + fp), npv = tn / (tn + fn);
       out.innerHTML = "";
       const t = el("table", { class: "epir-calc-table" });
       const row = (k, v, cls) => t.appendChild(el("tr", { class: cls || "" }, [el("th", { text: k }), el("td", { text: v })]));
@@ -781,7 +785,7 @@
       row("NPV", `${r(tn)} / ${r(tn + fn)} ≈ ${fmtDE(100 * npv, 1)} %`, "epir-row-key");
       out.appendChild(t);
       out.appendChild(el("p", { class: "epir-sentence", text: `Antwortsatz: „Von 100 Personen mit positivem Test haben in dieser Gruppe etwa ${fmtInt(100 * ppv)} tatsächlich ${disease}; von 100 mit negativem Test ${100 * (1 - npv) < 0.5 ? "weniger als 1" : "etwa " + fmtInt(100 * (1 - npv))}.“` }));
-      out.appendChild(el("p", { class: "epir-info epir-small", text: "Baum und Tabelle sind auf ganze Personen gerundet; PPV und NPV werden aus den ungerundeten Werten berechnet." }));
+      out.appendChild(el("p", { class: "epir-info epir-small", text: "Baum und Tabelle sind Schritt für Schritt auf ganze Personen gerundet (jeder Ast summiert sich zum übergeordneten); PPV und NPV werden exakt aus den ungerundeten Werten berechnet und können deshalb um Zehntelprozent vom Bruch im Baum abweichen." }));
     }
     const scenario = (txt, fn) => { const b = el("button", { type: "button", class: "btn btn-sm btn-outline-primary", text: txt }); b.addEventListener("click", () => { fn(); render(); }); return b; };
     const buttons = el("div", { class: "epir-pool-buttons" });

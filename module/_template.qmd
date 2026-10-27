@@ -37,6 +37,20 @@ Checklist before submitting a module (QS, project instructions section 5):
       followed by a short reading aid (row = person, column = variable, dbl/chr) and the codebook link
   [ ] derived objects used by the exercises (e.g. unter_risiko, albuminurie) are created visibly in R0;
       the hidden setup chunks of the exercises repeat the same code so every exercise runs on its own
+  Learning-research conventions (decided 2026-10-27, Langfassung 7.1; evidence: 00_projekt/lernforschung_evidenz.md):
+  [ ] L2 estimate box (.epir-estimate) directly after the Leitfrage: one number the learner guesses before the
+      concept; the matching .epir-estimate-reveal sits right after the Antwortsatz of the worked example;
+      the quoted value is guarded with stopifnot() in the setup chunk
+  [ ] L1 self-test ends with 1–2 items tagged "Wiederholung · Modul n" from EARLIER modules (new numbers or
+      "fiktiv", no copy of an earlier item); from module 5 on at least one item contrasts confusable concepts
+  [ ] L3 self-test items are interleaved (measures/concepts mixed, not blocked by section)
+  [ ] L4 R path: one "Code lesen: Was kommt heraus?" item (tag "Code lesen", field "code") BEFORE the first
+      writing exercise, followed by the same code as a runnable block; the item introduces the new function
+  [ ] L6 worked examples and solutions with ≥ 2 steps carry subgoal labels as comments
+      "# Schritt n: <what and why>" (German, because they are learning text – the only German comments)
+  [ ] L9 figures: signaling (numbers quoted in the text use the figure's colour semantics), contiguity
+      (labels inside the plot rather than a legend where possible), coherence (no decorative images/icons),
+      erroneous examples only together with an explanation
 
 Figure colour semantics (R/epir_plots.R, epir_cols): accent/orange = case/event, primary/petrol = healthy /
 reference, blue = censored / unknown, grey = not at risk / not applicable. Keep this across modules.
@@ -58,6 +72,14 @@ kohorte <- readr::read_csv("../data/ckd_kohorte.csv", show_col_types = FALSE)
 ::: {.leitfrage}
 TODO Klinische Situation in 3–4 Sätzen, endet mit der **fett gesetzten Leitfrage**. Kein Fachbegriff, der erst später definiert wird.
 :::
+
+<!-- L2 · prequestion: one number to guess before the concept (King-Shepard et al. 2025). data-id must be
+     unique per page; data-next names the section where the reveal box appears. -->
+```{=html}
+<div class="epir-estimate" data-id="mN-todo" data-unit="von 100" data-min="0" data-max="100" data-next="Abschnitt „Durchgerechnetes Beispiel“">
+<p>TODO Situation in einem Satz. <strong>TODO Schätzfrage, die mit einer Zahl beantwortet wird?</strong></p>
+</div>
+```
 
 ::: {.lernziele}
 **Lernziele.** Nach diesem Modul können Sie …
@@ -97,6 +119,11 @@ Definition in einem Satz, deutscher Begriff plus englischer in Klammern.
 ### Durchgerechnetes Beispiel
 
 Zahlen aus der Kohorte, Formel als Display-Math (`$$ … $$`), dann der **Antwortsatz** (Maßzahl, Wert mit Bezugsgröße, Population, Zeitbezug).
+
+<!-- L2 · reveal of the estimate: data-answer is the value to compare with, data-answer-text the full wording. -->
+```{=html}
+<div class="epir-estimate-reveal" data-ref="mN-todo" data-answer="0" data-unit="von 100" data-diff-unit="Personen" data-answer-text="TODO 0 von 100 (Maßzahl 0,0 %)"></div>
+```
 
 <!-- Measure cards: numerator / denominator / unit / question answered. -->
 ::: {.epir-cards}
@@ -154,7 +181,9 @@ Herleitungen und Exaktheitshinweise kommen in eingeklappte Callouts, nicht in de
 Die Fragen entsprechen im Format den Klausurfragen (eine richtige Antwort; Rechenaufgaben mit Zahleneingabe). Das Feedback erklärt auch, warum die anderen Antworten nicht stimmen.
 
 <!-- 5–6 items: ~3 MC ("Welche Aussage ist falsch?" / "Welche Angabe ist korrekt?"), ~3 numeric with
-     "near" feedback for typical wrong values (wrong denominator, fraction instead of percent, …). -->
+     "near" feedback for typical wrong values (wrong denominator, fraction instead of percent, …).
+     L3: mix the concepts of the module instead of blocking them by section.
+     L1: the LAST 1–2 items repeat earlier modules ("tag": "Wiederholung · Modul n"). -->
 ```{=html}
 <div class="epir-quiz">
 <script type="application/json">
@@ -179,6 +208,15 @@ Die Fragen entsprechen im Format den Klausurfragen (eine richtige Antwort; Reche
       "options": [
         { "text": "TODO", "correct": false, "feedback": "Diese Aussage ist richtig – …" },
         { "text": "TODO", "correct": true, "feedback": "Diese Aussage ist falsch und damit die gesuchte Antwort: …" }
+      ]
+    },
+    {
+      "type": "mc",
+      "tag": "Wiederholung · Modul N-1",
+      "question": "TODO Frage zu einem Konzept eines früheren Moduls, mit neuen Zahlen.",
+      "options": [
+        { "text": "TODO", "correct": true, "feedback": "TODO" },
+        { "text": "TODO", "correct": false, "feedback": "TODO" }
       ]
     }
   ]
@@ -220,6 +258,39 @@ head(kohorte, n = 5)    # the first five rows as a table
 - Für dieses Modul brauchen Sie: TODO `spalte_a` (…), `spalte_b` (…). Alle Spalten: [Codebook](../data/codebook.md).
 :::
 
+### Code lesen: Was kommt heraus?
+
+<!-- L4 · predict before run (PRIMM "Predict"; Lister 2004, Xie 2019): one MC item with the code in "code",
+     options describe the SHAPE of the output (rows/columns/value/error); then the same code runnable. -->
+TODO `neue_funktion()` ist neu. Sagen Sie voraus, was der Code ausgibt – erst danach ausführen.
+
+```{=html}
+<div class="epir-quiz">
+<script type="application/json">
+{
+  "items": [
+    {
+      "type": "mc",
+      "tag": "Code lesen",
+      "question": "Was gibt dieser Code aus?",
+      "code": "kohorte |>\n  TODO",
+      "options": [
+        { "text": "TODO richtige Beschreibung der Ausgabe (Zeilen, Spalten, Werte)", "correct": true, "feedback": "TODO" },
+        { "text": "TODO typische Fehlvorstellung (z. B. mutate statt summarise)", "correct": false, "feedback": "TODO" },
+        { "text": "TODO Fehlermeldung", "correct": false, "feedback": "TODO" }
+      ]
+    }
+  ]
+}
+</script>
+</div>
+```
+
+```{webr}
+kohorte |>
+  # TODO same code as in the item
+```
+
 ### Übung R1: TODO
 
 Ersetzen Sie die Lücke `______` so, dass … .
@@ -249,7 +320,8 @@ TODO
 ::: {.callout-tip collapse="false"}
 ## Lösung
 ```r
-# TODO
+# Schritt 1: TODO was und warum (L6 subgoal label; only for solutions with ≥ 2 steps)
+# Schritt 2: TODO
 ```
 TODO Warum dieser Code – nicht nur was.
 :::

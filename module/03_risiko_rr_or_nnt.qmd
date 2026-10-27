@@ -31,11 +31,18 @@ odds1 <- r1 / (1 - r1); odds0 <- r0 / (1 - r0); or <- odds1 / odds0
 # second exposure for exercises: hypertension
 h <- unter_risiko |> dplyr::group_by(hypertonie) |> dplyr::summarise(n = dplyr::n(), faelle = sum(ckd_inzident), risiko = mean(ckd_inzident))
 stopifnot(a == 29, b == 136, cc == 102, d == 1371)   # guard: text below quotes these numbers
+stopifnot(round(100 * r1) == 18, round(100 * r0) == 7)  # guard: estimate box (prequestion) quotes 7 and 18
 ```
 
 ::: {.leitfrage}
 In der Beispielkohorte aus Modul 1 erkranken Menschen mit Diabetes häufiger neu an einer chronischen Nierenkrankheit (CKD) als Menschen ohne Diabetes. Eine Patientin mit Diabetes fragt: „Wie viel höher ist mein Risiko – und was heißt das für mich konkret?“ **Reicht „2,5-mal so hoch“ als Antwort – oder braucht sie eine andere Zahl?**
 :::
+
+```{=html}
+<div class="epir-estimate" data-id="m3-risk" data-unit="von 100" data-min="0" data-max="100" data-next="Abschnitt „Risiko je Gruppe“">
+<p>Von 100 Personen <em>ohne</em> Diabetes (und ohne CKD zu Beginn) entwickeln in der Beispielkohorte 7 innerhalb von fünf Jahren eine CKD. Das Risiko mit Diabetes ist „2,5-mal so hoch“. <strong>Wie viele von 100 Personen <em>mit</em> Diabetes erkranken Ihrer Einschätzung nach in fünf Jahren neu?</strong></p>
+</div>
+```
 
 ::: {.lernziele}
 **Lernziele.** Nach diesem Modul können Sie …
@@ -80,6 +87,12 @@ plot_icon_array_pair(c("ohne Diabetes" = r0, "mit Diabetes" = r1))
 ```
 
 **Antwortsatz:** „Von den Personen mit Diabetes entwickelten `r de(100 * r1)` % innerhalb von fünf Jahren eine CKD, von den Personen ohne Diabetes `r de(100 * r0)` %.“
+
+```{=html}
+<div class="epir-estimate-reveal" data-ref="m3-risk" data-answer="18" data-unit="von 100" data-diff-unit="Personen" data-answer-text="18 von 100 mit Diabetes (Risiko 17,6 %)"></div>
+```
+
+Wer hier 7 × 2,5 ≈ 18 gerechnet hat, hat das Prinzip schon: „2,5-mal so hoch“ ist nur verständlich, wenn man das Ausgangsrisiko kennt. Genau darum geht es in diesem Modul.
 
 Aus diesen zwei Risiken lassen sich alle Maße dieses Moduls bilden – als **Quotient** (relativ) oder als **Differenz** (absolut).
 
@@ -350,6 +363,33 @@ Die Fragen entsprechen im Format den Klausurfragen (eine richtige Antwort; Reche
         { "value": 154, "tol": 3, "feedback": "+154 % ist die relative Risikoerhöhung. Gefragt war die absolute Differenz in Prozentpunkten: 17,6 − 6,9." },
         { "value": 9.4, "tol": 0.3, "feedback": "9,4 ist die NNH (Kehrwert der Risikodifferenz). Gefragt war die Differenz selbst: 10,7 Prozentpunkte." }
       ]
+    },
+    {
+      "type": "num",
+      "tag": "Wiederholung · Modul 1",
+      "question": "<em>Fiktive Kohorte:</em> Unter 1300 Personen ohne CKD treten in insgesamt 2600 Personenjahren Nachbeobachtung 52 neue CKD-Fälle auf. Wie hoch ist die Inzidenzrate pro 1000 Personenjahre?",
+      "label": "Inzidenzrate:",
+      "unit": "pro 1000 Personenjahre",
+      "answer": 20,
+      "tol": 0.1,
+      "feedback_correct": "52 / 2600 Personenjahre = 0,02 pro Personenjahr = 20 pro 1000 Personenjahre. Nenner einer Rate ist Personenzeit, nicht Personen.",
+      "feedback_wrong": "Rate = neue Fälle ÷ Personenzeit; danach mit 1000 multiplizieren.",
+      "near": [
+        { "value": 40, "tol": 0.5, "feedback": "40 pro 1000 ergibt sich mit 1300 Personen im Nenner – das wäre eine kumulative Inzidenz (4,0 %), keine Rate. Für die Rate zählt die Personenzeit (2600 Personenjahre)." },
+        { "value": 0.02, "tol": 0.001, "feedback": "0,02 ist die Rate pro Personenjahr. Gefragt war pro 1000 Personenjahre: × 1000 = 20." },
+        { "value": 2, "tol": 0.05, "feedback": "2 wäre pro 100 Personenjahre. Gefragt war pro 1000 Personenjahre: 20." }
+      ]
+    },
+    {
+      "type": "mc",
+      "tag": "Wiederholung · Modul 2",
+      "question": "„Von 100 Personen mit positivem Teststreifen haben 49 tatsächlich eine Albuminurie.“ Welche Kenngröße beschreibt dieser Satz?",
+      "options": [
+        { "text": "Positiver Vorhersagewert (PPV)", "correct": true, "feedback": "Gelesen wird in der Zeile „Test positiv“: Anteil der tatsächlich Erkrankten unter den Testpositiven. Diese Zahl hängt von der Prävalenz ab." },
+        { "text": "Sensitivität", "correct": false, "feedback": "Die Sensitivität liest die Spalte „krank“: Anteil der Erkrankten, die der Test erkennt. Hier geht es aber um Personen mit positivem Test." },
+        { "text": "Spezifität", "correct": false, "feedback": "Die Spezifität betrifft Personen ohne Erkrankung (Anteil mit negativem Test). Der Satz handelt von Testpositiven." },
+        { "text": "Prävalenz", "correct": false, "feedback": "Die Prävalenz wäre der Anteil Erkrankter unter allen Untersuchten – nicht nur unter den Testpositiven." }
+      ]
     }
   ]
 }
@@ -385,6 +425,38 @@ head(unter_risiko, n = 5)    # the first five rows as a table
 - Für dieses Modul brauchen Sie: `diabetes` und `hypertonie` (Exposition: 1 = ja, 0 = nein) sowie `ckd_inzident` (Outcome: neue CKD in der Nachbeobachtung, 1 = ja, 0 = nein). Alle Spalten: [Codebook](../data/codebook.md).
 - Die Zeilen von R0 (Einlesen, `unter_risiko` anlegen) laufen vor jeder Übung unsichtbar noch einmal – jede Übung funktioniert deshalb auch für sich allein.
 :::
+
+### Code lesen: Was kommt heraus?
+
+`count()` kennen Sie aus Modul 2. Sagen Sie voraus, was mit zwei Spalten passiert – erst danach ausführen.
+
+```{=html}
+<div class="epir-quiz">
+<script type="application/json">
+{
+  "items": [
+    {
+      "type": "mc",
+      "tag": "Code lesen",
+      "question": "Was gibt dieser Code aus?",
+      "code": "unter_risiko |>\n  count(diabetes, ckd_inzident)",
+      "options": [
+        { "text": "<strong>Vier Zeilen</strong> – je eine Kombination aus <code>diabetes</code> (0/1) und <code>ckd_inzident</code> (0/1) mit ihrer Anzahl <code>n</code>: die Vierfeldertafel in Langform.", "correct": true, "feedback": "Richtig: 0/0 → 1371, 0/1 → 102, 1/0 → 136, 1/1 → 29. Das sind d, c, b und a aus dem Konzeptteil – nur untereinander statt im Quadrat." },
+        { "text": "Zwei Zeilen: Personen mit und ohne Diabetes.", "correct": false, "feedback": "Das ergäbe <code>count(diabetes)</code>. Mit zwei Spalten zählt <code>count()</code> jede Kombination – 2 × 2 = 4 Zeilen." },
+        { "text": "Die Zahl 1638 (alle Personen unter Risiko).", "correct": false, "feedback": "Die Gesamtzahl liefert <code>nrow(unter_risiko)</code>. <code>count()</code> schlüsselt auf." },
+        { "text": "Eine Fehlermeldung, weil <code>count()</code> nur eine Spalte annimmt.", "correct": false, "feedback": "<code>count()</code> nimmt beliebig viele Spalten und zählt die Kombinationen." }
+      ]
+    }
+  ]
+}
+</script>
+</div>
+```
+
+```{webr}
+unter_risiko |>
+  count(diabetes, ckd_inzident)
+```
 
 ### Übung R1: Risiko je Gruppe
 
@@ -422,10 +494,14 @@ Risiko = Fälle / Personen. Innerhalb von `summarise()` dürfen Sie auf die gera
 ## Lösung
 ```r
 unter_risiko |>
+  # Schritt 1: nach Exposition gruppieren
   group_by(diabetes) |>
   summarise(
+    # Schritt 2: Nenner – Personen je Gruppe
     n = n(),
+    # Schritt 3: Zähler – neue Fälle je Gruppe
     faelle = sum(ckd_inzident),
+    # Schritt 4: Risiko = Zähler / Nenner
     risiko = faelle / n          # oder: mean(ckd_inzident)
   )
 ```
@@ -546,10 +622,13 @@ Zeile 2 berechnet das Risiko der Exponierten aus a und b. Das Risiko der Nicht-E
 ## Lösung
 ```r
 rel_risiko <- function(a, b, c, d) {
+  # Schritt 1: Risiko je Gruppe aus den vier Feldern
   risiko_exponiert <- a / (a + b)
   risiko_nicht     <- c / (c + d)
+  # Schritt 2: Quotient = relatives Risiko (letzte Zeile wird zurückgegeben)
   risiko_exponiert / risiko_nicht
 }
+# Schritt 3: Funktion mit den Zahlen der Kohorte aufrufen
 rel_risiko(a = 29, b = 136, c = 102, d = 1371)   # 2.54
 ```
 Die Funktion ist wiederverwendbar: `rel_risiko(66, 555, 65, 952)` liefert das RR für Hypertonie (Aufgabe 2).
@@ -610,7 +689,9 @@ Innerhalb von `summarise()` können Sie die eben berechnete Spalte `risiko` weit
 unter_risiko |>
   group_by(diabetes) |>
   summarise(
+    # Schritt 1: Risiko je Gruppe
     risiko = mean(ckd_inzident),
+    # Schritt 2: Odds = Risiko / Gegenwahrscheinlichkeit (nutzt die Spalte von eben)
     odds   = risiko / (1 - risiko)
   )
 ```

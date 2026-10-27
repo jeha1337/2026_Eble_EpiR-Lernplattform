@@ -24,6 +24,12 @@ unter_risiko <- dplyr::filter(kohorte, ckd_baseline == 0)
 In der nephrologischen Sprechstunde scheint fast jede zweite Person eine chronische Nierenkrankheit (CKD) zu haben. Eine Hausarztpraxis, die 2000 Erwachsene systematisch untersucht und fünf Jahre begleitet, kommt auf ganz andere Zahlen. **Ist CKD nun häufig – und was heißt „häufig“?** Dahinter stecken zwei Fragen: *Wie viele sind jetzt krank?* und *Wie viele erkranken neu?*
 :::
 
+```{=html}
+<div class="epir-estimate" data-id="m1-prev" data-unit="von 100" data-min="0" data-max="100" data-next="Abschnitt „Durchgerechnetes Beispiel“">
+<p>Die Hausarztpraxis untersucht 2000 Erwachsene ab 40 Jahren auf CKD. <strong>Wie viele von 100 untersuchten Personen haben Ihrer Einschätzung nach beim Screening eine CKD?</strong></p>
+</div>
+```
+
 ::: {.lernziele}
 **Lernziele.** Nach diesem Modul können Sie …
 
@@ -77,6 +83,10 @@ $$
 $$
 
 **Antwortsatz:** „Zu Studienbeginn hatten 18,1 % der 2000 untersuchten Personen eine CKD (Punktprävalenz; 18 100 pro 100 000).“
+
+```{=html}
+<div class="epir-estimate-reveal" data-ref="m1-prev" data-answer="18" data-unit="von 100" data-diff-unit="Personen" data-answer-text="18 von 100 (Punktprävalenz 18,1 %)"></div>
+```
 
 Ein vollständiger Antwortsatz nennt **Maßzahl, Wert mit Bezugsgröße, Population und Zeitbezug**.
 
@@ -404,15 +414,54 @@ Die wichtigsten Spalten: `ckd_baseline` (CKD zu Beginn: 1 = ja, 0 = nein), `diab
 Der Mittelwert einer 0/1-Spalte ist der Anteil der Einsen – also genau die Prävalenz.
 
 ```{webr}
+# Schritt 1: Ausgangstabelle – alle 2000 Personen
 kohorte |>
   summarise(
+    # Schritt 2: Nenner – alle Personen zählen
     n_gesamt   = n(),
+    # Schritt 3: Zähler – Personen mit CKD zu Beginn
     n_ckd      = sum(ckd_baseline),
+    # Schritt 4: Anteil = Mittelwert der 0/1-Spalte
     praevalenz = mean(ckd_baseline)
   )
 ```
 
 `summarise()` fasst viele Zeilen zu einer Zeile zusammen; links vom `=` steht der Name der neuen Spalte, rechts die Rechnung. `n()` zählt Zeilen, `sum()` addiert, `mean()` mittelt. Das Ergebnis entspricht dem Beispiel oben: 362 von 2000, Prävalenz 0,181.
+
+### Code lesen: Was kommt heraus?
+
+Bevor Sie selbst schreiben, sagen Sie die Ausgabe voraus – erst danach ausführen. Wer Code vorhersagen kann, findet eigene Fehler schneller.
+
+```{=html}
+<div class="epir-quiz">
+<script type="application/json">
+{
+  "items": [
+    {
+      "type": "mc",
+      "tag": "Code lesen",
+      "question": "Was gibt dieser Code aus?",
+      "code": "kohorte |>\n  summarise(\n    n               = n(),\n    mittleres_alter = mean(alter)\n  )",
+      "options": [
+        { "text": "Eine Tabelle mit <strong>einer Zeile</strong> und zwei Spalten: <code>n</code> = 2000 und <code>mittleres_alter</code> ≈ 60,6 Jahre.", "correct": true, "feedback": "<code>summarise()</code> verdichtet alle Zeilen zu einer Zeile; jede Zuweisung links vom <code>=</code> wird eine Spalte. <code>mean(alter)</code> funktioniert für jede Zahlenspalte, nicht nur für 0/1-Spalten." },
+        { "text": "2000 Zeilen – für jede Person ihr Alter und daneben die Zahl 2000.", "correct": false, "feedback": "Das wäre das Verhalten von <code>mutate()</code> (Modul 2), das Spalten anfügt. <code>summarise()</code> fasst zusammen: eine Zeile." },
+        { "text": "Nur die Zahl 2000, weil <code>mean(alter)</code> ohne 0/1-Spalte nicht berechnet werden kann.", "correct": false, "feedback": "<code>mean()</code> mittelt beliebige Zahlen. Bei 0/1-Spalten ergibt der Mittelwert zufällig den Anteil – das ist ein Spezialfall, keine Voraussetzung." },
+        { "text": "Eine Fehlermeldung, weil <code>n()</code> keine Spalte als Argument bekommt.", "correct": false, "feedback": "<code>n()</code> ist bewusst ohne Argument: Es zählt die Zeilen der aktuellen Tabelle (bzw. Gruppe)." }
+      ]
+    }
+  ]
+}
+</script>
+</div>
+```
+
+```{webr}
+kohorte |>
+  summarise(
+    n               = n(),
+    mittleres_alter = mean(alter)
+  )
+```
 
 ### Übung R1: Prävalenz von Diabetes
 
@@ -516,10 +565,14 @@ Neue Fälle stehen in `ckd_inzident`. Innerhalb von `summarise()` können Sie ei
 ::: {.callout-tip collapse="false"}
 ## Lösung
 ```r
+# Schritt 1: nur Personen unter Risiko (ohne CKD zu Beginn)
 unter_risiko |>
   summarise(
+    # Schritt 2: Nenner – Personen unter Risiko zu Beginn
     n_risiko     = n(),
+    # Schritt 3: Zähler – neue Fälle in fünf Jahren
     neue_faelle  = sum(ckd_inzident),
+    # Schritt 4: Zähler durch Nenner
     kum_inzidenz = neue_faelle / n_risiko
   )
 ```
@@ -586,10 +639,14 @@ Die Beobachtungszeit jeder Person steht in `followup_jahre`. Ihre Summe ist die 
 ::: {.callout-tip collapse="false"}
 ## Lösung
 ```r
+# Schritt 1: nur Personen unter Risiko
 unter_risiko |>
   summarise(
+    # Schritt 2: Zähler – neue Fälle
     neue_faelle   = sum(ckd_inzident),
+    # Schritt 3: Nenner – Personenzeit (Summe der Beobachtungsjahre)
     personenjahre = sum(followup_jahre),
+    # Schritt 4: Rate, auf 1000 Personenjahre skaliert
     rate_pro_1000 = 1000 * neue_faelle / personenjahre
   )
 ```
@@ -660,9 +717,12 @@ kohorte |>
 ## Lösung
 ```r
 kohorte |>
+  # Schritt 1: Gruppen festlegen – alles danach gilt je Gruppe
   group_by(diabetes) |>
   summarise(
+    # Schritt 2: Personen je Gruppe
     n = n(),
+    # Schritt 3: Anteil mit CKD je Gruppe
     praevalenz_ckd = mean(ckd_baseline)
   )
 ```

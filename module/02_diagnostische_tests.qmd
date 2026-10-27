@@ -26,6 +26,8 @@ fp <- tafel$n[tafel$albuminurie == 0 & tafel$teststreifen_pos == 1]
 tn <- tafel$n[tafel$albuminurie == 0 & tafel$teststreifen_pos == 0]
 # guard: the text below quotes these numbers literally
 stopifnot(tp == 175, fn == 46, fp == 179, tn == 1600)
+# guard for the estimate box (prequestion) at the top: "49 von 100 Testpositiven"
+stopifnot(round(100 * tp / (tp + fp)) == 49)
 n_all <- tp + fn + fp + tn
 sens <- tp / (tp + fn); spez <- tn / (tn + fp)
 ppv <- tp / (tp + fp);  npv <- tn / (tn + fn)
@@ -49,6 +51,12 @@ pct <- function(x, d = 1) paste0(de(100 * x, d), "\u00a0%")
 ::: {.leitfrage}
 Ein **Urin-Teststreifen** auf Albumin soll eine Albuminurie (Frühzeichen einer Nierenschädigung) erkennen; der Referenzstandard ist die Labormessung des Albumin-Kreatinin-Quotienten (UACR ≥ 30 mg/g). Eine 55-jährige Patientin ohne Diabetes hat einen **positiven** Teststreifen und fragt: „Habe ich jetzt eine Nierenschädigung?“ **Wie wahrscheinlich ist es, dass sie tatsächlich eine Albuminurie hat – und warum reicht die Angabe „Der Test erkennt etwa 80 % der Erkrankten“ nicht als Antwort?**
 :::
+
+```{=html}
+<div class="epir-estimate" data-id="m2-ppv" data-unit="von 100" data-min="0" data-max="100" data-next="Abschnitt „Vorhersagewerte“">
+<p>Der Teststreifen erkennt etwa 80 % der Personen mit Albuminurie und fällt bei etwa 90 % der Personen ohne Albuminurie negativ aus. In der Beispielkohorte (2000 Personen) hat etwa jede neunte Person eine Albuminurie. <strong>Von 100 Personen mit positivem Teststreifen – wie viele haben Ihrer Einschätzung nach tatsächlich eine Albuminurie?</strong></p>
+</div>
+```
 
 ::: {.lernziele}
 **Lernziele.** Nach diesem Modul können Sie …
@@ -135,6 +143,12 @@ NPV = \frac{RN}{RN + FN} = \frac{`r tn`}{`r tn + fn`} = `r dm(npv, 3)` = `r dm(1
 $$
 
 **Antwortsatz:** „In dieser Kohorte hat von 100 Personen mit positivem Teststreifen etwa jede zweite (`r pct(ppv, 0)`) tatsächlich eine Albuminurie; von 100 Personen mit negativem Teststreifen haben etwa `r de(100 * (1 - npv), 0)` dennoch eine (NPV `r pct(npv, 0)`).“
+
+```{=html}
+<div class="epir-estimate-reveal" data-ref="m2-ppv" data-answer="49" data-unit="von 100" data-diff-unit="Personen" data-answer-text="49 von 100 Testpositiven (PPV 49,4 %)"></div>
+```
+
+Viele schätzen hier deutlich höher, weil „80 % Sensitivität“ wie „80 % sicher“ klingt. Der Unterschied zwischen Spalte (Sensitivität) und Zeile (PPV) ist der Kern dieses Moduls.
 
 ```{r}
 #| label: fig-reading
@@ -329,6 +343,17 @@ Die Fragen entsprechen dem Format der Klausurfragen (eine richtige Antwort; Rech
         { "text": "Der Patient ist zu 79 % gesund.", "correct": false, "feedback": "79 % ist die Sensitivität, eine Eigenschaft des Tests. Die Wahrscheinlichkeit, gesund zu sein, ist der NPV (97 %)." },
         { "text": "Der Patient ist zu 90 % gesund.", "correct": false, "feedback": "90 % ist die Spezifität (Anteil der Gesunden mit negativem Test). Die Frage „Wie wahrscheinlich gesund bei negativem Test?“ beantwortet der NPV: 97 %." }
       ]
+    },
+    {
+      "type": "mc",
+      "tag": "Wiederholung · Modul 1",
+      "question": "In der Beispielkohorte hatten beim Screening 362 von 2000 Personen eine CKD; von den 1638 Personen ohne CKD erkrankten in den folgenden fünf Jahren 131 neu. Welche Zuordnung ist richtig?",
+      "options": [
+        { "text": "362/2000 = Punktprävalenz; 131/1638 = kumulative 5-Jahres-Inzidenz (Risiko).", "correct": true, "feedback": "Bestand zu einem Zeitpunkt = Prävalenz; neue Fälle unter den zu Beginn Gesunden in einem Zeitraum = kumulative Inzidenz. Der Nenner der Inzidenz schließt die 362 bereits Erkrankten aus." },
+        { "text": "362/2000 = Inzidenz; 131/1638 = Prävalenz.", "correct": false, "feedback": "Umgekehrt: Die 362 sind der Bestand zu Studienbeginn (Prävalenz), die 131 sind die Zugänge (Inzidenz)." },
+        { "text": "Beide Zahlen sind Prävalenzen, nur zu verschiedenen Zeitpunkten.", "correct": false, "feedback": "131/1638 zählt nur neue Fälle unter Personen, die zu Beginn gesund waren – das ist eine Inzidenz, kein Bestand." },
+        { "text": "131/1638 ist eine Inzidenzrate pro Personenjahr.", "correct": false, "feedback": "Eine Rate hat Personenzeit im Nenner (z. B. 131/7075 Personenjahre). 1638 sind Personen, nicht Personenjahre – also kumulative Inzidenz." }
+      ]
     }
   ]
 }
@@ -363,6 +388,38 @@ head(kohorte, n = 5)    # the first five rows as a table
 - Für dieses Modul brauchen Sie: `teststreifen_pos` (Screening-Test: 1 = positiv, 0 = negativ), `uacr` (Albumin-Kreatinin-Quotient in mg/g, Referenzstandard), `albuminurie` (daraus abgeleitet: 1, wenn UACR ≥ 30) und `diabetes` (1/0). Alle Spalten: [Codebook](../data/codebook.md).
 - Die Zeilen von R0 (Einlesen, `albuminurie` anlegen) laufen vor jeder Übung unsichtbar noch einmal – jede Übung funktioniert deshalb auch für sich allein.
 :::
+
+### Code lesen: Was kommt heraus?
+
+`count()` ist neu. Sagen Sie voraus, was es tut – erst danach ausführen.
+
+```{=html}
+<div class="epir-quiz">
+<script type="application/json">
+{
+  "items": [
+    {
+      "type": "mc",
+      "tag": "Code lesen",
+      "question": "Was gibt dieser Code aus?",
+      "code": "kohorte |>\n  count(diabetes)",
+      "options": [
+        { "text": "Eine Tabelle mit <strong>zwei Zeilen</strong>: <code>diabetes</code> 0 → <code>n</code> = 1695 und <code>diabetes</code> 1 → <code>n</code> = 305.", "correct": true, "feedback": "<code>count()</code> zählt, wie oft jede Ausprägung vorkommt – eine Zeile pro Wert, die Anzahl steht in der neuen Spalte <code>n</code>. Mit zwei Spalten als Argument zählt es jede Kombination (Übung R1)." },
+        { "text": "Nur die Zahl 305 (Personen mit Diabetes).", "correct": false, "feedback": "<code>count()</code> gibt immer eine Tabelle zurück, auch für die Nullen. Die reine Anzahl der Einsen wäre <code>sum(diabetes)</code> in <code>summarise()</code>." },
+        { "text": "Die Zahl 2000 (alle Zeilen).", "correct": false, "feedback": "Alle Zeilen zählt <code>n()</code> in <code>summarise()</code> oder <code>nrow(kohorte)</code>. <code>count(diabetes)</code> schlüsselt nach den Werten von <code>diabetes</code> auf." },
+        { "text": "Eine Fehlermeldung, weil <code>diabetes</code> keine Textspalte ist.", "correct": false, "feedback": "<code>count()</code> funktioniert für jede Spalte – Zahlen, Text oder Wahrheitswerte." }
+      ]
+    }
+  ]
+}
+</script>
+</div>
+```
+
+```{webr}
+kohorte |>
+  count(diabetes)
+```
 
 ### Übung R1: Vierfeldertafel zählen
 
@@ -453,13 +510,16 @@ Falsch negativ: `teststreifen_pos == 0` **und** (`&`) `albuminurie == 1`.
 ::: {.callout-tip collapse="false"}
 ## Lösung
 ```r
+# Schritt 1: neue Spalte „ergebnis“ anlegen (mutate) …
 tafel <- kohorte |>
   mutate(ergebnis = case_when(
+    # Schritt 2: … je Kombination aus Test und Referenz ein Feld zuordnen
     teststreifen_pos == 1 & albuminurie == 1 ~ "RP",
     teststreifen_pos == 1 & albuminurie == 0 ~ "FP",
     teststreifen_pos == 0 & albuminurie == 1 ~ "FN",
     teststreifen_pos == 0 & albuminurie == 0 ~ "RN"
   ))
+# Schritt 3: die vier Felder auszählen
 tafel |> count(ergebnis)
 ```
 `==` vergleicht, `&` verknüpft zwei Bedingungen mit „und“. Fehlt eine Kombination, bekommt sie `NA` – ein guter Hinweis darauf, dass eine Bedingung nicht stimmt.
@@ -529,10 +589,13 @@ Die Vorhersagewerte lesen die **Zeilen**: Nenner des PPV sind alle Testpositiven
 ```r
 tafel |>
   summarise(
+    # Schritt 1: die vier Felder zählen
     rp = sum(ergebnis == "RP"), fp = sum(ergebnis == "FP"),
     fn = sum(ergebnis == "FN"), rn = sum(ergebnis == "RN"),
+    # Schritt 2: Spalten lesen – Testgüte
     sensitivitaet = rp / (rp + fn),     # Spalte „krank“
     spezifitaet   = rn / (rn + fp),     # Spalte „gesund“
+    # Schritt 3: Zeilen lesen – Vorhersagewerte
     ppv           = rp / (rp + fp),     # Zeile „positiv“
     npv           = rn / (rn + fn)      # Zeile „negativ“
   )

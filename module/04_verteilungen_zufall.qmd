@@ -64,11 +64,18 @@ alt <- list(
 stopifnot(praxis_a == 24, praxis_b == 14, round(100 * p_true, 1) == 18.1,
           round(m_e, 1) == 81.4, round(s_e, 1) == 15.5, round(md_u, 1) == 8.5, round(m_u, 1) == 14.5,
           round(100 * sd_est, 1) == c(5.4, 2.8, 1.2))
+stopifnot(round(100 * (p_true + 2 * se100)) == 26)   # guard: estimate box (prequestion) quotes 26
 ```
 
 ::: {.leitfrage}
 Zwei Hausarztpraxen beteiligen sich an einem Screening auf chronische Nierenkrankheit (CKD) und untersuchen je 100 Personen ab 40 Jahren aus derselben Region. Praxis A findet CKD bei **`r praxis_a` von 100**, Praxis B bei **`r praxis_b` von 100**. **Ist die Bevölkerung von Praxis A kränker – oder sehen zwei Studien auch dann verschiedene Ergebnisse, wenn in Wahrheit kein Unterschied besteht?**
 :::
+
+```{=html}
+<div class="epir-estimate" data-id="m4-range" data-unit="von 100" data-min="0" data-max="100" data-next="Abschnitt „Studien-Simulator“ (Aufgabe 2)">
+<p>Angenommen, in Wahrheit haben 18 von 100 Personen der Region eine CKD, und 100 Praxen untersuchen je 100 zufällig ausgewählte Personen. Die meisten Praxen finden Werte um 18. <strong>Bis zu welchem Wert (von 100) reicht Ihrer Einschätzung nach der Bereich, in dem etwa 95 von 100 dieser Praxen landen – also die obere Grenze des „normalen“ Zufallsbereichs?</strong></p>
+</div>
+```
 
 ```{r}
 #| label: fig-praxen
@@ -286,6 +293,10 @@ Ziehen Sie selbst Studien aus einer Bevölkerung mit bekannter Prävalenz. Jeder
 
 **Aufgabe 2 (Leitfrage).** Bei wahrer Prävalenz 18 % und n = 100 beträgt der Standardfehler √(0,18 × 0,82 / 100) ≈ `r de(100 * se100)` Prozentpunkte. Ergebnisse innerhalb von etwa ± 2 Standardfehlern (`r de(100 * (p_true - 2 * se100))` bis `r de(100 * (p_true + 2 * se100))` %) sind bei dieser Stichprobengröße gewöhnlich. Liegen `r praxis_a` % und `r praxis_b` % in diesem Bereich? (Auflösung im Selbsttest, Frage 7.)
 
+```{=html}
+<div class="epir-estimate-reveal" data-ref="m4-range" data-answer="26" data-unit="von 100" data-diff-unit="Personen" data-answer-text="etwa 26 von 100 (18 % + 2 Standardfehler ≈ 25,8 %)"></div>
+```
+
 ## Zufall ist nicht alles
 
 Mehr Personen zu untersuchen verkleinert den Zufallsfehler – aber nur ihn. Davon zu unterscheiden ist der **systematische Fehler** (engl. *bias*): eine Abweichung, die in jeder Wiederholung in dieselbe Richtung geht, etwa weil ein Test Albuminurie regelmäßig übersieht oder weil vor allem gesunde Menschen zur Vorsorge kommen.
@@ -406,6 +417,28 @@ Die Fragen entsprechen im Format den Klausurfragen (eine richtige Antwort; Reche
         { "text": "Praxis B hat bei der Untersuchung Fehler gemacht.", "correct": false, "feedback": "Ein niedrigerer Wert ist kein Beleg für einen Fehler – 14 % ist bei n = 100 ein völlig gewöhnliches Zufallsergebnis." },
         { "text": "Man müsste beide Zahlen mitteln, dann ist das Ergebnis exakt.", "correct": false, "feedback": "Das Mittel (19 %) ist eine Schätzung aus n = 200 mit kleinerem, aber nicht verschwundenem Standardfehler (≈ 2,7 Prozentpunkte)." }
       ]
+    },
+    {
+      "type": "mc",
+      "tag": "Wiederholung · Modul 3",
+      "question": "In der Beispielkohorte betrug das 5-Jahres-Risiko für eine neue CKD 17,6 % mit und 6,9 % ohne Diabetes. Welche Aussage ist korrekt?",
+      "options": [
+        { "text": "RR ≈ 2,5 und Risikodifferenz ≈ 10,7 Prozentpunkte – beide Zahlen gehören zusammen in die Antwort.", "correct": true, "feedback": "17,6 / 6,9 ≈ 2,5 (relativ) und 17,6 − 6,9 = 10,7 Prozentpunkte (absolut). Erst das Paar macht die Größe des Effekts verständlich; die NNH ist 1 / 0,107 ≈ 9." },
+        { "text": "Das relative Risiko beträgt 10,7.", "correct": false, "feedback": "10,7 ist die Differenz in Prozentpunkten, nicht der Quotient. Das RR ist 17,6 / 6,9 ≈ 2,5." },
+        { "text": "Das Odds Ratio ist exakt gleich dem relativen Risiko, also 2,5.", "correct": false, "feedback": "OR und RR sind nur bei seltenen Ereignissen ähnlich. Hier ist das OR mit ≈ 2,9 größer als das RR von 2,5 (Modul 3)." },
+        { "text": "Die NNH beträgt 2,5.", "correct": false, "feedback": "Die NNH ist der Kehrwert der Risikodifferenz: 1 / 0,107 ≈ 9 Personen mit Diabetes pro zusätzlichem CKD-Fall in fünf Jahren." }
+      ]
+    },
+    {
+      "type": "mc",
+      "tag": "Wiederholung · Modul 2",
+      "question": "Ein Teststreifen hat eine Sensitivität von 90 %. Welche Frage beantwortet diese Zahl?",
+      "options": [
+        { "text": "Wie viele von 100 Erkrankten erkennt der Test?", "correct": true, "feedback": "Sensitivität = Anteil der Erkrankten mit positivem Test (Spalte „krank“ der Vierfeldertafel)." },
+        { "text": "Wie viele von 100 Testpositiven sind erkrankt?", "correct": false, "feedback": "Das ist der positive Vorhersagewert (Zeile „positiv“); er hängt von der Prävalenz ab und kann trotz 90 % Sensitivität niedrig sein." },
+        { "text": "Wie viele von 100 Gesunden erkennt der Test als gesund?", "correct": false, "feedback": "Das ist die Spezifität (Spalte „gesund“)." },
+        { "text": "Wie häufig ist die Erkrankung in der untersuchten Gruppe?", "correct": false, "feedback": "Das ist die Prävalenz – sie beeinflusst die Vorhersagewerte, nicht die Sensitivität." }
+      ]
     }
   ]
 }
@@ -440,6 +473,41 @@ head(kohorte, n = 5)    # the first five rows as a table
 - Für dieses Modul brauchen Sie zwei Messwerte: `egfr` (mL/min/1,73 m², annähernd symmetrisch verteilt) und `uacr` (mg/g, rechtsschief). Schon in den ersten fünf Zeilen sehen Sie den Unterschied: Die eGFR-Werte liegen in einem engen Bereich, die UACR-Werte gehen um ein Vielfaches auseinander. Alle Spalten: [Codebook](../data/codebook.md).
 - Das Einlesen läuft vor jeder Übung unsichtbar noch einmal – jede Übung funktioniert deshalb auch für sich allein.
 :::
+
+### Code lesen: Was kommt heraus?
+
+`sd()` ist neu. Sagen Sie voraus, was der Code ausgibt – erst danach ausführen.
+
+```{=html}
+<div class="epir-quiz">
+<script type="application/json">
+{
+  "items": [
+    {
+      "type": "mc",
+      "tag": "Code lesen",
+      "question": "Was gibt dieser Code aus?",
+      "code": "kohorte |>\n  summarise(\n    mittelwert = mean(egfr),\n    streuung   = sd(egfr)\n  )",
+      "options": [
+        { "text": "Eine Zeile mit zwei Spalten: <code>mittelwert</code> ≈ 81,4 und <code>streuung</code> ≈ 15,5 (beide in ml/min/1,73 m²).", "correct": true, "feedback": "<code>summarise()</code> verdichtet alle 2000 Zeilen zu einer; <code>sd()</code> liefert die Standardabweichung in derselben Einheit wie die Messwerte." },
+        { "text": "2000 Zeilen: für jede Person ihre Abweichung vom Mittelwert.", "correct": false, "feedback": "Das wäre <code>mutate(abweichung = egfr - mean(egfr))</code>. <code>summarise()</code> gibt eine Zeile zurück." },
+        { "text": "Eine Zeile mit <code>mittelwert</code> ≈ 81,4 und <code>streuung</code> ≈ 241 (Quadrat-Einheit).", "correct": false, "feedback": "241 wäre die Varianz (<code>var()</code>), das Quadrat der Standardabweichung. <code>sd()</code> zieht die Wurzel: ≈ 15,5." },
+        { "text": "Eine Fehlermeldung, weil <code>sd()</code> ein eigenes Paket braucht.", "correct": false, "feedback": "<code>sd()</code> gehört zu Base R (Paket <code>stats</code>) und ist immer verfügbar." }
+      ]
+    }
+  ]
+}
+</script>
+</div>
+```
+
+```{webr}
+kohorte |>
+  summarise(
+    mittelwert = mean(egfr),
+    streuung   = sd(egfr)
+  )
+```
 
 ### Übung R1: Lage und Streuung
 
@@ -478,8 +546,10 @@ Die Funktion für die Standardabweichung heißt wie ihre Abkürzung: `sd()`. Sie
 ```r
 kohorte |>
   summarise(
+    # Schritt 1: Lage und Streuung für symmetrische Verteilungen
     mittelwert = mean(egfr),
     sd         = sd(egfr),
+    # Schritt 2: robuste Alternativen (unempfindlich gegen Ausreißer)
     median     = median(egfr),
     q1         = quantile(egfr, 0.25),
     q3         = quantile(egfr, 0.75)
@@ -587,14 +657,17 @@ kohorte <- read_csv("data/ckd_kohorte.csv", show_col_types = FALSE)
 
 ```{webr}
 #| exercise: ex_sim
+# Schritt 1: Zufall reproduzierbar machen und Studiengröße festlegen
 set.seed(20261026)
 n_pro_studie <- 100
 
+# Schritt 2: eine Studie = Stichprobe ziehen und Prävalenz berechnen – 1000-mal
 schaetzungen <- replicate(1000, {
   stichprobe <- sample(kohorte$ckd_baseline, n_pro_studie, replace = TRUE)
   mean(stichprobe)                       # Prävalenz in dieser einen Studie
 })
 
+# Schritt 3: Ergebnisse ansehen und ihre Streuung berechnen
 head(schaetzungen)                       # die ersten sechs "Studien"
 sd(______)                               # Streuung über alle Studien = Standardfehler
 ```
@@ -643,21 +716,24 @@ kohorte <- read_csv("data/ckd_kohorte.csv", show_col_types = FALSE)
 
 ```{webr}
 #| exercise: ex_sim_n
+# Schritt 1: Zufall reproduzierbar machen und Studiengröße festlegen
 set.seed(20261026)
 n_pro_studie <- 100                      # <- hier ändern
 
+# Schritt 2: 1000 Studien simulieren
 schaetzungen <- replicate(1000, {
   stichprobe <- sample(kohorte$ckd_baseline, n_pro_studie, replace = TRUE)
   mean(stichprobe)
 })
 
+# Schritt 3: Streuung der Schätzungen
 sd(schaetzungen)
 ```
 
 ::: {.hint exercise="ex_sim_n"}
 ::: {.callout-note collapse="false"}
 ## Hinweis
-Nur die Zahl in Zeile 2 ändern. Erwartung nach der Wurzel-n-Regel: etwa die Hälfte von 0,038.
+Nur die Zahl hinter `n_pro_studie <-` ändern. Erwartung nach der Wurzel-n-Regel: etwa die Hälfte von 0,038.
 :::
 :::
 
@@ -680,7 +756,7 @@ wert <- tryCatch(as.numeric(.result), error = function(e) NA_real_)
 if (length(wert) == 1 && !is.na(wert) && wert > 0.014 && wert < 0.025) {
   list(correct = TRUE, type = "success", message = sprintf("Richtig. Bei n = 400 streuen die Schätzungen nur noch mit %s – etwa die Hälfte von 0,038. Vervierfachen halbiert.", formatC(wert, format = "f", digits = 4, decimal.mark = ",")))
 } else if (length(wert) == 1 && !is.na(wert) && wert > 0.030 && wert < 0.048) {
-  list(correct = FALSE, type = "info", message = "Das ist noch das Ergebnis für n = 100. Ändern Sie n_pro_studie in Zeile 2 auf 400.")
+  list(correct = FALSE, type = "info", message = "Das ist noch das Ergebnis für n = 100. Ändern Sie n_pro_studie auf 400.")
 } else if (length(wert) == 1 && !is.na(wert) && wert < 0.014) {
   list(correct = FALSE, type = "info", message = "Noch kleiner als erwartet – Sie haben n vermutlich stärker als vervierfacht. Für den Vergleich mit der Regel: n_pro_studie <- 400.")
 } else {

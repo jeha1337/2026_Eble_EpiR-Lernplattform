@@ -8,6 +8,16 @@
  *             items: {type:"mc", question, options:[{text, correct, feedback}]}
  *                    {type:"num", question, answer, tol, unit, feedback_correct,
  *                                 feedback_wrong, near:[{value, tol, feedback}]}
+ *             optional per item: tag  = short badge shown before the question
+ *                                       (e.g. "Wiederholung · Modul 1", "Code lesen")
+ *                                code = R code shown as a <pre> block below the question
+ *                                       ("predict the output" items, PRIMM step "Predict")
+ *  9. Estimate: <div class="epir-estimate" data-id="m1-prev" data-unit="von 100" data-min="0"
+ *                    data-max="100" data-next="Abschnitt „Durchgerechnetes Beispiel“">Frage …</div>
+ *               <div class="epir-estimate-reveal" data-ref="m1-prev" data-answer="18" data-unit="von 100"
+ *                    data-diff-unit="Personen" data-answer-text="18 von 100 (Punktprävalenz 18,1 %)"></div>
+ *             (prequestion: the learner writes down a guess before the concept is taught; the
+ *              reveal box later compares guess and actual value. Nothing is stored or sent.)
  *  2. Calc:   <div class="epir-calc" data-mode="prev|cuminc|rate"
  *                  data-cases="362" data-denom="2000" data-years="5"></div>
  *  3. Pool:   <div class="epir-pool" data-inc="18.5" data-dur="10"></div>
@@ -93,9 +103,15 @@
     items.forEach((item, idx) => {
       const itemId = nextId("epir-q");
       const block = el("fieldset", { class: "epir-quiz-item" });
+      const tagHtml = item.tag ? `<span class="epir-item-tag">${item.tag}</span> ` : "";
       block.appendChild(
-        el("legend", { html: `<span class="epir-quiz-num">Frage ${idx + 1}</span> ${item.question}` })
+        el("legend", { html: `<span class="epir-quiz-num">Frage ${idx + 1}</span> ${tagHtml}${item.question}` })
       );
+      if (item.code) {
+        // "Predict the output" items: code is shown read-only; the learner answers before running anything.
+        const pre = el("pre", { class: "epir-quiz-code" }, [el("code", { class: "sourceCode r", text: item.code })]);
+        block.appendChild(pre);
+      }
 
       const feedback = el("div", { class: "epir-feedback", "aria-live": "polite", role: "status" });
       const allBtn = el("button", { type: "button", class: "btn btn-sm btn-link epir-allbtn", text: "Erklärung zu allen Antworten anzeigen" });
@@ -901,8 +917,84 @@
     render();
   }
 
+  // ---------- 9. Estimate (prequestion) ----------------------------------
+  // One guess per data-id, kept in memory only (no storage, no transfer).
+  const estimates = new Map();
+
+  function initEstimate(root) {
+    const id = root.dataset.id;
+    if (!id) return;
+    const unit = root.dataset.unit || "";
+    const min = root.dataset.min != null ? Number(root.dataset.min) : -Infinity;
+    const max = root.dataset.max != null ? Number(root.dataset.max) : Infinity;
+    const next = root.dataset.next || "";
+    const inputId = nextId("epir-est");
+
+    const prompt = el("div", { class: "epir-estimate-prompt", html: root.innerHTML });
+    root.innerHTML = "";
+    const input = el("input", { type: "text", inputmode: "decimal", id: inputId, class: "form-control form-control-sm epir-numinput", autocomplete: "off", placeholder: "Zahl" });
+    const btn = el("button", { type: "button", class: "btn btn-sm btn-primary", text: "Schätzung notieren" });
+    const out = el("div", { class: "epir-feedback", "aria-live": "polite", role: "status" });
+    const row = el("div", { class: "epir-numrow" }, [
+      el("label", { for: inputId, text: "Meine Schätzung:" }),
+      input,
+      unit ? el("span", { class: "epir-unit", text: unit }) : null,
+      btn,
+    ]);
+
+    function submit() {
+      const v = parseNum(input.value);
+      if (!Number.isFinite(v) || v < min || v > max) {
+        out.className = "epir-feedback epir-info";
+        out.innerHTML = Number.isFinite(min) && Number.isFinite(max)
+          ? `Bitte geben Sie eine Zahl zwischen ${fmtDE(min, 0)} und ${fmtDE(max, 0)} ein.`
+          : "Bitte geben Sie eine Zahl ein.";
+        return;
+      }
+      estimates.set(id, v);
+      out.className = "epir-feedback epir-success";
+      out.innerHTML = `<strong>Notiert: ${fmtDE(v, Number.isInteger(v) ? 0 : 1)} ${unit}.</strong> Ob Sie richtig liegen, sehen Sie weiter unten${next ? " im " + next : ""} – lesen Sie bis dahin weiter.`;
+      document.dispatchEvent(new CustomEvent("epir-estimate", { detail: { id, value: v } }));
+    }
+    btn.addEventListener("click", submit);
+    input.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); submit(); } });
+
+    root.appendChild(el("div", { class: "epir-estimate-head", html: '<span class="epir-item-tag">Erst schätzen</span> Noch nicht wissen ist hier normal – eine grobe Zahl reicht.' }));
+    root.appendChild(prompt);
+    root.appendChild(row);
+    root.appendChild(out);
+  }
+
+  function initEstimateReveal(root) {
+    const ref = root.dataset.ref;
+    if (!ref) return;
+    const answer = Number(root.dataset.answer);
+    const answerText = root.dataset.answerText || String(root.dataset.answer);
+    const unit = root.dataset.unit || "";
+    const diffUnit = root.dataset.diffUnit || "";
+    function render() {
+      const v = estimates.get(ref);
+      if (v == null) {
+        root.innerHTML = `<span class="epir-item-tag">Auflösung</span> Tatsächlich: <strong>${answerText}</strong>. Sie haben am Modulanfang keine Schätzung notiert – das ist in Ordnung; beim nächsten Modul lohnt sich der Versuch.`;
+        return;
+      }
+      const diff = v - answer;
+      const absDiff = Math.abs(diff);
+      const digits = Number.isInteger(v) && Number.isInteger(answer) ? 0 : 1;
+      let verdict;
+      if (absDiff <= Math.max(1, 0.1 * Math.abs(answer))) verdict = "Sehr nah dran.";
+      else if (diff > 0) verdict = `Ihre Schätzung lag um ${fmtDE(absDiff, digits)} ${diffUnit} zu hoch.`;
+      else verdict = `Ihre Schätzung lag um ${fmtDE(absDiff, digits)} ${diffUnit} zu niedrig.`;
+      root.innerHTML = `<span class="epir-item-tag">Auflösung</span> Ihre Schätzung: <strong>${fmtDE(v, digits)} ${unit}</strong> · tatsächlich: <strong>${answerText}</strong>. ${verdict} Eine Abweichung ist kein Fehler – sie zeigt, wo das Konzept die Intuition korrigiert.`;
+    }
+    document.addEventListener("epir-estimate", (e) => { if (e.detail && e.detail.id === ref) render(); });
+    render();
+  }
+
   function boot() {
     document.querySelectorAll(".epir-quiz").forEach(initQuiz);
+    document.querySelectorAll(".epir-estimate").forEach(initEstimate);
+    document.querySelectorAll(".epir-estimate-reveal").forEach(initEstimateReveal);
     document.querySelectorAll(".epir-calc").forEach(initCalc);
     document.querySelectorAll(".epir-pool").forEach(initPool);
     document.querySelectorAll(".epir-2x2").forEach(initTwoByTwo);

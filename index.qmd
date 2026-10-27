@@ -7,7 +7,7 @@ toc: false
 {{< include ./_extensions/r-wasm/live/_knitr.qmd >}}
 
 ::: {.callout-note appearance="simple"}
-**Status: Prototyp (Oktober 2026).** Module 1 bis 3 liegen als vollständige Entwürfe zur Durchsicht vor. Alles läuft im Browser – ohne Installation, ohne Login, ohne Server.
+**Status: Prototyp (Oktober 2026).** Module 1 bis 4 liegen als vollständige Entwürfe zur Durchsicht vor. Alles läuft im Browser – ohne Installation, ohne Login, ohne Server.
 :::
 
 ## Was Sie hier lernen
@@ -27,6 +27,39 @@ Sie brauchen **keine Vorkenntnisse** in R oder Statistik.
 3. Code-Blöcke sind **live**: ändern, „Run Code“ klicken, Ergebnis sehen. R läuft dabei in Ihrem Browser – der erste Start dauert bis zu einer Minute.
 4. Übungen enthalten Lücken (`______`). Hinweise und Lösungen lassen sich schrittweise aufklappen; das Feedback erklärt auch, *warum* etwas nicht stimmt.
 5. Nichts wird gespeichert oder übertragen. Wenn Sie die Seite neu laden, beginnt die Übung von vorn.
+
+## So lernen Sie mit dieser Plattform
+
+Der Aufbau folgt gut belegten Befunden der Lernforschung – deshalb sieht jedes Modul so aus:
+
+```{mermaid}
+%%| fig-cap: "Die Lernschleife eines Moduls: Schätzen vor dem Lesen, Üben statt nur Lesen, Fehler als Lernanlass, Wiederholung aus früheren Modulen."
+%%| fig-alt: "Flussdiagramm mit sechs Schritten im Kreis: Klinische Frage, Erst schätzen, Konzept mit Beispiel, Selbst üben mit Feedback, Typische Fehler, Selbsttest mit Wiederholung aus früheren Modulen; ein Pfeil führt vom Selbsttest zurück zur nächsten klinischen Frage."
+flowchart LR
+  A["Klinische Frage"] --> B["Erst schätzen"]
+  B --> C["Konzept + Beispiel"]
+  C --> D["Selbst üben,<br/>sofortiges Feedback"]
+  D --> E["Typische Fehler"]
+  E --> F["Selbsttest +<br/>Wiederholung früherer Module"]
+  F -. nächstes Modul .-> A
+```
+
+- **Erst schätzen, dann lesen.** Eine Zahl zu raten, bevor sie erklärt wird, verbessert das Behalten des erklärten Stoffs deutlich – auch wenn die Schätzung daneben liegt.
+- **Üben schlägt Lesen.** Sich an etwas zu erinnern (Quiz, Lücke füllen) festigt Wissen stärker als erneutes Lesen oder Markieren. Darum gibt es viele kleine Aufgaben und wenig Text.
+- **Es darf sich anstrengend anfühlen.** Aktives Lernen fühlt sich oft weniger flüssig an als Zuhören, bringt aber messbar mehr. Das Gefühl „das lief nicht glatt“ ist kein Warnsignal.
+- **Wiederholen mit Abstand.** Die Selbsttests enthalten Fragen aus früheren Modulen, weil verteiltes Wiederholen länger hält als ein Block.
+- **Code erst lesen, dann schreiben.** Im R-Teil sagen Sie zuerst voraus, was ein Code ausgibt, bevor Sie selbst schreiben.
+- **KI-Werkzeuge** (z. B. ChatGPT) helfen beim Lernen, wenn Sie um Hinweise bitten statt um fertige Lösungen; fertige Lösungen abzuschreiben verbessert die Übung, aber nicht die Klausur.
+
+::: {.callout-note collapse="true"}
+## Belege (Auswahl)
+- Vorab-Fragen: King-Shepard et al. 2025, *Educ Psychol Rev*, [doi:10.1007/s10648-025-10075-7](https://doi.org/10.1007/s10648-025-10075-7)
+- Abrufübung mit Feedback: Yang et al. 2021, *Psychol Bull*, [doi:10.1037/bul0000309](https://doi.org/10.1037/bul0000309); Larsen, Butler & Roediger 2009, *Med Educ*, [doi:10.1111/j.1365-2923.2009.03518.x](https://doi.org/10.1111/j.1365-2923.2009.03518.x)
+- Lerngefühl vs. Lernerfolg: Deslauriers et al. 2019, *PNAS*, [doi:10.1073/pnas.1821936116](https://doi.org/10.1073/pnas.1821936116)
+- Verteiltes Lernen: Cepeda et al. 2006, *Psychol Bull*, [doi:10.1037/0033-2909.132.3.354](https://doi.org/10.1037/0033-2909.132.3.354); Dunlosky et al. 2013, [doi:10.1177/1529100612453266](https://doi.org/10.1177/1529100612453266)
+- Code lesen vor Schreiben: Lister et al. 2004, [doi:10.1145/1041624.1041673](https://doi.org/10.1145/1041624.1041673); Xie et al. 2019, [doi:10.1080/08993408.2019.1565235](https://doi.org/10.1080/08993408.2019.1565235)
+- KI ohne Leitplanken: Bastani et al. 2025, *PNAS*, [doi:10.1073/pnas.2422633122](https://doi.org/10.1073/pnas.2422633122)
+:::
 
 ## Module
 

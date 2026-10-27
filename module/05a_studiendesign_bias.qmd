@@ -401,6 +401,37 @@ plot_dose_response(unter_risiko)
 - **Assoziation ist nicht Kausalität:** Erst Zufall, Bias und Confounding ausschließen; dann Bradford-Hill-Gesichtspunkte abwägen – nur die Zeitlichkeit ist zwingend.
 :::
 
+::: {.callout-note collapse="true"}
+## Glossar: Design- und Bias-Begriffe (deutsch / englisch)
+
+Die Klausur in Modul 13 ist englischsprachig; hier die Begriffe dieses Moduls in beiden Sprachen.
+
+| Deutsch | Englisch | Kurzdefinition |
+|---|---|---|
+| Beobachtungsstudie | observational study | Exposition entsteht ohne Zutun der Forschenden |
+| Experiment, randomisierte kontrollierte Studie | experiment, randomized controlled trial (RCT) | Forschende teilen die Exposition per Zufall zu |
+| Querschnittsstudie | cross-sectional study | Exposition und Erkrankung gleichzeitig gemessen; Prävalenz |
+| Kohortenstudie (prospektiv / retrospektiv) | cohort study (prospective / retrospective) | Gruppen nach Exposition, Blick nach vorn; Risiko, RR |
+| Fall-Kontroll-Studie | case-control study | Gruppen nach Erkrankung, Exposition rückblickend; nur OR |
+| Fälle / Kontrollen | cases / controls | Erkrankte / Vergleichspersonen ohne die Erkrankung |
+| Prävalenzverhältnis | prevalence ratio (PR) | Quotient zweier Prävalenzen (Querschnitt) |
+| Systematischer Fehler, Verzerrung | bias, systematic error | Abweichung vom wahren Wert in immer dieselbe Richtung; wird durch mehr Teilnehmende nicht kleiner |
+| Zufallsfehler | random error | Abweichung durch Stichprobenziehung; wird mit n kleiner (Modul 4) |
+| Selektionsbias | selection bias | Auswahl in die Studie (oder Verbleib) hängt mit Exposition und Erkrankung zusammen |
+| Informationsbias, Fehlklassifikation | information bias, misclassification | Exposition oder Erkrankung falsch erfasst |
+| nicht-differenziell / differenziell | non-differential / differential | Messfehler in beiden Gruppen gleich / ungleich |
+| Erinnerungsverzerrung | recall bias | Erkrankte erinnern Expositionen anders als Gesunde |
+| Verlust in der Nachbeobachtung | loss to follow-up, attrition | Vorzeitiges Ausscheiden aus einer Kohorte |
+| Zensierung | censoring | Beobachtung endet, bevor das Ereignis eintritt (Modul 1) |
+| Confounding, Störgröße | confounding, confounder | Dritte Variable erklärt die Assoziation ganz oder teilweise (Modul 5b) |
+| Zeitlichkeit | temporality | Exposition geht der Erkrankung voraus |
+| Dosis-Wirkungs-Beziehung | dose-response relationship, biological gradient | Risiko steigt mit Dosis oder Dauer |
+| Interne Validität | internal validity | Stimmt das Ergebnis für die untersuchten Personen? (frei von Bias und Confounding) |
+| Externe Validität, Übertragbarkeit | external validity, generalizability | Gilt das Ergebnis auch für andere Personen? |
+
+Englische Kurzeinträge zu jedem Bias: [Catalogue of Bias, Universität Oxford](https://catalogofbias.org/).
+:::
+
 ## Selbsttest
 
 Die Fragen entsprechen im Format den Klausurfragen (eine richtige Antwort; Rechenaufgaben mit Zahleneingabe). Designs und Bias-Typen sind gemischt; die beiden letzten Fragen wiederholen Stoff aus den Modulen 3 und 4.

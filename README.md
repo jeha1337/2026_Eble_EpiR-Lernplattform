@@ -61,15 +61,14 @@ webR exercises work in both cases.
 
 ## Deployment (GitHub Pages)
 
-Repository: <https://github.com/jeha1337/2026_Eble_EpiR-Lernplattform> (currently private).
+Repository: <https://github.com/jeha1337/2026_Eble_EpiR-Lernplattform> (public since 2026-10-27).
+Live site: <https://jeha1337.github.io/2026_Eble_EpiR-Lernplattform/> (configured as `site-url` in `_quarto.yml`).
 
-1. GitHub Pages is only available for **public** repositories on the free plan (or any repository
-   with GitHub Pro/Team). Once the repository is public: Settings → Pages → Source: **GitHub Actions**.
-2. Every push to `main` runs `.github/workflows/publish.yml` (render + deploy). While Pages is not
-   enabled, the `build` job still renders the site as a CI check and uploads `_site` as an artifact;
-   only the `deploy` job fails.
-3. The site will then be available at <https://jeha1337.github.io/2026_Eble_EpiR-Lernplattform/>
-   (configured as `site-url` in `_quarto.yml`).
+1. GitHub Pages is enabled with source **GitHub Actions** (Settings → Pages). On the free plan this
+   requires a public repository; private repositories need GitHub Pro/Team.
+2. Every push to `main` runs `.github/workflows/publish.yml`: the `build` job renders the site
+   (R + Quarto, data regenerated from `data/simulate_ckd_cohort.R`) and uploads `_site`; the `deploy`
+   job publishes it to Pages. A failed render blocks the deployment.
 
 ## Authoring conventions
 

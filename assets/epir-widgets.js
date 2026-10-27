@@ -991,7 +991,25 @@
     render();
   }
 
+  // Open a collapsed Quarto callout when the page is entered via a hash that points
+  // to it or to a wrapper div around it (e.g. module/01_...html#niere-kurz).
+  function openCalloutFromHash() {
+    const id = decodeURIComponent(location.hash || "").slice(1);
+    if (!id) return;
+    const target = document.getElementById(id);
+    if (!target) return;
+    const header = target.querySelector(".callout-header.collapsed[data-bs-toggle='collapse']");
+    const body = target.querySelector(".callout-collapse");
+    if (!header || !body) return;
+    header.classList.remove("collapsed");
+    header.setAttribute("aria-expanded", "true");
+    body.classList.add("show");
+    target.scrollIntoView({ block: "start" });
+  }
+
   function boot() {
+    openCalloutFromHash();
+    window.addEventListener("hashchange", openCalloutFromHash);
     document.querySelectorAll(".epir-quiz").forEach(initQuiz);
     document.querySelectorAll(".epir-estimate").forEach(initEstimate);
     document.querySelectorAll(".epir-estimate-reveal").forEach(initEstimateReveal);
